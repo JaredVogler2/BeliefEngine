@@ -3,7 +3,9 @@ import { runRivalExecute, runRivalPlan } from '../ai/rivals.ts';
 import { computeModifiers } from '../laws/effects.ts';
 import { runLawStep } from '../laws/resolver.ts';
 import { runSocialStep } from '../social/propagation.ts';
-import { runHarvest, runDawnNeeds } from '../world/economy.ts';
+import { runCropHarvest } from '../world/crops.ts';
+import { runDawnNeeds, runDeliveries, runHarvest } from '../world/economy.ts';
+import { updateSmoke } from '../world/sickness.ts';
 import { runNight } from '../world/hazards.ts';
 import { cloneState } from './clone.ts';
 import { emit, type Ctx } from './events.ts';
@@ -36,12 +38,14 @@ export function resolveDay(state: RunState, opts: ResolveOptions = {}): ResolveR
   s.history.push({ day, actions: s.today.map((a) => a.action), summary: emptySummary(day) });
   emit(ctx, { step: 'action', code: 'DAY_COMMITTED', importance: 1, text: `Day ${day}: night falls.` });
 
+  if (s.scn.features.smoke) updateSmoke(s);
   runRivalExecute(ctx); // A  queued / announced moves land
   commitEvacuations(ctx); // people react to what is coming tonight
   runSocialStep(ctx); // B-D exposure, propagation, evidence, decay
   runLawStep(ctx); // E-F pressure, contradictions, activation / decay
   assignWatchers(ctx); // dusk: believers take their posts
-  runHarvest(ctx);
+  if (s.scn.features.crops) runCropHarvest(ctx);
+  else runHarvest(ctx);
   moveToNight(ctx);
   const mods = computeModifiers(s);
   for (const law of s.laws) if (law.status === 'active' || law.status === 'wavering') law.activeNights += 1;
@@ -70,11 +74,12 @@ export function resolveDay(state: RunState, opts: ResolveOptions = {}): ResolveR
     s.today = [];
     for (const c of s.claims) {
       const def = s.scn.claimDefs.find((d) => d.id === c.id) ?? c.def;
-      if (!c.available && def && !def.rival && def.unlockDay !== undefined && s.day >= def.unlockDay) {
+      if (!c.available && def && (!def.rival || def.adoptable) && def.unlockDay !== undefined && s.day >= def.unlockDay) {
         c.available = true;
         emit(ctx, { step: 'dawn', code: 'CLAIM_UNLOCKED', importance: 2, claim: c.id, text: `A new story is within reach: “${def.text}”` });
       }
     }
+    runDeliveries(ctx);
     assignDay(ctx);
     const th = s.threat[Math.min(s.day, s.threat.length) - 1];
     emit(ctx, { step: 'dawn', code: 'DAY_START', importance: 2, text: `Day ${s.day} of ${s.maxDay}. ${th?.label ?? ''}${th?.warning ? ` — ${th.warning}` : ''}` });
@@ -144,6 +149,12 @@ function runBeats(ctx: Ctx): void {
         break;
       case 'day':
         hit = s.day >= Number(b.when.arg);
+        break;
+      case 'sick_at_least':
+        hit = s.villagers.filter((v) => v.status === 'sick').length >= Number(b.when.arg);
+        break;
+      case 'food_below':
+        hit = (s.world.stocks.food ?? 0) < Number(b.when.arg);
         break;
       case 'landmark_destroyed':
         hit = (findLandmark(s, String(b.when.arg))?.hp ?? 1) <= 0;

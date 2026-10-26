@@ -1,8 +1,12 @@
 import type { ScenarioDef } from './types.ts';
+import { ashwood } from './scenarios/ashwood.ts';
+import { harvest } from './scenarios/harvest.ts';
 import { redbank } from './scenarios/redbank.ts';
 
 const AUTHORED: Record<string, ScenarioDef> = {
   redbank,
+  harvest,
+  ashwood,
 };
 
 /** Resolver hooks for generated scenarios (registered by the generator module). */

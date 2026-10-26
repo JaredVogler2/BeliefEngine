@@ -157,8 +157,8 @@ export function computeModifiers(s: RunState): Modifiers {
         m.bridgeShield = Math.max(-0.5, m.bridgeShield - 0.3);
         break;
       case 'grain.grow':
-        for (const r of def.regions) m.cropBoost[r] = (m.cropBoost[r] ?? 0) + Math.round(8 * spec.intensity * st);
-        m.notes.push({ law: law.id, text: `${def.short}: crops ripen ${Math.round(8 * spec.intensity * st)}% faster each night (${pctTxt}).` });
+        for (const r of def.regions) m.cropBoost[r] = (m.cropBoost[r] ?? 0) + Math.round(10 * spec.intensity * st);
+        m.notes.push({ law: law.id, text: `${def.short}: crops ripen ${Math.round(10 * spec.intensity * st)}% faster each night (${pctTxt}).` });
         break;
       case 'grain.weaken':
         for (const r of def.regions) m.cropBoost[r] = (m.cropBoost[r] ?? 0) - Math.round(6 * spec.intensity * st);
@@ -199,7 +199,7 @@ export function computeModifiers(s: RunState): Modifiers {
           for (const r of def.regions) m.ignitionMult[r] = (m.ignitionMult[r] ?? 1) + 0.6 * st;
           break;
         case 'labor_drain':
-          if (spec.subject !== 'bridge') for (const r of def.regions) m.laborDrain[r] = (m.laborDrain[r] ?? 0) + Math.round(24 * st);
+          if (spec.subject !== 'bridge') for (const r of def.regions) m.laborDrain[r] = (m.laborDrain[r] ?? 0) + Math.round(44 * st);
           break;
         case 'smoke_sickness':
           for (const src of sources) m.smokeLungs.push({ x: src.x, y: src.y, r: spec.radius + 1 });

@@ -42,7 +42,7 @@ export function actionCost(s: RunState, a: Action): number {
     case 'PICK_STARTER':
       return 0;
     case 'TRADE':
-      return 1;
+      return s.scn.deals?.find((d) => d.id === a.deal)?.ap ?? 1;
     case 'COMPOSE':
       return 1;
     case 'END_DAY':
@@ -157,7 +157,7 @@ function perform(ctx: Ctx, a: Action): Fail | null {
       if (!v || v.status === 'dead') return fail('BAD_TARGET', 'That person cannot be reached.');
       if (!claimAvailable(s, a.claim)) return fail('CLAIM_LOCKED', 'You have not learned that story yet.');
       const def = claimDef(s, a.claim);
-      if (def.rival) return fail('RIVAL_CLAIM', 'That is a rival rumour. You can only challenge it.');
+      if (def.rival && !def.adoptable) return fail('RIVAL_CLAIM', 'That is a rival rumour. You can only challenge it.');
       if (spokeToday(s, v.id)) return fail('ALREADY_SPOKE', `You have already spoken with ${v.name} today.`);
       if (!keeperCanReach(s, v.x, v.y)) return fail('NO_PATH', `${v.name} is cut off. Without the bridge you cannot reach them. A messenger already on their side still can.`);
       const b = ensureBelief(v, a.claim);
@@ -238,8 +238,9 @@ function perform(ctx: Ctx, a: Action): Fail | null {
       const rivalDef = claimDef(s, a.against);
       if (!myDef.contradicts.includes(a.against) && !rivalDef.contradicts.includes(a.claim)) return fail('NOT_CONTESTED', 'Those two stories do not compete.');
       if (!keeperCanReach(s, v.x, v.y)) return fail('NO_PATH', `${v.name} is cut off.`);
-      const rb = v.beliefs[a.against];
-      if (!rb || rb.conv < 10) return fail('NOTHING_TO_COUNTER', `${v.name} does not hold that rumour.`);
+      const planned = s.rivals.find((r) => r.plan?.target === v.id && r.claim === a.against);
+      const rb = v.beliefs[a.against] ?? (planned ? ensureBelief(v, a.against) : undefined);
+      if (!rb || (rb.conv < 10 && !planned)) return fail('NOTHING_TO_COUNTER', `${v.name} does not hold that rumour.`);
       const mb = ensureBelief(v, a.claim);
       const reduce = 14 * (0.5 + (0.6 * v.keeperTrust) / 100 + mb.evidence / 200) * (1 - (0.5 * v.traits.stubbornness) / 100);
       const before = rb.conv;
@@ -250,7 +251,7 @@ function perform(ctx: Ctx, a: Action): Fail | null {
         mb.conv = round1(mb.conv - erode);
       }
       s.stats.counters++;
-      const plan = s.rivals.find((r) => r.plan?.target === v.id);
+      const plan = s.rivals.find((r) => r.plan?.target === v.id && r.claim === a.against);
       if (plan?.plan) {
         plan.countered += 1;
         s.stats.rivalCountered++;
@@ -263,11 +264,33 @@ function perform(ctx: Ctx, a: Action): Fail | null {
       return null;
     }
     case 'TRADE':
+      return doTrade(ctx, a);
     case 'COMPOSE':
       return fail('NOT_AVAILABLE', 'That action is not available in this scenario.');
     case 'END_DAY':
       return fail('USE_END_DAY', 'End the day with resolveDay().');
   }
+}
+
+function doTrade(ctx: Ctx, a: Extract<Action, { type: 'TRADE' }>): Fail | null {
+  const s = ctx.s;
+  const deal = s.scn.deals?.find((d) => d.id === a.deal);
+  if (!deal) return fail('NO_DEAL', 'There is no such deal here.');
+  const broker = findVillager(s, deal.broker);
+  if (!broker || broker.status === 'dead') return fail('NO_BROKER', 'The merchant is gone.');
+  if (!keeperCanReach(s, broker.x, broker.y)) return fail('NO_PATH', `${broker.name} is cut off.`);
+  const used = (s.flags[`deal:${deal.id}`] ?? 0) as number;
+  if (used >= deal.limit) return fail('DEAL_USED', `${broker.name} will not send more than ${deal.limit} shipments.`);
+  const best = Math.max(0, ...s.scn.claimDefs.filter((c) => !c.rival).map((c) => broker.beliefs[c.id]?.conv ?? 0));
+  if (best < deal.minConviction) return fail('WANTS_PROOF', `${broker.name} wants proof before sharing grain: she must firmly believe one of your stories (${Math.round(best)} of ${deal.minConviction} needed).`, ['Stage proof where she can see it', 'Have a trusted friend carry the story to her']);
+  let slot = 0;
+  while (s.flags[`caravan:${slot}`] !== undefined) slot++;
+  if (slot >= 1) return fail('IN_TRANSIT', 'A shipment is already on the road. Dalia will not send a second until it arrives.');
+  s.flags[`caravan:${slot}`] = s.day + deal.delay;
+  s.flags[`caravanFood:${slot}`] = deal.food;
+  s.flags[`deal:${deal.id}`] = used + 1;
+  emit(ctx, { step: 'action', code: 'TRADE_AGREED', importance: 2, target: broker.id, text: `${broker.name} agrees: ${deal.food} food will arrive in ${deal.delay} days, if the hillside road stays open.` });
+  return null;
 }
 
 function messengerTrust(s: RunState, from: Villager, to: Villager): number {
@@ -288,7 +311,7 @@ function doRitual(ctx: Ctx, a: Extract<Action, { type: 'RITUAL' }>): Fail | null
   const lm = findLandmark(s, a.landmark);
   if (!lm || lm.kind !== ritual.landmark) return fail('BAD_SITE', `${ritual.label} must be done at a ${ritual.landmark}.`);
   if (!keeperCanReach(s, lm.x, lm.y)) return fail('NO_PATH', `You cannot reach ${lm.name} today.`);
-  if (ritual.physical === 'light') {
+  if (ritual.physical === 'light' || ritual.physical === 'smoke') {
     if (lm.hp <= 0) return fail('DESTROYED', `${lm.name} is gone.`);
     if (lm.lit && lm.fuelNights >= 3) return fail('ALREADY_LIT', `${lm.name} is already burning well.`);
     if ((s.world.stocks.fuel ?? 0) < ritual.fuel) return fail('NO_FUEL', `You need ${ritual.fuel} fuel; ${s.world.stocks.fuel ?? 0} left.`);
@@ -303,13 +326,14 @@ function doRitual(ctx: Ctx, a: Extract<Action, { type: 'RITUAL' }>): Fail | null
     if (def.ritual !== ritual.id) return fail('WRONG_PROOF', `${ritual.label} does not prove “${def.short}”.`);
   }
   // physical effect
-  if (ritual.physical === 'light') {
+  if (ritual.physical === 'light' || ritual.physical === 'smoke') {
     lm.lit = true;
     lm.fuelNights = Math.min(5, lm.fuelNights + 3);
     s.world.stocks.fuel = (s.world.stocks.fuel ?? 0) - ritual.fuel;
     s.stats.noBeacons = false;
   } else if (ritual.physical === 'ring') lm.data.ringing = 1;
   else if (ritual.physical === 'vigil') s.flags.vigilDay = s.day;
+  else if (ritual.physical === 'night_labor') lm.data.moonlit = 1;
   s.stats.rituals++;
   const omen = omenFor(s, ritual.omen);
   const rid = emit(ctx, {
@@ -377,7 +401,7 @@ function doGather(ctx: Ctx, a: Extract<Action, { type: 'GATHER' }>): Fail | null
   if (!site || !['chapel', 'market', 'hall', 'shelter', 'well'].includes(site.kind)) return fail('BAD_SITE', 'Choose a gathering place: chapel, market, hall or shelter.');
   if (!claimAvailable(s, a.claim)) return fail('CLAIM_LOCKED', 'You have not learned that story yet.');
   const def = claimDef(s, a.claim);
-  if (def.rival) return fail('RIVAL_CLAIM', 'That is a rival rumour.');
+  if (def.rival && !def.adoptable) return fail('RIVAL_CLAIM', 'That is a rival rumour.');
   if ((s.flags.gatherBanUntil ?? -1) >= s.day) return fail('COUNCIL_BAN', 'The Council has forbidden public gatherings today. Speak to people one at a time.');
   if (!keeperCanReach(s, site.x, site.y)) return fail('NO_PATH', `You cannot reach ${site.name} today.`);
   const { comp } = reachableTargets(s);
@@ -466,7 +490,7 @@ function labelOf(s: RunState, a: Action): string {
     case 'PICK_STARTER':
       return `Begin with: ${cl(a.claim)}`;
     case 'TRADE':
-      return `Trade: ${a.deal}`;
+      return s.scn.deals?.find((d) => d.id === a.deal)?.label ?? `Trade: ${a.deal}`;
     case 'COMPOSE':
       return `Compose: ${a.claim.text}`;
     case 'END_DAY':
@@ -504,8 +528,8 @@ export function getAvailableActions(s: RunState, sel: Selection = {}, opts: { in
     if (sel.claim && sel.claim !== c.id) continue;
     const def = claimDef(s, c.id);
     if (def.rival) {
-      for (const v of living) if (match(v.id) && (v.beliefs[c.id]?.conv ?? 0) >= 10) for (const mine of claims) if (!claimDef(s, mine.id).rival) push({ type: 'COUNTER', claim: mine.id, against: c.id, target: v.id });
-      continue;
+      for (const v of living) if (match(v.id) && ((v.beliefs[c.id]?.conv ?? 0) >= 10 || s.rivals.some((r) => r.plan?.target === v.id && r.claim === c.id))) for (const mine of claims) if (!claimDef(s, mine.id).rival) push({ type: 'COUNTER', claim: mine.id, against: c.id, target: v.id });
+      if (!def.adoptable) continue;
     }
     for (const v of living) if (match(v.id)) push({ type: 'SEED', claim: c.id, target: v.id });
     if (!sel.villager) {
@@ -535,6 +559,7 @@ export function getAvailableActions(s: RunState, sel: Selection = {}, opts: { in
     for (const r of s.scn.rituals)
       for (const lm of s.world.landmarks) if (lm.kind === r.landmark && (!sel.landmark || sel.landmark === lm.id)) push({ type: 'RITUAL', ritual: r.id, landmark: lm.id });
   }
+  for (const d of s.scn.deals ?? []) if (!sel.claim) push({ type: 'TRADE', deal: d.id, target: d.broker });
   for (const v of living) if (match(v.id) && !sel.claim) push({ type: 'SCOUT', target: v.id });
   return out;
 }

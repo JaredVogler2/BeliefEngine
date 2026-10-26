@@ -135,12 +135,17 @@ export const RULES: Record<string, RuleSpec> = {
   wolves_fear_smoke: {
     id: 'wolves_fear_smoke', version: 1, subject: 'wolf', effect: 'repel',
     trigger: { kind: 'smoke_fire' }, radius: 3, intensity: 2,
-    thresholds: std(0.58, 0.42, 3), upkeep: { fuel: 0 }, side: ['smoke_sickness'], tags: ['wolves', 'smoke', 'canonical'],
+    thresholds: std(0.56, 0.42, 2), upkeep: { fuel: 0 }, side: ['smoke_sickness'], tags: ['wolves', 'smoke', 'canonical'],
+  },
+  moon_sours_grain: {
+    id: 'moon_sours_grain', version: 1, subject: 'grain', effect: 'weaken',
+    trigger: { kind: 'night' }, radius: 0, intensity: 1,
+    thresholds: std(0.55, 0.4, 3, 55, 25), upkeep: { fuel: 0 }, side: [], tags: ['crops', 'rival'],
   },
   wolves_follow_smoke: {
     id: 'wolves_follow_smoke', version: 1, subject: 'wolf', effect: 'attract',
     trigger: { kind: 'smoke_fire' }, radius: 3, intensity: 1,
-    thresholds: std(0.55, 0.4, 3, 55, 25), upkeep: { fuel: 0 }, side: ['smoke_sickness'], tags: ['wolves', 'smoke', 'rival'],
+    thresholds: std(0.49, 0.34, 3, 75, 22), upkeep: { fuel: 0 }, side: ['smoke_sickness'], tags: ['wolves', 'smoke', 'rival'],
   },
   stone_grows_light: {
     id: 'stone_grows_light', version: 1, subject: 'stone', effect: 'redirect',

@@ -417,6 +417,10 @@ export interface HudView {
   homesTotal: number;
   food: number;
   fuel: number;
+  livestock: number;
+  livestockTotal: number;
+  sick: number;
+  stats: string[];
   objectives: ObjectiveStatus[];
   threatLabel: string;
   warning?: string;
@@ -431,6 +435,10 @@ export function getHud(s: RunState): HudView {
     alive: s.villagers.filter((v) => v.status !== 'dead').length, total: s.villagers.length,
     homes: homesStanding(s), homesTotal: s.world.landmarks.filter((l) => l.kind === 'home').length,
     food: s.world.stocks.food ?? 0, fuel: s.world.stocks.fuel ?? 0,
+    livestock: s.world.landmarks.filter((l) => l.kind === 'pen').reduce((a, l) => a + (l.data.stock ?? 0), 0),
+    livestockTotal: s.world.landmarks.filter((l) => l.kind === 'pen').reduce((a, l) => a + (l.data.stockMax ?? l.data.stock ?? 0), 0),
+    sick: s.villagers.filter((v) => v.status === 'sick').length,
+    stats: s.scn.hud ?? ['alive', 'homes', 'food', 'fuel'],
     objectives: objectiveStatuses(s),
     threatLabel: th?.label ?? '', warning: th?.warning, phase: s.phase, freeScout: !s.freeScoutUsed,
   };

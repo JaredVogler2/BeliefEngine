@@ -76,6 +76,8 @@ export interface ClaimDef {
   flavor: string;
   /** rival/propaganda claims are not in the player's hand but spread and can form laws */
   rival?: boolean;
+  /** a rival claim the Keeper may nevertheless adopt and spread (e.g. a hunter's decoy-fire theory) */
+  adoptable?: boolean;
   /** free-form scenario parameters, e.g. { sink: 'west' } for displaced rain */
   params?: Record<string, string | number>;
   startsAvailable: boolean;
@@ -145,6 +147,8 @@ export interface RivalDef {
   budget: number;
   cooldown: number;
   leader: Id;
+  /** also move against an arranged deal: delays its goods unless the Keeper answers */
+  sabotage?: { deal: Id; delay: number };
 }
 
 export interface BeatDef {
@@ -154,6 +158,23 @@ export interface BeatDef {
   title: string;
   text: string;
   once: boolean;
+}
+
+export interface DealDef {
+  id: Id;
+  label: string;
+  ap: number;
+  /** villager whose goodwill gates the deal */
+  broker: Id;
+  /** broker must hold at least this conviction in any non-rival claim (they want proof first) */
+  minConviction: number;
+  food: number;
+  /** nights until the goods arrive */
+  delay: number;
+  limit: number;
+  /** landmark kind that must be open (not blocked) for goods to arrive */
+  via: string;
+  desc: string;
 }
 
 export interface ScenarioRuntime {
@@ -180,6 +201,9 @@ export interface ScenarioRuntime {
   /** claims offered as the starter choice on day 1 */
   starters: Id[];
   hints: string[];
+  deals?: DealDef[];
+  /** which resource counters the HUD shows */
+  hud?: string[];
 }
 
 // ------------------------------------------------------------------ world
@@ -379,7 +403,7 @@ export interface RivalState {
   factionId: Id;
   claim: Id;
   /** planned action to execute on a given day (telegraphed) */
-  plan: { day: number; kind: 'campaign' | 'rebuttal' | 'ban'; target: Id | null; reason: string; eventId: number } | null;
+  plan: { day: number; kind: 'campaign' | 'rebuttal' | 'ban' | 'sabotage'; target: Id | null; reason: string; eventId: number } | null;
   budget: number;
   actions: number;
   lastActionDay: number;

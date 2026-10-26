@@ -1,4 +1,5 @@
 {
+ "scenarioId": "redbank",
  "canonicalSeed": 1,
  "fireWall": {
   "seed": 1,
@@ -10,8 +11,8 @@
   "lawsActivated": [
    "river_fears_fire"
   ],
-  "stateHash": "1581467d37ef6c",
-  "eventHash": "1efc3916bfd543",
+  "stateHash": "09e5c13bec2def",
+  "eventHash": "04e467f5fb0328",
   "actions": [
    {
     "type": "PICK_STARTER",
@@ -64,6 +65,12 @@
     "type": "END_DAY"
    },
    {
+    "type": "COUNTER",
+    "claim": "river_fears_fire",
+    "against": "river_courts_fire",
+    "target": "ivo"
+   },
+   {
     "type": "MESSENGER",
     "claim": "river_fears_fire",
     "from": "ivo",
@@ -74,12 +81,6 @@
     "claim": "river_fears_fire",
     "from": "tilly",
     "to": "mara"
-   },
-   {
-    "type": "MESSENGER",
-    "claim": "river_fears_fire",
-    "from": "dunn",
-    "to": "bram"
    },
    {
     "type": "END_DAY"
@@ -241,6 +242,116 @@
    },
    {
     "type": "END_DAY"
+   },
+   {
+    "type": "END_DAY"
+   },
+   {
+    "type": "END_DAY"
+   }
+  ]
+ },
+ "failedAttempt": {
+  "seed": 2,
+  "policy": "fireWall",
+  "result": "defeat",
+  "alive": 14,
+  "stateHash": "089ff729e6e8bd",
+  "eventHash": "064c47d3808381",
+  "actions": [
+   {
+    "type": "PICK_STARTER",
+    "claim": "river_fears_fire"
+   },
+   {
+    "type": "GATHER",
+    "claim": "river_fears_fire",
+    "site": "green_e"
+   },
+   {
+    "type": "SEED",
+    "claim": "river_fears_fire",
+    "target": "ivo"
+   },
+   {
+    "type": "END_DAY"
+   },
+   {
+    "type": "SEED",
+    "claim": "river_fears_fire",
+    "target": "pip"
+   },
+   {
+    "type": "SEED",
+    "claim": "river_fears_fire",
+    "target": "ivo"
+   },
+   {
+    "type": "SEED",
+    "claim": "river_fears_fire",
+    "target": "mara"
+   },
+   {
+    "type": "END_DAY"
+   },
+   {
+    "type": "RITUAL",
+    "ritual": "light_beacon",
+    "landmark": "b_e",
+    "claim": "river_fears_fire"
+   },
+   {
+    "type": "MESSENGER",
+    "claim": "river_fears_fire",
+    "from": "pip",
+    "to": "nell"
+   },
+   {
+    "type": "END_DAY"
+   },
+   {
+    "type": "COUNTER",
+    "claim": "river_fears_fire",
+    "against": "river_courts_fire",
+    "target": "ivo"
+   },
+   {
+    "type": "MESSENGER",
+    "claim": "river_fears_fire",
+    "from": "harl",
+    "to": "mara"
+   },
+   {
+    "type": "MESSENGER",
+    "claim": "river_fears_fire",
+    "from": "tilly",
+    "to": "mara"
+   },
+   {
+    "type": "END_DAY"
+   },
+   {
+    "type": "RITUAL",
+    "ritual": "light_beacon",
+    "landmark": "b_c"
+   },
+   {
+    "type": "RITUAL",
+    "ritual": "light_beacon",
+    "landmark": "b_s"
+   },
+   {
+    "type": "RITUAL",
+    "ritual": "light_beacon",
+    "landmark": "b_e"
+   },
+   {
+    "type": "END_DAY"
+   },
+   {
+    "type": "RITUAL",
+    "ritual": "light_beacon",
+    "landmark": "b_c"
    },
    {
     "type": "END_DAY"

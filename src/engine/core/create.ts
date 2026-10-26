@@ -116,6 +116,11 @@ export function createRun(opts: CreateRunOptions): RunState {
     scn: def.runtime,
   };
   const ctx: Ctx = { s, events: [], expect: false };
+  if (def.runtime.starters.length === 1) {
+    s.starter = def.runtime.starters[0];
+    const c = s.claims.find((x) => x.id === s.starter);
+    if (c) c.available = true;
+  }
   for (const v of s.villagers) {
     const home = world.landmarks.find((l) => l.id === v.homeId);
     if (home) {

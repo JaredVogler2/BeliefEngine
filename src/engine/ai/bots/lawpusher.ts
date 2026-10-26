@@ -109,3 +109,86 @@ export function lightBeaconsByCoverage(g: GameSession, region = 'east', maxLit =
   }
   void findLandmark;
 }
+
+export interface BrokerConfig {
+  name: string;
+  /** stories to try on the broker; the first is the opening story */
+  claims: string[];
+  broker: string;
+  deal: string;
+}
+
+/**
+ * Brokered-aid route: convince one gatekeeper (a merchant) who wants proof, then place orders. Uses the same public API.
+ * Objective: the broker's conviction, with a small bonus for people close to the broker.
+ */
+export function brokerRoute(cfg: BrokerConfig): Policy {
+  const score = (s: RunState): number => {
+    const v = s.villagers.find((x) => x.id === cfg.broker);
+    return Math.max(0, ...cfg.claims.map((c) => v?.beliefs[c]?.conv ?? 0));
+  };
+  return {
+    name: cfg.name,
+    playDay(g: GameSession) {
+      const s0 = g.state;
+      if (s0.starter === null) g.act({ type: 'PICK_STARTER', claim: s0.scn.starters.includes(cfg.claims[0]) ? cfg.claims[0] : s0.scn.starters[0] });
+      for (let i = 0; i < 4; i++) g.act({ type: 'TRADE', deal: cfg.deal, target: cfg.broker });
+      for (const r of g.state.rivals) {
+        const tgt = r.plan?.target;
+        const mine = cfg.claims.find((c) => g.state.claims.find((x) => x.id === c)?.available);
+        if (tgt && mine && g.state.ap >= 1) g.act({ type: 'COUNTER', claim: mine, against: r.claim, target: tgt });
+      }
+      let guard = 0;
+      while (g.state.ap > 0 && guard++ < 10) {
+        const s = g.state;
+        if (!cfg.claims.some((c) => s.claims.find((x) => x.id === c)?.available)) break;
+        if ((s.flags[`deal:${cfg.deal}`] ?? 0) >= (s.scn.deals?.find((d) => d.id === cfg.deal)?.limit ?? 1)) break;
+        let best: { a: Action; score: number } | null = null;
+        for (const o of getAvailableActions(s)) {
+          const a = o.action;
+          if (o.cost <= 0 || a.type === 'SCOUT' || a.type === 'PICK_STARTER' || a.type === 'TRADE' || a.type === 'COMPOSE' || a.type === 'COUNTER') continue;
+          if (a.type === 'RITUAL' && !a.claim) continue;
+          if (!cfg.claims.includes(('claim' in a && a.claim) || cfg.claims[0])) continue;
+          const r = applyAction(s, a);
+          if (!r.ok) continue;
+          const delta = score(r.state) - score(s);
+          if (delta > 0.5 && (!best || delta / o.cost > best.score)) best = { a, score: delta / o.cost };
+        }
+        if (!best) break;
+        if (!g.act(best.a).ok) break;
+        for (let i = 0; i < 4; i++) g.act({ type: 'TRADE', deal: cfg.deal, target: cfg.broker });
+      }
+      g.endDay();
+    },
+  };
+}
+
+/** Light hamlet fires beside pens that a pack is heading for (ring) or only the far decoy fires (decoy). */
+export function lightFiresForThreat(g: GameSession, mode: 'ring' | 'decoy', horizon = 10): void {
+  const s = g.state;
+  const fires = s.world.landmarks.filter((l) => l.kind === 'campfire');
+  const lit = (f: { lit: boolean; fuelNights: number }) => f.lit && f.fuelNights >= 2;
+  const tonight = s.threat[Math.min(s.day, s.threat.length) - 1]?.pack ?? 0;
+  const nextNight = s.threat[Math.min(s.day, s.threat.length - 1)]?.pack ?? 0;
+  const packs = s.world.packs.slice(0, Math.max(tonight, nextNight));
+  if (!packs.length) return;
+  const want: string[] = [];
+  if (mode === 'decoy') {
+    for (const f of fires.filter((x) => x.id.startsWith('c_d'))) {
+      const law = s.laws.find((l) => l.claimId === 'wolves_follow_smoke' && l.regionId === f.district);
+      if (!lit(f) && law && (law.status === 'active' || law.status === 'wavering')) want.push(f.id);
+    }
+  } else {
+    for (const pen of s.world.landmarks.filter((l) => l.kind === 'pen' && (l.data.stock ?? 0) > 0)) {
+      const near = packs.some((p) => Math.abs(p.x - pen.x) + Math.abs(p.y - pen.y) <= horizon);
+      if (!near) continue;
+      const f = fires.filter((x) => !x.id.startsWith('c_d')).sort((a, b) => Math.abs(a.x - pen.x) + Math.abs(a.y - pen.y) - (Math.abs(b.x - pen.x) + Math.abs(b.y - pen.y)))[0];
+      const law = f && s.laws.find((l) => l.claimId === 'wolves_fear_smoke' && l.regionId === f.district);
+      if (f && !lit(f) && Math.abs(f.x - pen.x) + Math.abs(f.y - pen.y) <= 4 && law && (law.status === 'active' || law.status === 'wavering')) want.push(f.id);
+    }
+  }
+  for (const id of want) {
+    if (g.state.ap < 1 || (g.state.world.stocks.fuel ?? 0) < 2) break;
+    g.act({ type: 'RITUAL', ritual: 'burn_smoke', landmark: id });
+  }
+}

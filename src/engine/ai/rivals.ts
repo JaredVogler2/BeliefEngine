@@ -96,6 +96,15 @@ export function runRivalExecute(ctx: Ctx): void {
         step: 'rival', code: 'RIVAL_CAMPAIGN', importance: 3, actor: leader.id, target: target.id, claim: r.claim, reason: 'RIVAL_CAMPAIGN', cause: [plan.eventId],
         text: `${leader.name} campaigns: “${claimDef(s, r.claim).text}” ${spoken.join(', ')}.${r.countered ? ' Your challenge blunted it.' : ''}`,
       });
+    } else if (plan.kind === 'sabotage' && def.sabotage) {
+      const key = 'caravan:0';
+      if (r.countered > 0) {
+        emit(ctx, { step: 'rival', code: 'RIVAL_FOILED', importance: 3, actor: leader.id, target: plan.target ?? undefined, cause: [plan.eventId], text: `${leader.name} tried to talk ${findVillager(s, plan.target ?? '')?.name ?? 'the broker'} out of the deal, but your challenge held. The shipment is safe.` });
+        r.countered = 0;
+      } else if (s.flags[key] !== undefined) {
+        s.flags[key] += def.sabotage.delay;
+        emit(ctx, { step: 'rival', code: 'RIVAL_SABOTAGE', importance: 3, actor: leader.id, target: plan.target ?? undefined, cause: [plan.eventId], text: `${leader.name} warns ${findVillager(s, plan.target ?? '')?.name ?? 'the broker'} the valley is a poor risk. The shipment is delayed ${def.sabotage.delay} days.` });
+      }
     } else if (plan.kind === 'rebuttal') {
       let n = 0;
       for (const v of s.villagers) {
@@ -130,6 +139,19 @@ export function runRivalPlan(ctx: Ctx): void {
     if (execDay > s.maxDay) continue;
     const fac = faction(s, r.factionId);
     const failedToday = (s.flags.failedEvidenceDay ?? -1) === s.day;
+    if (def.sabotage && s.flags['caravan:0'] !== undefined && !r.plan && (s.flags[`sabotaged:${r.factionId}`] ?? 0) < 1) {
+      const broker = s.scn.deals?.find((d) => d.id === def.sabotage!.deal)?.broker;
+      if (broker) {
+        s.flags[`sabotaged:${r.factionId}`] = 1;
+        const id = emit(ctx, {
+          step: 'rival', code: 'RIVAL_TELEGRAPH', importance: 3, actor: leader.id, target: broker, claim: def.watches, reason: 'RIVAL_CAMPAIGN',
+          text: `${leader.name} means to talk ${findVillager(s, broker)?.name ?? 'the broker'} out of the grain deal. Challenge him with ${findVillager(s, broker)?.name ?? 'her'} before he does.`,
+        });
+        r.plan = { day: execDay, kind: 'sabotage', target: broker, reason: 'a shipment is on the road', eventId: id };
+        r.active = true;
+        continue;
+      }
+    }
     const pressure = topLawPressure(s, def.watches);
     if (failedToday) {
       const id = emit(ctx, {

@@ -4,6 +4,9 @@ import type { Landmark, RunState, Villager } from '../core/types.ts';
 import type { Modifiers } from '../laws/effects.ts';
 import { ensureBelief, evidenceGain, round1 } from '../social/persuasion.ts';
 import { computeWater } from './flood.ts';
+import { runCrops } from './crops.ts';
+import { runSickness } from './sickness.ts';
+import { runWolves } from './wolves.ts';
 import { landmarkAtTile, runFire } from './fire.ts';
 import { T, idx } from './grid.ts';
 
@@ -95,8 +98,20 @@ export function runNight(ctx: Ctx, mods: Modifiers): void {
     }
   }
 
+  // ---- rain pushed off by a law lands on roads: mudslide blocks caravans
+  if (!floodActive && mods.sinkPool && mods.sinkPool.amount > 0) {
+    const sunk = w.landmarks.filter((l) => l.kind === 'road' && l.district === mods.sinkPool!.region);
+    for (const r of sunk) {
+      r.data.blockedUntil = day + 2;
+      emit(ctx, { step: 'hazard', code: 'MUDSLIDE', importance: 3, tile: [r.x, r.y], text: `The rain the bells turned away slides down the hillside: ${r.name} is buried in mud for two days.` });
+    }
+  }
+
   // ---- fire
   if (s.scn.features.fire) runFire(ctx, mods);
+  if (s.scn.features.crops) runCrops(ctx, mods);
+  if (s.scn.features.wolves) runWolves(ctx, mods);
+  if (s.scn.features.smoke) runSickness(ctx, mods);
 
   // ---- homes
   let spared = 0;

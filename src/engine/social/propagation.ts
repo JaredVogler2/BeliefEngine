@@ -3,6 +3,7 @@ import { claimDef, findVillager } from '../core/lookup.ts';
 import { rand } from '../core/rng.ts';
 import type { RunState, Villager } from '../core/types.ts';
 import { components, connected, passableMask } from '../world/nav.ts';
+import { fogFactor } from '../world/sickness.ts';
 import { ensureBelief, gossipDelta, K, REASON_TEXT, relevance, round1 } from './persuasion.ts';
 
 interface Acc {
@@ -57,6 +58,7 @@ export function runSocialStep(ctx: Ctx): void {
     let p = e.rate * availability(a) * availability(b);
     if (a.district !== b.district) p *= 0.85;
     if (a.place === b.place) p = Math.min(1, p * 1.3);
+    if (s.scn.features.smoke) p *= fogFactor(s, a.x, a.y, b.x, b.y);
     p = Math.min(1, p);
     const w = ctx.expect ? p : rand(s.seed, 'contact', day, e.a, e.b) < p ? 1 : 0;
     if (w <= 0) continue;
