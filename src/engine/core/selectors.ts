@@ -1,0 +1,437 @@
+import { commitEvacuations, moveToNight, predictedWater } from '../ai/routines.ts';
+import { ARCHETYPES } from '../content/types.ts';
+import { computePressure } from '../laws/resolver.ts';
+import { SIDE_EFFECT_INFO } from '../laws/rules.ts';
+import { REASON_TEXT } from '../social/persuasion.ts';
+import { dailyConsumption, homesStanding, projectedProduction } from '../world/economy.ts';
+import { idx } from '../world/grid.ts';
+import { cloneState } from './clone.ts';
+import type { Ctx } from './events.ts';
+import { claimDef, faction, findLandmark, findVillager, neighborsOf, allClaimDefs } from './lookup.ts';
+import { keeperCanReach, omenFor } from './actions.ts';
+import { objectiveStatuses, type ObjectiveStatus } from './objectives.ts';
+import type { ClaimDef, LawState, RunState, Villager } from './types.ts';
+
+export function beliefLabel(conv: number): string {
+  if (conv <= -40) return 'rejects';
+  if (conv <= -12) return 'doubts';
+  if (conv < 10) return 'unconvinced';
+  if (conv < 30) return 'curious';
+  if (conv < 50) return 'leaning';
+  if (conv < 75) return 'believes';
+  return 'firmly believes';
+}
+
+export function traitLabel(v: number): string {
+  return v >= 80 ? 'very high' : v >= 60 ? 'high' : v >= 40 ? 'moderate' : v >= 20 ? 'low' : 'very low';
+}
+
+export interface BeliefView {
+  claimId: string;
+  short: string;
+  /** exact only when scouted or just spoken to; otherwise null */
+  conv: number | null;
+  label: string;
+  evidence: number | null;
+  heard: number;
+  why: string | null;
+}
+
+export interface VillagerView {
+  id: string;
+  name: string;
+  role: string;
+  archetype: { id: string; label: string; blurb: string };
+  faction: { id: string; name: string; color: string };
+  want: string;
+  status: Villager['status'];
+  duty: Villager['duty'];
+  dutyNote: string;
+  place: string;
+  district: string;
+  traits: { key: string; label: string; value: number; text: string }[];
+  needs: { health: number; fear: number; energy: number; hunger: number };
+  keeperTrust: number;
+  scouted: boolean;
+  beliefs: BeliefView[];
+  trusts: { id: string; name: string; trust: number; kind: string; rate: number; reachable: boolean }[];
+  influenceRank: number;
+  reach2: number;
+  canBeReached: boolean;
+  needsToChangeMind: string;
+  deathCause: string | null;
+}
+
+function influenceScore(s: RunState, v: Villager): number {
+  const ties = neighborsOf(s, v.id).reduce((a, n) => a + Math.max(0, n.back) * n.edge.rate, 0);
+  return v.traits.influence * 1.0 + ties * 0.35;
+}
+
+export function influenceRanks(s: RunState): Map<string, number> {
+  const ranked = s.villagers.filter((v) => v.status !== 'dead').map((v) => ({ id: v.id, sc: influenceScore(s, v) })).sort((a, b) => b.sc - a.sc || (a.id < b.id ? -1 : 1));
+  return new Map(ranked.map((r, i) => [r.id, i + 1]));
+}
+
+function whyLast(s: RunState, v: Villager, claimId: string): string | null {
+  for (let i = s.log.length - 1; i >= 0; i--) {
+    const e = s.log[i];
+    if (e.target === v.id && e.claim === claimId && e.reason && (e.code === 'BELIEF_SHIFT' || e.code === 'BELIEVER_GAINED' || e.code === 'BELIEVER_LOST' || e.code === 'RUMOR_SEEDED' || e.code === 'MESSENGER_SENT' || e.code === 'RUMOR_CHALLENGED')) {
+      const src = e.actor ? findVillager(s, e.actor)?.name : undefined;
+      return `${REASON_TEXT[e.reason] ?? e.reason}${src ? ` (${src})` : ''}, day ${e.day}`;
+    }
+    if (e.code === 'EVIDENCE_STAGED' && e.claim === claimId && (v.beliefs[claimId]?.cause === e.id)) return `they watched your demonstration, day ${e.day}`;
+  }
+  return null;
+}
+
+export function needsToChangeMind(v: Villager): string {
+  const t = v.traits;
+  if (t.skepticism >= 70) return 'Hearsay barely moves them. They need to witness a convincing demonstration themselves.';
+  if (v.keeperTrust < 25) return 'They do not trust you yet. Reach them through someone they trust.';
+  if (t.stubbornness >= 80) return 'Slow to change. Repetition from someone they trust, and time.';
+  if (t.susceptibility >= 70) return 'Easily swayed, especially by family and fear.';
+  if (t.influence >= 75) return 'Others follow their lead. Winning them wins their circle.';
+  return 'Persuadable by friends they trust, and by what they see.';
+}
+
+export function getVillagerView(s: RunState, id: string): VillagerView {
+  const v = findVillager(s, id);
+  if (!v) throw new Error(`Unknown villager ${id}`);
+  const scouted = v.scoutedUntil >= s.day || (s.flags[`spoke:${v.id}`] ?? -1) === s.day;
+  const arch = ARCHETYPES[v.archetype] ?? { label: v.archetype, blurb: '', traits: v.traits };
+  const f = faction(s, v.faction);
+  const beliefs: BeliefView[] = [];
+  for (const def of allClaimDefs(s)) {
+    const b = v.beliefs[def.id];
+    if (!b && !(s.claims.find((c) => c.id === def.id)?.introduced)) continue;
+    if (!b) continue;
+    beliefs.push({
+      claimId: def.id,
+      short: def.short,
+      conv: scouted ? Math.round(b.conv) : null,
+      label: beliefLabel(b.conv),
+      evidence: scouted ? Math.round(b.evidence) : null,
+      heard: b.heard,
+      why: whyLast(s, v, def.id),
+    });
+  }
+  beliefs.sort((a, b) => Math.abs(b.conv ?? 0) - Math.abs(a.conv ?? 0));
+  const trusts = neighborsOf(s, v.id)
+    .map((n) => {
+      const o = findVillager(s, n.id)!;
+      return { id: n.id, name: o.name, trust: Math.round(n.trust), kind: n.edge.kind, rate: n.edge.rate, reachable: o.status !== 'dead' };
+    })
+    .sort((a, b) => Math.abs(b.trust) - Math.abs(a.trust));
+  const ranks = influenceRanks(s);
+  const two = new Set<string>();
+  for (const n of neighborsOf(s, v.id)) {
+    two.add(n.id);
+    for (const m of neighborsOf(s, n.id)) if (m.id !== v.id) two.add(m.id);
+  }
+  const trait = (key: string, label: string, value: number, text: string) => ({ key, label, value, text: `${label}: ${traitLabel(value)}${text ? ` — ${text}` : ''}` });
+  return {
+    id: v.id,
+    name: v.name,
+    role: v.role,
+    archetype: { id: v.archetype, label: arch.label, blurb: arch.blurb },
+    faction: { id: f.id, name: f.name, color: f.color },
+    want: v.want,
+    status: v.status,
+    duty: v.duty,
+    dutyNote: v.dutyNote,
+    place: findLandmark(s, v.place)?.name ?? '',
+    district: s.world.regions.find((r) => r.id === v.district)?.name ?? v.district,
+    traits: [
+      trait('skepticism', 'Skepticism', v.traits.skepticism, v.traits.skepticism >= 70 ? 'needs proof' : ''),
+      trait('influence', 'Influence', v.traits.influence, ''),
+      trait('stubbornness', 'Stubbornness', v.traits.stubbornness, ''),
+      trait('susceptibility', 'Susceptibility', v.traits.susceptibility, ''),
+      trait('openness', 'Openness', v.traits.openness, ''),
+    ],
+    needs: { health: Math.round(v.health), fear: Math.round(v.fear), energy: Math.round(v.energy), hunger: Math.round(v.hunger) },
+    keeperTrust: Math.round(v.keeperTrust),
+    scouted,
+    beliefs,
+    trusts,
+    influenceRank: ranks.get(v.id) ?? 0,
+    reach2: two.size,
+    canBeReached: v.status !== 'dead' && keeperCanReach(s, v.x, v.y),
+    needsToChangeMind: needsToChangeMind(v),
+    deathCause: v.deathCause,
+  };
+}
+
+// ------------------------------------------------------------------ laws
+
+export const LAW_STATUS_LABEL: Record<LawState['status'], string> = {
+  dormant: 'Dormant',
+  awakening: 'Awakening',
+  active: 'Active',
+  wavering: 'Wavering',
+  suppressed: 'Suppressed',
+};
+
+export function effectText(def: ClaimDef): string {
+  return def.benefit;
+}
+
+export interface LawView {
+  id: string;
+  claimId: string;
+  claimText: string;
+  short: string;
+  icon: string;
+  regionId: string;
+  regionName: string;
+  status: LawState['status'];
+  statusLabel: string;
+  progress: number;
+  pressure: number;
+  on: number;
+  off: number;
+  supporters: { id: string; name: string }[];
+  opponents: { id: string; name: string }[];
+  minSupporters: number;
+  topShare: number;
+  note: string;
+  benefit: string;
+  risk: string;
+  sideEffects: string[];
+  trigger: string;
+  strength: number;
+  poweredBy: number;
+  threats: string[];
+  nextSteps: { id: string; name: string; why: string }[];
+  rival: boolean;
+}
+
+function triggerText(def: ClaimDef): string {
+  switch (def.spec.trigger.kind) {
+    case 'lit_beacon':
+      return 'Needs lit beacons nearby';
+    case 'bell':
+      return 'Needs the bells rung that night';
+    case 'watchers':
+      return `Needs ${def.spec.trigger.min ?? 1}+ watchers on the bridge`;
+    case 'smoke_fire':
+      return 'Needs burning smoke fires';
+    case 'night':
+      return 'Works by night';
+    default:
+      return 'Always in effect';
+  }
+}
+
+export function getLawViews(s: RunState): LawView[] {
+  const out: LawView[] = [];
+  for (const law of s.laws) {
+    const def = claimDef(s, law.claimId);
+    const claimState = s.claims.find((c) => c.id === law.claimId);
+    if (!claimState) continue;
+    if (def.rival && !claimState.available && law.progress === 0 && law.pressure === 0) continue;
+    const th = def.spec.thresholds;
+    const info = computePressure(s, law.claimId, law.regionId);
+    const threats: string[] = [];
+    for (const rv of s.rivals) {
+      if (rv.claim !== law.claimId && s.scn.rivals.some((d) => d.watches === law.claimId && d.claim === rv.claim)) {
+        const rdef = claimDef(s, rv.claim);
+        const rp = s.laws.find((l) => l.claimId === rv.claim && l.regionId === law.regionId);
+        if (rv.plan) threats.push(`${s.villagers.find((v) => v.id === s.scn.rivals.find((d) => d.claim === rv.claim)?.leader)?.name ?? 'A rival'} will move against it on day ${rv.plan.day}.`);
+        if (rp && rp.pressure > 0.1) threats.push(`“${rdef.short}” has ${Math.round(rp.pressure * 100)}% support here.`);
+      }
+    }
+    if (law.status === 'active' && info.pressure < th.on) threats.push('Support is below the activation line; it could start to fade.');
+    const districts = new Set(def.electorate?.[law.regionId] ?? [law.regionId]);
+    const steps = s.villagers
+      .filter((v) => v.status !== 'dead' && districts.has(v.district) && (v.beliefs[law.claimId]?.conv ?? 0) < 50)
+      .map((v) => ({ v, score: v.traits.influence + (v.keeperTrust * 0.3) - (v.traits.skepticism * 0.2) }))
+      .sort((a, b) => b.score - a.score || (a.v.id < b.v.id ? -1 : 1))
+      .slice(0, 3)
+      .map(({ v }) => ({
+        id: v.id,
+        name: v.name,
+        why: v.traits.skepticism >= 70 ? 'a skeptic: needs to witness proof' : v.traits.influence >= 65 ? 'others follow them' : v.keeperTrust >= 55 ? 'trusts you' : 'reachable through friends',
+      }));
+    out.push({
+      id: law.id,
+      claimId: law.claimId,
+      claimText: def.text,
+      short: def.short,
+      icon: def.icon,
+      regionId: law.regionId,
+      regionName: s.world.regions.find((r) => r.id === law.regionId)?.name ?? law.regionId,
+      status: law.status,
+      statusLabel: LAW_STATUS_LABEL[law.status],
+      progress: Math.round(law.progress),
+      pressure: Math.round(info.pressure * 100) / 100,
+      on: th.on,
+      off: th.off,
+      supporters: info.supporters.map((id) => ({ id, name: findVillager(s, id)?.name ?? id })),
+      opponents: info.opponents.map((id) => ({ id, name: findVillager(s, id)?.name ?? id })),
+      minSupporters: th.minSupporters,
+      topShare: Math.round(info.topShare * 100) / 100,
+      note: law.note,
+      benefit: def.benefit,
+      risk: def.risk,
+      sideEffects: def.spec.side.map((x) => `${SIDE_EFFECT_INFO[x].label}: ${SIDE_EFFECT_INFO[x].text}`),
+      trigger: triggerText(def),
+      strength: law.strength,
+      poweredBy: 0,
+      threats,
+      nextSteps: law.status === 'active' ? [] : steps,
+      rival: !!def.rival,
+    });
+  }
+  return out;
+}
+
+// ------------------------------------------------------------------ hand
+
+export interface ClaimCard {
+  id: string;
+  text: string;
+  short: string;
+  icon: string;
+  benefit: string;
+  risk: string;
+  flavor: string;
+  available: boolean;
+  unlockDay: number | null;
+  rival: boolean;
+  laws: { regionId: string; regionName: string; pressure: number; status: LawState['status']; progress: number }[];
+  believers: number;
+  ritualLabel: string | null;
+}
+
+export function getHand(s: RunState): ClaimCard[] {
+  return allClaimDefs(s)
+    .filter((d) => !d.rival || s.claims.find((c) => c.id === d.id)?.available)
+    .map((d) => {
+      const c = s.claims.find((x) => x.id === d.id)!;
+      const ritual = d.ritual ? s.scn.rituals.find((r) => r.id === d.ritual) : undefined;
+      return {
+        id: d.id, text: d.text, short: d.short, icon: d.icon, benefit: d.benefit, risk: d.risk, flavor: d.flavor,
+        available: c.available, unlockDay: d.unlockDay ?? null, rival: !!d.rival,
+        laws: s.laws.filter((l) => l.claimId === d.id).map((l) => ({
+          regionId: l.regionId, regionName: s.world.regions.find((r) => r.id === l.regionId)?.name ?? l.regionId,
+          pressure: Math.round(l.pressure * 100) / 100, status: l.status, progress: Math.round(l.progress),
+        })),
+        believers: s.villagers.filter((v) => v.status !== 'dead' && (v.beliefs[d.id]?.conv ?? 0) >= 50).length,
+        ritualLabel: ritual ? ritual.label : null,
+      };
+    });
+}
+
+// ------------------------------------------------------------------ forecast
+
+export interface ForecastView {
+  day: number;
+  tonight: { label: string; level: number; trend: string; rain: number; warning?: string; omen: string[] };
+  upcoming: { day: number; label: string; level: number | null; trend: string; warning?: string }[];
+  effectiveLevel: number;
+  homesAtRisk: { id: string; name: string; depth: number; destroyed: boolean }[];
+  peopleAtRisk: { id: string; name: string; depth: number; note: string }[];
+  bridge: { hp: number; maxHp: number; projectedDamage: number; standing: boolean; watchers: number } | null;
+  evacuating: string[];
+  trapped: string[];
+  beacons: { id: string; name: string; lit: boolean; nights: number; sparkPct: number }[];
+  fuel: number;
+  food: { stock: number; eat: number; produce: number; projected: number };
+  fireRiskNote: string;
+  lawNotes: string[];
+}
+
+/** Honest "what happens tonight if nothing else changes" projection. Fire ignition is shown as a probability. */
+export function getForecast(s: RunState): ForecastView {
+  const th = s.threat[Math.min(s.day, s.threat.length) - 1];
+  const sim = cloneState(s);
+  const ctx: Ctx = { s: sim, events: [], expect: true };
+  commitEvacuations(ctx);
+  moveToNight(ctx);
+  const water = predictedWater(sim);
+  const L0 = th?.level ?? 0;
+  const homesAtRisk: ForecastView['homesAtRisk'] = [];
+  for (const l of sim.world.landmarks) {
+    if ((l.kind !== 'home' && l.kind !== 'cabin') || l.hp <= 0) continue;
+    const d = water[idx(sim.world, l.x, l.y)];
+    if (d >= 1) homesAtRisk.push({ id: l.id, name: l.name, depth: d, destroyed: d >= 3 || l.hp - (d === 2 ? 45 : 20) <= 0 });
+  }
+  homesAtRisk.sort((a, b) => b.depth - a.depth || (a.id < b.id ? -1 : 1));
+  const peopleAtRisk: ForecastView['peopleAtRisk'] = [];
+  for (const v of sim.villagers) {
+    if (v.status === 'dead') continue;
+    const d = water[idx(sim.world, v.x, v.y)];
+    if (d >= 1) peopleAtRisk.push({ id: v.id, name: v.name, depth: d, note: d >= 2 ? 'will drown' : 'will be hurt' });
+  }
+  const br = s.world.landmarks.find((l) => l.kind === 'bridge');
+  let bridge: ForecastView['bridge'] = null;
+  if (br && s.scn.features.bridge) {
+    const raw = Math.max(0, (th?.level ?? 0) - 1) * (s.scn.consts.dmgBridge ?? 11);
+    bridge = { hp: br.hp, maxHp: br.maxHp, projectedDamage: raw, standing: br.hp > 0, watchers: br.data.watchers ?? 0 };
+  }
+  const upcoming: ForecastView['upcoming'] = [];
+  for (let k = 1; k <= 3; k++) {
+    const t = s.threat[Math.min(s.day, s.threat.length) - 1 + k];
+    if (!t) break;
+    upcoming.push({ day: t.day, label: t.label, level: k === 1 ? t.level : null, trend: t.trend, warning: k <= 2 ? t.warning : undefined });
+  }
+  const base = (s.scn.consts.fireBase ?? 10) / 100;
+  const beacons = s.world.landmarks.filter((l) => l.kind === 'beacon' || l.kind === 'campfire').map((l) => ({
+    id: l.id, name: l.name, lit: l.lit, nights: l.fuelNights,
+    sparkPct: l.lit ? Math.round(Math.min(95, base * (1 + (s.laws.some((x) => x.status === 'active' && claimDef(s, x.claimId).spec.side.includes('ignition')) ? 1 : 0)) * 100)) : 0,
+  }));
+  const eat = dailyConsumption(s);
+  const produce = projectedProduction(s);
+  const omens = s.scn.rituals.map((r) => omenFor(s, r.omen).text).filter((t, i, a) => t && a.indexOf(t) === i);
+  const lawNotes: string[] = [];
+  for (const l of s.laws) if ((l.status === 'active' || l.status === 'wavering')) lawNotes.push(`“${claimDef(s, l.claimId).short}” is ${l.status}.`);
+  return {
+    day: s.day,
+    tonight: { label: th?.label ?? '', level: L0, trend: th?.trend ?? 'steady', rain: th?.rain ?? 0, warning: th?.warning, omen: omens },
+    upcoming,
+    effectiveLevel: Math.max(0, Math.round(sim.world.level || L0)),
+    homesAtRisk,
+    peopleAtRisk,
+    bridge,
+    evacuating: sim.villagers.filter((v) => v.status !== 'dead' && v.duty === 'evacuate').map((v) => v.name),
+    trapped: sim.villagers.filter((v) => v.status !== 'dead' && v.duty === 'trapped').map((v) => v.name),
+    beacons,
+    fuel: s.world.stocks.fuel ?? 0,
+    food: { stock: s.world.stocks.food ?? 0, eat, produce, projected: Math.max(0, (s.world.stocks.food ?? 0) + produce - eat) },
+    fireRiskNote: beacons.some((b) => b.lit) ? 'Lit flames can spark adjacent fields, trees and cottages overnight.' : '',
+    lawNotes,
+  };
+}
+
+// ------------------------------------------------------------------ HUD
+
+export interface HudView {
+  day: number;
+  maxDay: number;
+  ap: number;
+  apMax: number;
+  apPerDay: number;
+  alive: number;
+  total: number;
+  homes: number;
+  homesTotal: number;
+  food: number;
+  fuel: number;
+  objectives: ObjectiveStatus[];
+  threatLabel: string;
+  warning?: string;
+  phase: RunState['phase'];
+  freeScout: boolean;
+}
+
+export function getHud(s: RunState): HudView {
+  const th = s.threat[Math.min(s.day, s.threat.length) - 1];
+  return {
+    day: s.day, maxDay: s.maxDay, ap: s.ap, apMax: s.apMax, apPerDay: s.apPerDay,
+    alive: s.villagers.filter((v) => v.status !== 'dead').length, total: s.villagers.length,
+    homes: homesStanding(s), homesTotal: s.world.landmarks.filter((l) => l.kind === 'home').length,
+    food: s.world.stocks.food ?? 0, fuel: s.world.stocks.fuel ?? 0,
+    objectives: objectiveStatuses(s),
+    threatLabel: th?.label ?? '', warning: th?.warning, phase: s.phase, freeScout: !s.freeScoutUsed,
+  };
+}

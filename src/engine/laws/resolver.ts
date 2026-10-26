@@ -74,7 +74,7 @@ export function runLawStep(ctx: Ctx): void {
     const diverse = info.supporters.length < 3 || info.topShare <= 0.45;
     const above = info.pressure >= th.on;
     let prog = law.progress;
-    let note = law.note;
+    let note: string;
     if (above && enough && diverse) {
       prog += th.ramp * rampMul * (0.7 + Math.min(1, (info.pressure - th.on) * 3));
       note = 'Support is strong enough.';

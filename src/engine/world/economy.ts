@@ -83,7 +83,7 @@ function dangerNext(s: RunState, v: Villager): number {
     const depth = Math.max(0, th.level - s.world.elev[idx(s.world, home.x, home.y)]);
     worst = Math.max(worst, depth);
   }
-  let g = Math.min(3, worst);
+  const g = Math.min(3, worst);
   const lostKin = s.villagers.some((o) => o.household === v.household && o.status === 'dead') ? 1 : 0;
   return g + lostKin;
 }

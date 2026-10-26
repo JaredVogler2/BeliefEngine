@@ -100,7 +100,6 @@ export function runNight(ctx: Ctx, mods: Modifiers): void {
 
   // ---- homes
   let spared = 0;
-  let lost = 0;
   for (const l of w.landmarks) {
     if (l.kind !== 'home' && l.kind !== 'cabin') continue;
     if (l.hp <= 0) continue;
@@ -125,7 +124,6 @@ export function runNight(ctx: Ctx, mods: Modifiers): void {
     l.hp = Math.max(0, l.hp - dmg);
     const cause = w.fire[i] >= 1 ? 'fire' : 'floodwater';
     if (l.hp <= 0) {
-      lost++;
       emit(ctx, { step: 'hazard', code: 'HOME_DESTROYED', importance: 2, tile: [l.x, l.y], reason: cause.toUpperCase(), delta: { home: [before, 0] }, text: `${l.name} is destroyed by ${cause}${d > 0 ? ` (${d} deep)` : ''}.` });
     } else {
       emit(ctx, { step: 'hazard', code: 'HOME_DAMAGED', importance: 1, tile: [l.x, l.y], reason: cause.toUpperCase(), delta: { home: [before, l.hp] }, text: `${l.name} is damaged by ${cause}: ${before} → ${l.hp}.` });
