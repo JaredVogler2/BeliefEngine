@@ -6,7 +6,7 @@ This folder is a **sequential implementation program**, not a generic idea dump.
 
 Open this repository in Claude Code (Opus 5.5 Max). Begin a fresh run with the text of [00_MASTER_GOAL.md](00_MASTER_GOAL.md), or paste:
 
-> /goal Read and execute prompts/00_MASTER_GOAL.md and the numbered phase prompts in prompts/ in order. Implement the actual browser game in this repository, not a planning document or mock UI. Commit and test each phase. Follow acceptance criteria and quality gates; prioritize a playable, fun vertical slice before expanding scope. Make autonomous decisions when details are missing. Show proof of gameplay, deterministic tests, measured playtest results, and a deployed-ready production build. Continue until the release gate is met, or precisely document the blocker and resume point.
+> /goal Read and execute prompts/00_MASTER_GOAL.md and the numbered phase prompts 01–18 in prompts/ in order. Implement the actual browser game in this repository, not a planning document or mock UI. Commit and test each phase. Follow acceptance criteria and quality gates; prioritize a playable, fun vertical slice before expanding scope. Make autonomous decisions when details are missing. Show proof of gameplay, deterministic tests, measured playtest results, and a deployed-ready production build. Continue until the release gate is met, or precisely document the blocker and resume point.
 
 If the coding environment only supports executing one bounded task per context window, hand it the **next incomplete phase file**, then restart with 00_MASTER_GOAL.md plus that phase. Phase progress and results must be written in docs/PROGRESS.md and docs/DECISIONS.md.
 
@@ -29,7 +29,10 @@ If the coding environment only supports executing one bounded task per context w
 | 12 | [12_AUDIO_ART_AND_JUICE.md](12_AUDIO_ART_AND_JUICE.md) | Coherent art direction, audio, responsiveness, feedback |
 | 13 | [13_MOBILE_ACCESSIBILITY_PERFORMANCE.md](13_MOBILE_ACCESSIBILITY_PERFORMANCE.md) | Phone, keyboard, accessibility, robust performance |
 | 14 | [14_TESTING_SECURITY_RELEASE.md](14_TESTING_SECURITY_RELEASE.md) | Hard production gates, E2E, deployment, final QA |
-| 15 | [15_ADVERSARIAL_FUN_REVIEW.md](15_ADVERSARIAL_FUN_REVIEW.md) | Final critical review and replayability corrections |
+| 15 | [15_ADVERSARIAL_FUN_REVIEW.md](15_ADVERSARIAL_FUN_REVIEW.md) | Critical review and replayability corrections |
+| 16 | [16_MCP_AGENT_PLAY.md](16_MCP_AGENT_PLAY.md) | Real MCP tool control of the same game engine, local + optional remote |
+| 17 | [17_NATURAL_LANGUAGE_BELIEFS.md](17_NATURAL_LANGUAGE_BELIEFS.md) | Freeform player beliefs via offline DSL plus optional LLM interpretation |
+| 18 | [18_FINAL_CROSS_INTERFACE_ACCEPTANCE.md](18_FINAL_CROSS_INTERFACE_ACCEPTANCE.md) | Cross-interface browser/MCP/NL security, playability and fun verification |
 
 ## Non-negotiable product goals
 
@@ -39,7 +42,9 @@ If the coding environment only supports executing one bounded task per context w
 - **Understandable causality**: every major outcome can be traced to a claim, supporter network, event, or conflicting belief.
 - **Replayability**: authored levels plus deterministic seeded procedural runs, new situations and combinations, multiple victory paths and adaptive factions.
 - **Polished from early builds**: fluid 2D graphics, strong information hierarchy, sound controls, satisfying animations, clear win/loss, keyboard and touch.
-- **Free to run**: no required LLM API, pay-per-call service, login, database, hosting server, paid assets, or proprietary asset license for single-player.
+- **Free to run**: baseline single-player and local MCP have no required LLM API, pay-per-call service, login, database, hosting server, paid assets, or proprietary asset license. Remote MCP and opt-in freeform LLM interpretation may need optional backend/provider costs.
+- **Player-written beliefs**: optional freeform text is interpreted into bounded testable physics with an offline supported grammar; an opt-in LLM can interpret wider vocabulary, but never invent unrestricted executable code or unbalanced outcomes.
+- **MCP play**: agents can control the actual game with the same legal actions, constraints and event traces as human browser play. Local MCP is part of revised roadmap; remote MCP requires secured durable sessions.
 - **Truthful verification**: never report tests played or flows seen unless actually executed. Keep commands, screenshots where possible, and structured test results.
 - **Privacy and fairness**: offline local saves, opt-in telemetry only, non-predatory engagement design, seeded shareable runs.
 
