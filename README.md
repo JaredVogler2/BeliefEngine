@@ -1,3 +1,13 @@
+## Visual quality requirement: premium 3D rebuild
+
+**Updated requirement:** The earlier design documents' 2D/Phaser renderer direction is superseded by [the premium 3D rebuild playbook](prompts/3d-rebuild/README.md). Claude Code should execute that program for the game shown in the user's screenshot, preserve the underlying simulation, and replace the flat tile-map presentation with an actual interactive stylized Three.js 3D village. The existing screenshot's source code is **not present in this GitHub main branch as of October 26, 2026**; first locate the real implementation in the local working tree or originating deployment source. Do not claim to have migrated code that is not accessible.
+
+To direct Claude Code immediately:
+
+~~~text
+/goal Read prompts/3d-rebuild/00_MASTER_3D_REBUILD.md, then execute phases 01–10. Find and protect my existing playable Belief Engine code, rebuild its graphics using Three.js/React Three Fiber into a polished living 3D fantasy diorama, retain its gameplay logic, save files and MCP compatibility, and verify actual browser screenshots plus win/loss flows before declaring completion. The earlier 2D rendering instructions are superseded.
+~~~
+
 # BELIEF ENGINE
 
 > **Make the village believe it—and reality obeys.**
