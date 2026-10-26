@@ -114,8 +114,8 @@ function VillagerCard({ id }: { id: string }) {
   }, [state, id, claimId, v]);
 
   const seed = opts.filter((o) => o.action.type === 'SEED');
-  const msgFrom = opts.filter((o) => o.action.type === 'MESSENGER' && (o.action as { from: string }).from === id && o.preview.ok).sort((a, b) => b.preview.deltas.reduce((m, d) => m + d.after - d.before, 0) - a.preview.deltas.reduce((m, d) => m + d.after - d.before, 0)).slice(0, 4);
-  const msgTo = opts.filter((o) => o.action.type === 'MESSENGER' && (o.action as { to: string }).to === id && o.preview.ok).slice(0, 3);
+  const msgFrom = opts.filter((o) => o.action.type === 'MESSENGER' && (o.action as { from: string }).from === id && o.preview.ok).sort((a, b) => b.preview.deltas.reduce((m, d) => m + d.after - d.before, 0) - a.preview.deltas.reduce((m, d) => m + d.after - d.before, 0)).slice(0, 6);
+  const msgTo = opts.filter((o) => o.action.type === 'MESSENGER' && (o.action as { to: string }).to === id && o.preview.ok).slice(0, 6);
   const counter = opts.filter((o) => o.action.type === 'COUNTER');
   const scout = opts.filter((o) => o.action.type === 'SCOUT');
 
@@ -337,6 +337,23 @@ export function VillagePanel() {
           </button>
         );
       })}
+      <h3>Places</h3>
+      {state.world.landmarks.filter((l) => l.kind !== 'rubble').map((l) => (
+        <button
+          key={l.id}
+          className={`list-btn ${ui.selection?.id === l.id ? 'sel' : ''}`}
+          data-place={l.id}
+          onClick={() => {
+            store.select({ kind: 'landmark', id: l.id });
+            getRenderer()?.focusTile(l.x, l.y, 1.3);
+          }}
+          aria-label={`${l.name}, ${l.kind}. ${l.hp <= 0 ? 'Destroyed.' : l.lit ? 'Burning.' : ''}`}
+        >
+          <Icon name={l.kind === 'home' || l.kind === 'cabin' ? 'home' : l.kind === 'bridge' ? 'bridge' : l.kind === 'beacon' ? 'flame' : l.kind === 'belltower' ? 'bell' : l.kind === 'field' ? 'wheat' : 'compass'} />
+          <span><b>{l.name}</b> <span className="muted small">{l.kind}</span></span>
+          <span className={`chip ${l.hp <= 0 ? 'bad' : l.lit ? 'gold' : ''}`}>{l.hp <= 0 ? 'ruin' : l.lit ? 'lit' : l.kind === 'bridge' ? `${l.hp}/${l.maxHp}` : ''}</span>
+        </button>
+      ))}
     </div>
   );
 }

@@ -3,6 +3,7 @@ import { configureAudio } from './audio/audio.ts';
 import { Briefing, Credits, Debrief, HowTo, Scenarios, SettingsScreen, Title } from './ui/screens.tsx';
 import { Play } from './ui/play/Play.tsx';
 import { hasScenario } from './engine/content/registry.ts';
+import { eventHash, stateHash } from './engine/index.ts';
 import { store, useStore } from './ui/store.ts';
 
 class Boundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -54,6 +55,8 @@ export function App() {
       (window as unknown as { __belief?: unknown }).__belief = {
         get state() { return store.state; },
         get session() { return store.session; },
+        hash: () => (store.state ? stateHash(store.state) : null),
+        eventHash: () => (store.state ? eventHash(store.state) : null),
         store,
       };
     }
