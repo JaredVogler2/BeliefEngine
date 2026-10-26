@@ -18,13 +18,13 @@ A public-ready browser SPA, locally runnable with standard Node/npm, suitable fo
 - Three or more campaign scenarios plus well-tested procedurally seeded replay mode by release.
 - Accessible keyboard/touch input, performance budgets, clean art, audible feedback (with mute), responsive layout.
 - Automated tests that verify the social-to-physical causal chain, playable E2E path, and seed reproducibility.
-- No mandatory external AI service, authentication, backend, secret keys, database or paid asset use.
+- No mandatory external AI service, authentication, backend, secret keys, database or paid asset use for baseline browser/local-MCP gameplay. Optional remote MCP and LLM-enhanced interpretation can use an opt-in backend/provider.
 
 **A specification is not a deliverable.** Production means functioning code, not UI screenshots.
 
 ## Work strategy and context compaction
 
-Read prompts/README.md and then execute phases 01–15 in order. First inspect repo structure and existing work. Respect anything already implemented unless it conflicts with hard requirements; make surgical changes rather than rewriting all previous code.
+Read prompts/README.md and then execute phases 01–18 in order. First inspect repo structure and existing work. Respect anything already implemented unless it conflicts with hard requirements; make surgical changes rather than rewriting all previous code.
 
 Working rules:
 1. Make a real milestone plan in docs/PROGRESS.md with each numbered phase and honest status (not started/working/verified/blocked).
@@ -68,7 +68,7 @@ Working rules:
 
 You are the Keeper of Stories in a small living region. You cannot drag the river, spawn food or delete enemies. You must change minds, stage evidence and use limited influence to unlock physical laws. Six recurring tension types: flood, famine, fire, sickness, beasts, civic collapse. Laws create interconnected benefits and side effects.
 
-The main map shows physical consequences; the social lens explains why. Every game has a **threat clock**, a **belief/law meter**, and **visible character incentives**. Players should be able to say "I lost because the miller convinced the west bank that bells were dangerous, so the rain law collapsed when the storm arrived."
+The main map shows physical consequences; the social lens explains why. A player may optionally write their own short belief proposition: an offline constrained interpreter (with optional opt-in LLM enhancement) proposes only validated, balanced physical effects and asks for confirmation. An MCP-connected AI agent may play via the exact same legal engine actions as a human. Every game has a **threat clock**, a **belief/law meter**, and **visible character incentives**. Players should be able to say "I lost because the miller convinced the west bank that bells were dangerous, so the rain law collapsed when the storm arrived."
 
 ## Quantitative quality gates (targets, not fabricated success claims)
 
@@ -100,6 +100,9 @@ By initial release, aim for:
 13. Meet touch, accessibility and performance requirements.
 14. Release hardening, deployment, E2E acceptance.
 15. Adversarial fun review, rework weaknesses and verify again.
+16. Implement genuine local MCP gameplay via the SAME authoritative rules; secure remote MCP optional.
+17. Implement player-stated natural-language beliefs via bounded offline DSL; opt-in LLM-enhanced interpretation optional.
+18. Cross-interface adversarial verification, security, actual playthroughs and honest release acceptance.
 
 ## Done means DONE
 
