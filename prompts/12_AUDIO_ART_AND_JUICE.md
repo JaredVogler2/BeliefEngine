@@ -1,3 +1,5 @@
+> **PREMIUM 3D ART OVERRIDE:** This older 2D/pixel-style art guidance is superseded by the [premium 3D program](3d-rebuild/README.md). Preserve useful aesthetic/audio and event-sync ideas, but **sculpted 3D geography, detailed architecture/people, modeled river, real WebGL lighting and unobtrusive HUD are mandatory**. Don't treat 2D sprite decoration or 3/4 orthographic flat art as sufficient.
+
 # Phase 12 — Premium original visual and audio polish that reinforces mechanics
 
 Transform the verified playable simulation into an expressive, coherent product. Prioritize **readable cause-and-effect** ahead of decoration. No generic template-dashboard aesthetics.
