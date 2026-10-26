@@ -25,17 +25,20 @@ function TopBar() {
         Day <span>{hud.day}</span>/{hud.maxDay}
       </div>
       <div className={`threat ${danger ? '' : 'calm'}`} role="status">
-        <Icon name={state.scn.features.flood ? 'flood' : 'warn'} />
+        <Icon name={state.scn.features.flood ? 'flood' : state.scn.features.wolves ? 'wolf' : 'wheat'} />
         <div className="t-main">
           <div className="t-title">{th?.label ?? ''}</div>
           <div className="t-sub">{th?.warning ?? (next ? `Tomorrow: ${next.label}` : '')}</div>
         </div>
       </div>
       <div className="stats" aria-label="Village status">
-        <div className="stat" title="Villagers alive"><Icon name="user" label="Villagers alive" /><span>{hud.alive}</span><span className="lbl muted small">/{hud.total}</span></div>
-        <div className={`stat ${objFail && hud.day === hud.maxDay ? 'bad' : ''}`} title="Homes standing"><Icon name="home" label="Homes standing" /><span>{hud.homes}</span></div>
-        <div className={`stat ${hud.food < 6 ? 'warn' : ''}`} title="Food in store"><Icon name="food" label="Food" /><span>{hud.food}</span></div>
-        <div className="stat" title="Fuel in store"><Icon name="fuel" label="Fuel" /><span>{hud.fuel}</span></div>
+        {hud.stats.includes('alive') && <div className="stat" title="Villagers alive"><Icon name="user" label="Villagers alive" /><span>{hud.alive}</span><span className="lbl muted small">/{hud.total}</span></div>}
+        {hud.stats.includes('homes') && <div className={`stat ${objFail && hud.day === hud.maxDay ? 'bad' : ''}`} title="Homes standing"><Icon name="home" label="Homes standing" /><span>{hud.homes}</span></div>}
+        {hud.stats.includes('food') && <div className={`stat ${hud.food < 6 ? 'warn' : ''}`} title="Food in store"><Icon name="food" label="Food" /><span>{hud.food}</span></div>}
+        {hud.stats.includes('fed') && <div className="stat" title="Villagers who are not hungry"><Icon name="wheat" label="Well fed" /><span>{state.villagers.filter((v) => v.status !== 'dead' && v.hunger < 60).length}</span></div>}
+        {hud.stats.includes('livestock') && <div className={`stat ${hud.livestock < 10 ? 'warn' : ''}`} title="Animals alive"><Icon name="wolf" label="Animals alive" /><span>{hud.livestock}</span><span className="lbl muted small">/{hud.livestockTotal}</span></div>}
+        {hud.stats.includes('sick') && <div className={`stat ${hud.sick > 3 ? 'bad' : ''}`} title="People sick"><Icon name="warn" label="People sick" /><span>{hud.sick}</span></div>}
+        {hud.stats.includes('fuel') && <div className="stat" title="Fuel in store"><Icon name="fuel" label="Fuel" /><span>{hud.fuel}</span></div>}
       </div>
       <button className="btn icon-btn hide-sm" aria-label="How to play" onClick={() => store.set({ screen: 'howto' })}>
         <Icon name="help" />

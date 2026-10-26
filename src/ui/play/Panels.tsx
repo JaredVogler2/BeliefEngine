@@ -199,12 +199,18 @@ function landmarkBlurb(l: Landmark): string {
     case 'bridge': return `Integrity ${l.hp}/${l.maxHp}.`;
     case 'belltower': return 'The chapel bell. Its voice carries across both banks.';
     case 'home': return l.hp <= 0 ? 'A ruin.' : `Standing at ${l.hp}% strength.`;
-    case 'field': return l.data.burned ? 'Burned. No harvest.' : l.data.ruined ? 'Ruined. No harvest.' : 'A standing crop. Worked fields add food each day.';
+    case 'field': return l.data.burned ? 'Burned. No harvest.' : l.data.ruined ? 'Ruined. No harvest.' : l.data.harvested ? 'Harvested.' : l.data.growth !== undefined && (l.data.moisture !== undefined) ? `Growth ${Math.round(l.data.growth)}%, soil moisture ${Math.round(l.data.moisture)}%${l.data.ripe ? ' — ripe, ready to bring in.' : '.'}` : 'A standing crop. Worked fields add food each day.';
     case 'shelter': return `Shelter with room for ${l.capacity}. High ground.`;
     case 'market': return 'A busy place to gather and talk.';
     case 'hall': return 'The Reeve’s hall. Council business.';
     case 'chapel': return 'A place to gather.';
-    case 'mill': return 'The mill beside the river.';
+    case 'mill': return 'The mill.';
+    case 'pen': return `${l.data.stock ?? 0} of ${l.data.stockMax ?? l.data.stock ?? 0} animals left. Wolves take them.`;
+    case 'campfire': return l.lit ? `Burning: ${l.fuelNights} night(s) of fuel left. Smoke sickens anyone standing in it.` : 'A cold fire pit. Lighting it costs fuel.';
+    case 'granary': return 'The village granary.';
+    case 'well': return 'The village well: a place to talk.';
+    case 'road': return (l.data.blockedUntil ?? -1) >= (store.state?.day ?? 0) ? 'Buried in mud. Nothing can travel it yet.' : 'The only road for caravans.';
+    case 'cabin': return 'A lonely cabin.';
     default: return '';
   }
 }
@@ -361,33 +367,75 @@ export function VillagePanel() {
 export function ForecastPanel() {
   const state = useStore((s) => s.state)!;
   const f = getForecast(state);
+  const flood = state.scn.features.flood;
   return (
     <div data-testid="forecast-panel">
       <h3>Tonight</h3>
       <div className="card" style={{ padding: '0.7rem' }}>
         <b>{f.tonight.label}</b>
-        <div className="small muted">River level {f.tonight.level} · {f.tonight.trend} · rain {f.tonight.rain}</div>
+        {flood && <div className="small muted">River level {f.tonight.level} · {f.tonight.trend} · rain {f.tonight.rain}</div>}
+        {f.kind === 'drought' && <div className="small muted">Heat {f.tonight.level} · rain {f.tonight.rain} · sky {f.tonight.trend === 'ebbing' ? 'clouding' : 'clear'}</div>}
         {f.tonight.warning && <div className="small" style={{ color: 'var(--gold)', marginTop: '0.3rem' }}>{f.tonight.warning}</div>}
       </div>
-      {f.bridge && (
+      {flood && f.bridge && (
         <>
           <h3>Bridge</h3>
           <Bar value={f.bridge.hp} max={f.bridge.maxHp} kind={f.bridge.hp / f.bridge.maxHp < 0.4 ? 'red' : 'gold'} label="Bridge integrity" />
           <p className="small">{f.bridge.standing ? `Integrity ${f.bridge.hp}/${f.bridge.maxHp}. Unwatched, tonight takes about ${f.bridge.projectedDamage}.` : 'The bridge is gone.'} Watchers on deck: {f.bridge.watchers}.</p>
         </>
       )}
-      <h3>If nothing else changes</h3>
-      <p className="small">{f.homesAtRisk.length ? `${f.homesAtRisk.length} homes will be touched by water: ${f.homesAtRisk.slice(0, 5).map((h) => `${h.name} (${h.depth})`).join(', ')}.` : 'No home is reached by water.'}</p>
-      {f.peopleAtRisk.length > 0 && <p className="small" style={{ color: '#ffb3bf' }}>In danger: {f.peopleAtRisk.map((p) => `${p.name} (${p.note})`).join(', ')}.</p>}
-      {f.evacuating.length > 0 && <p className="small">Will evacuate: {f.evacuating.join(', ')}.</p>}
-      {f.trapped.length > 0 && <p className="small" style={{ color: '#ffb3bf' }}>Cannot reach safety: {f.trapped.join(', ')}.</p>}
+      {flood && (
+        <>
+          <h3>If nothing else changes</h3>
+          <p className="small">{f.homesAtRisk.length ? `${f.homesAtRisk.length} homes will be touched by water: ${f.homesAtRisk.slice(0, 5).map((h) => `${h.name} (${h.depth})`).join(', ')}.` : 'No home is reached by water.'}</p>
+          {f.peopleAtRisk.length > 0 && <p className="small" style={{ color: '#ffb3bf' }}>In danger: {f.peopleAtRisk.map((p) => `${p.name} (${p.note})`).join(', ')}.</p>}
+          {f.evacuating.length > 0 && <p className="small">Will evacuate: {f.evacuating.join(', ')}.</p>}
+          {f.trapped.length > 0 && <p className="small" style={{ color: '#ffb3bf' }}>Cannot reach safety: {f.trapped.join(', ')}.</p>}
+        </>
+      )}
+      {f.crops && (
+        <>
+          <h3>The fields</h3>
+          <p className="small">{f.crops.ripe} of {f.crops.total} ripe. Average growth {f.crops.avgGrowth}%, soil moisture {f.crops.avgMoisture}%.</p>
+          {f.crops.fields.map((c) => (
+            <div className="kv" key={c.id}>
+              <span>{c.name}</span>
+              <Bar value={c.growth} kind={c.ripe ? 'gold' : 'blue'} label={`${c.name} growth`} />
+              <b className="small">{c.harvested ? 'in' : c.ripe ? 'ripe' : `+${c.tonight}`}</b>
+            </div>
+          ))}
+          <p className="small muted">Dry soil makes crops crawl. Moonlight and rain make them run.</p>
+        </>
+      )}
+      {f.caravans.length > 0 && (
+        <>
+          <h3>On the road</h3>
+          {f.caravans.map((c, i) => (
+            <p key={i} className="small">{c.food} food due day {c.arrives}.{c.blocked ? ' The road is buried in mud: it waits.' : ''}</p>
+          ))}
+        </>
+      )}
+      {state.scn.features.wolves && (
+        <>
+          <h3>The packs</h3>
+          {f.packs.length === 0 && <p className="small">No pack is hunting tonight.</p>}
+          {f.packs.map((p) => (
+            <p key={p.id} className="small"><b>{p.id}</b> is heading for {state.world.landmarks.find((l) => l.id === p.target)?.name ?? 'the pens'} — {p.eta}.</p>
+          ))}
+          <h3>Pens</h3>
+          {f.pens.map((p) => (
+            <div className="kv" key={p.id}><span>{p.name}</span><span /><b>{p.stock} {p.guarded ? '(smoke)' : ''}</b></div>
+          ))}
+          {f.sick.length > 0 && <p className="small" style={{ color: '#ffb3bf' }}>Sick: {f.sick.join(', ')}.</p>}
+        </>
+      )}
       <h3>Resources</h3>
-      <p className="small">Food {f.food.stock} → about {f.food.projected} after tonight (+{f.food.produce} harvest, −{f.food.eat} eaten). Fuel {f.fuel}.</p>
+      <p className="small">Food {f.food.stock}{state.scn.features.crops || flood ? ` → about ${f.food.projected} after tonight (+${f.food.produce} harvest, −${f.food.eat} eaten)` : ''}. Fuel {f.fuel}.</p>
       {f.beacons.length > 0 && (
         <>
           <h3>Fires</h3>
           {f.beacons.map((b) => (
-            <div key={b.id} className="small">{b.name}: {b.lit ? `burning, ${b.nights} night(s) left, ~${b.sparkPct}% spark chance per neighbouring tile` : 'cold'}</div>
+            <div key={b.id} className="small">{b.name}: {b.lit ? `burning, ${b.nights} night(s) left${state.scn.features.fire ? `, ~${b.sparkPct}% spark chance per neighbouring tile` : ''}` : 'cold'}</div>
           ))}
         </>
       )}
@@ -396,7 +444,7 @@ export function ForecastPanel() {
       <h3>Coming</h3>
       <ul className="small">
         {f.upcoming.map((u) => (
-          <li key={u.day}><b>Day {u.day}:</b> {u.label}{u.level !== null ? ` (level ${u.level})` : ''} — {u.trend}{u.warning ? ` — ${u.warning}` : ''}</li>
+          <li key={u.day}><b>Day {u.day}:</b> {u.label}{u.level !== null && flood ? ` (level ${u.level})` : ''}{flood ? ` — ${u.trend}` : ''}{u.warning ? ` — ${u.warning}` : ''}</li>
         ))}
       </ul>
     </div>

@@ -120,7 +120,7 @@ export function Scenarios() {
                   <span className="chip">{sc.threat}</span>
                   {wins > 0 && <span className="chip good">Won ×{wins}</span>}
                 </div>
-                <button className="btn primary" onClick={() => { sfx('click'); store.set({ scenarioId: sc.id, screen: 'briefing', session: null } as never); store.newRun({ scenarioId: sc.id, seed: 1, difficulty: 'normal' }); }} data-testid={`begin-${sc.id}`}>
+                <button className="btn primary" onClick={() => { sfx('click'); store.newRun({ scenarioId: sc.id, seed: 1, difficulty: 'normal' }); }} data-testid={`begin-${sc.id}`}>
                   Begin
                 </button>
               </div>
@@ -144,7 +144,10 @@ export function Briefing() {
   const [diff, setDiff] = useState<Difficulty>(state?.difficulty ?? 'normal');
   if (!state) return null;
   const sc = state.scn;
-  const maxLevel = Math.max(...sc.threat.map((t) => t.level), 1);
+  const series = sc.threatKind === 'wolves' ? sc.threat.map((t) => t.pack) : sc.threat.map((t) => t.level);
+  const maxLevel = Math.max(...series, 1);
+  const seriesName = sc.threatKind === 'wolves' ? 'Packs hunting, night by night' : sc.threatKind === 'drought' ? 'The heat, night by night' : 'The river, night by night';
+  const lossLine = sc.objectives.find((o) => o.instantLoss);
   const begin = () => {
     sfx('click');
     const n = Number.parseInt(seed, 10);
@@ -159,18 +162,18 @@ export function Briefing() {
         <h1 style={{ marginTop: '0.8rem' }}>{sc.name}</h1>
         <p style={{ fontFamily: 'var(--serif)', fontSize: '1.2rem' }}>{sc.tagline}</p>
         {sc.briefing.map((l, i) => <p key={i}>{l}</p>)}
-        <h2>The river, night by night</h2>
-        <div className="row" style={{ alignItems: 'flex-end', gap: 6, height: 110 }} role="img" aria-label={`Forecast river level by day: ${sc.threat.map((t) => `day ${t.day} level ${t.level}`).join(', ')}`}>
-          {sc.threat.map((t) => (
+        <h2>{seriesName}</h2>
+        <div className="row" style={{ alignItems: 'flex-end', gap: 6, height: 110 }} role="img" aria-label={`Forecast by day: ${sc.threat.map((t, i) => `day ${t.day} ${series[i]}`).join(', ')}`}>
+          {sc.threat.map((t, i) => (
             <div key={t.day} style={{ flex: 1, textAlign: 'center' }}>
-              <div style={{ height: `${(t.level / maxLevel) * 80}px`, background: t.level >= 4 ? 'var(--bad)' : 'var(--river)', borderRadius: 4, opacity: 0.85 }} />
+              <div style={{ height: `${Math.max(6, (series[i] / maxLevel) * 80)}px`, background: series[i] / maxLevel >= 0.66 ? 'var(--bad)' : 'var(--river)', borderRadius: 4, opacity: 0.85 }} />
               <div className="small muted">D{t.day}</div>
             </div>
           ))}
         </div>
         <h2>You win if, at the end of day {sc.durationDays}</h2>
         <ul>{sc.objectives.filter((o) => !o.instantLoss && !o.heroic).map((o) => <li key={o.id}>{o.label}</li>)}</ul>
-        <p className="small muted">You lose at once if fewer than 9 remain alive. You can undo any planned action until you end the day.</p>
+        <p className="small muted">{lossLine ? `You lose at once if the village falls below ${lossLine.value} people. ` : ''}You can undo any planned action until you end the day.</p>
         <div className="card" style={{ marginTop: '1rem' }}>
           <div className="grid2">
             <label className="field">

@@ -4,13 +4,15 @@ import { computePressure } from '../laws/resolver.ts';
 import { SIDE_EFFECT_INFO } from '../laws/rules.ts';
 import { REASON_TEXT } from '../social/persuasion.ts';
 import { dailyConsumption, homesStanding, projectedProduction } from '../world/economy.ts';
+import { fieldSummary, projectedGrowth } from '../world/crops.ts';
+import { activePacks, packForecast } from '../world/wolves.ts';
 import { idx } from '../world/grid.ts';
 import { cloneState } from './clone.ts';
 import type { Ctx } from './events.ts';
 import { claimDef, faction, findLandmark, findVillager, neighborsOf, allClaimDefs } from './lookup.ts';
 import { keeperCanReach, omenFor } from './actions.ts';
 import { objectiveStatuses, type ObjectiveStatus } from './objectives.ts';
-import type { ClaimDef, LawState, RunState, Villager } from './types.ts';
+import type { ClaimDef, LawState, RunState, ScenarioRuntime, Villager } from './types.ts';
 
 export function beliefLabel(conv: number): string {
   if (conv <= -40) return 'rejects';
@@ -339,6 +341,12 @@ export interface ForecastView {
   food: { stock: number; eat: number; produce: number; projected: number };
   fireRiskNote: string;
   lawNotes: string[];
+  kind: ScenarioRuntime['threatKind'];
+  crops: { ripe: number; total: number; avgGrowth: number; avgMoisture: number; fields: { id: string; name: string; growth: number; moisture: number; ripe: boolean; harvested: boolean; tonight: number }[] } | null;
+  packs: { id: string; target: string | null; dist: number; eta: string }[];
+  pens: { id: string; name: string; stock: number; guarded: boolean }[];
+  caravans: { arrives: number; food: number; blocked: boolean }[];
+  sick: string[];
 }
 
 /** Honest "what happens tonight if nothing else changes" projection. Fire ignition is shown as a probability. */
@@ -384,6 +392,21 @@ export function getForecast(s: RunState): ForecastView {
   const produce = projectedProduction(s);
   const omens = s.scn.rituals.map((r) => omenFor(s, r.omen).text).filter((t, i, a) => t && a.indexOf(t) === i);
   const lawNotes: string[] = [];
+  const fs = s.world.landmarks.filter((l) => l.kind === 'field');
+  const crops = s.scn.features.crops
+    ? {
+        ...fieldSummary(s),
+        fields: fs.map((f) => ({ id: f.id, name: f.name, growth: Math.round(f.data.growth ?? 0), moisture: Math.round(f.data.moisture ?? 0), ripe: !!f.data.ripe, harvested: !!f.data.harvested, tonight: projectedGrowth(s, f) })),
+      }
+    : null;
+  const packs = s.scn.features.wolves
+    ? packForecast(s).map((p) => ({ ...p, eta: p.dist <= 1 ? 'at the pens' : `${Math.max(1, Math.ceil((p.dist - 1) / 3))} night${Math.ceil((p.dist - 1) / 3) > 1 ? 's' : ''} away` }))
+    : [];
+  void activePacks;
+  const pens = s.world.landmarks.filter((l) => l.kind === 'pen').map((l) => ({ id: l.id, name: l.name, stock: l.data.stock ?? 0, guarded: sim.world.smoke[idx(sim.world, l.x, l.y)] >= 1 || s.world.landmarks.some((c) => c.kind === 'campfire' && c.lit && Math.abs(c.x - l.x) + Math.abs(c.y - l.y) <= 4) }));
+  const roadBlocked = s.world.landmarks.some((l) => l.kind === 'road' && (l.data.blockedUntil ?? -1) >= s.day);
+  const caravans: ForecastView['caravans'] = [];
+  for (let k = 0; k < 12; k++) if (s.flags[`caravan:${k}`] !== undefined) caravans.push({ arrives: s.flags[`caravan:${k}`], food: s.flags[`caravanFood:${k}`] ?? 0, blocked: roadBlocked });
   for (const l of s.laws) if ((l.status === 'active' || l.status === 'wavering')) lawNotes.push(`“${claimDef(s, l.claimId).short}” is ${l.status}.`);
   return {
     day: s.day,
@@ -398,8 +421,14 @@ export function getForecast(s: RunState): ForecastView {
     beacons,
     fuel: s.world.stocks.fuel ?? 0,
     food: { stock: s.world.stocks.food ?? 0, eat, produce, projected: Math.max(0, (s.world.stocks.food ?? 0) + produce - eat) },
-    fireRiskNote: beacons.some((b) => b.lit) ? 'Lit flames can spark adjacent fields, trees and cottages overnight.' : '',
+    fireRiskNote: beacons.some((b) => b.lit) && s.scn.features.fire ? 'Lit flames can spark adjacent fields, trees and cottages overnight.' : '',
     lawNotes,
+    kind: s.scn.threatKind,
+    crops,
+    packs,
+    pens,
+    caravans,
+    sick: s.villagers.filter((v) => v.status === 'sick').map((v) => v.name),
   };
 }
 

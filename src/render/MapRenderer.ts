@@ -2,7 +2,7 @@ import type { GameEvent, Landmark, RunState } from '../engine/index.ts';
 import { claimDef } from '../engine/core/lookup.ts';
 import { C, TS, hsl, nz, trustColor } from './palette.ts';
 import {
-  drawBeacon, drawBellTower, drawBridge, drawCabin, drawChapel, drawField, drawHall, drawHome, drawLabel, drawMarket, drawMill, drawShelter, drawTree, drawVillager, flame,
+  drawBeacon, drawBellTower, drawBridge, drawCabin, drawCampfire, drawChapel, drawField, drawGranary, drawHall, drawHome, drawLabel, drawMarket, drawMill, drawPack, drawPen, drawRoadState, drawShelter, drawTree, drawVillager, drawWell, flame,
 } from './sprites.ts';
 
 export interface RenderOpts {
@@ -617,6 +617,21 @@ export class MapRenderer {
 
     // bridge
     for (const l of w.landmarks) if (l.kind === 'bridge') drawBridge(g, l, t, l.data.watchers ?? 0);
+    for (const l of w.landmarks) if (l.kind === 'road') drawRoadState(g, l, s.day);
+    // smoke haze over burning smoke-fires
+    if (s.scn.features.smoke) {
+      for (let i = 0; i < w.smoke.length; i++) {
+        const d = w.smoke[i];
+        if (d <= 0) continue;
+        const sx = (i % w.w) * TS + 16;
+        const sy = Math.floor(i / w.w) * TS + 12;
+        g.fillStyle = `rgba(170,170,178,${0.1 + d * 0.07})`;
+        const drift = reduced ? 0 : Math.sin(t * 0.8 + i) * 3;
+        g.beginPath();
+        g.arc(sx + drift, sy - d * 3, 11 + d * 3, 0, Math.PI * 2);
+        g.fill();
+      }
+    }
 
     // sorted drawables
     type D = { y: number; f: () => void };
@@ -656,6 +671,18 @@ export class MapRenderer {
         case 'shelter':
           list.push({ y: y + TS, f: () => drawShelter(g, l, x, y, occ.get(l.id) ?? 0) });
           break;
+        case 'pen':
+          list.push({ y: y + TS, f: () => drawPen(g, l, x, y, reduced ? 0 : t) });
+          break;
+        case 'campfire':
+          list.push({ y: y + TS, f: () => drawCampfire(g, l, x, y, reduced ? 0 : t) });
+          break;
+        case 'granary':
+          list.push({ y: y + TS, f: () => drawGranary(g, x, y) });
+          break;
+        case 'well':
+          list.push({ y: y + TS, f: () => drawWell(g, x, y) });
+          break;
       }
     }
     for (let ty = 0; ty < w.h; ty++)
@@ -667,6 +694,18 @@ export class MapRenderer {
           list.push({ y: ty * TS + TS - 2, f: () => drawTree(g, tx * TS, ty * TS, 0, true) });
         }
       }
+    // predator packs
+    if (s.scn.features.wolves) {
+      const th0 = s.threat[Math.min(s.day, s.threat.length) - 1];
+      const nActive = th0?.pack ?? 0;
+      const prevN = s.threat[Math.max(0, Math.min(s.day, s.threat.length) - 2)]?.pack ?? 0;
+      w.packs.forEach((p, k) => {
+        if (k >= Math.max(nActive, prevN)) return;
+        const px = (p.x + 0.5) * TS;
+        const py = (p.y + 0.9) * TS;
+        list.push({ y: py + 6, f: () => drawPack(g, px, py, reduced ? 0 : t, p.size, p.id, p.hunger >= 75) });
+      });
+    }
     // fire
     for (let i = 0; i < w.fire.length; i++) {
       if (w.fire[i] <= 0) continue;

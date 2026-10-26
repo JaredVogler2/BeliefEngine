@@ -385,6 +385,9 @@ export function drawBridge(g: G, lm: Landmark, t: number, watchers: number): voi
 export function drawField(g: G, lm: Landmark, t: number): void {
   const burned = !!lm.data.burned;
   const ruined = !!lm.data.ruined;
+  const crops = lm.data.growth !== undefined && lm.data.moisture !== undefined;
+  const growth = Math.max(0, Math.min(100, lm.data.growth ?? 100));
+  const moist = lm.data.moisture ?? 100;
   for (const [tx, ty] of lm.tiles) {
     const x = tx * TS;
     const y = ty * TS;
@@ -396,6 +399,37 @@ export function drawField(g: G, lm: Landmark, t: number): void {
     if (ruined) {
       g.fillStyle = 'rgba(90,70,44,0.55)';
       g.fillRect(x, y, TS, TS);
+      continue;
+    }
+    if (crops && lm.data.harvested) {
+      g.fillStyle = 'rgba(140,110,60,0.55)';
+      g.fillRect(x, y, TS, TS);
+      g.fillStyle = '#b89a56';
+      for (let r = 0; r < 4; r++) g.fillRect(x + 3, y + 5 + r * 7, TS - 6, 1.6);
+      continue;
+    }
+    if (crops) {
+      // dry cracked soil under the crop, crop height follows growth, ripe wheat turns gold
+      g.fillStyle = `rgba(${150 - moist * 0.5},${110 - moist * 0.3},${70},0.55)`;
+      g.fillRect(x, y, TS, TS);
+      const h = 3 + (growth / 100) * 12;
+      const ripe = growth >= 100 || !!lm.data.ripe;
+      for (let r = 0; r < 4; r++) {
+        const sway = Math.sin(t * 1.4 + tx + r) * (ripe ? 1.4 : 0.6);
+        g.strokeStyle = ripe ? '#e3b93c' : growth > 55 ? '#9dae44' : `hsl(${60 + growth * 0.4},${35 + moist * 0.3}%,${34 + growth * 0.1}%)`;
+        g.lineWidth = 2;
+        for (let k = 0; k < 4; k++) {
+          const sx = x + 4 + k * 7;
+          g.beginPath();
+          g.moveTo(sx, y + 6 + r * 7);
+          g.lineTo(sx + sway, y + 6 + r * 7 - h * 0.7);
+          g.stroke();
+        }
+      }
+      if (moist <= 8 && !ripe) {
+        g.fillStyle = 'rgba(120,90,50,0.35)';
+        g.fillRect(x, y, TS, TS);
+      }
       continue;
     }
     for (let r = 0; r < 4; r++) {
@@ -590,4 +624,144 @@ export function drawLabel(g: G, text: string, x: number, y: number, accent = '#f
   g.fill();
   g.fillStyle = accent;
   g.fillText(text, x, y);
+}
+
+export function drawPen(g: G, lm: Landmark, x: number, y: number, t: number): void {
+  const cx = x + TS / 2;
+  const by = y + TS - 3;
+  shadow(g, cx, by, 17, 5);
+  g.strokeStyle = '#6b4a2f';
+  g.lineWidth = 2;
+  g.strokeRect(cx - 17, by - 18, 34, 18);
+  for (let i = 0; i < 5; i++) {
+    g.beginPath();
+    g.moveTo(cx - 17 + i * 8.5, by - 22);
+    g.lineTo(cx - 17 + i * 8.5, by);
+    g.stroke();
+  }
+  const n = lm.data.stock ?? 0;
+  for (let i = 0; i < Math.min(8, n); i++) {
+    const ax = cx - 12 + (i % 4) * 8 + Math.sin(t * 1.3 + i) * 0.8;
+    const ay = by - 10 + Math.floor(i / 4) * 7;
+    g.fillStyle = '#f2ecd8';
+    g.beginPath();
+    g.ellipse(ax, ay, 4, 3, 0, 0, Math.PI * 2);
+    g.fill();
+    g.fillStyle = '#3b3128';
+    g.beginPath();
+    g.arc(ax + 3.2, ay - 1.2, 1.6, 0, Math.PI * 2);
+    g.fill();
+  }
+  if (n === 0) {
+    g.fillStyle = 'rgba(30,20,10,0.6)';
+    g.fillRect(cx - 16, by - 16, 32, 14);
+  }
+}
+
+export function drawCampfire(g: G, lm: Landmark, x: number, y: number, t: number): void {
+  const cx = x + TS / 2;
+  const by = y + TS - 4;
+  shadow(g, cx, by, 9, 3);
+  g.fillStyle = '#5a4630';
+  g.fillRect(cx - 8, by - 3, 16, 3);
+  g.save();
+  g.translate(cx, by - 1);
+  g.rotate(0.5);
+  g.fillRect(-7, -2, 14, 3);
+  g.restore();
+  if (lm.lit && lm.fuelNights > 0) {
+    const glow = g.createRadialGradient(cx, by - 8, 2, cx, by - 8, 34);
+    glow.addColorStop(0, 'rgba(255,170,80,0.5)');
+    glow.addColorStop(1, 'rgba(255,170,80,0)');
+    g.fillStyle = glow;
+    g.fillRect(cx - 36, by - 44, 72, 72);
+    flame(g, cx, by - 3, t, 1.0);
+  } else {
+    g.fillStyle = '#2b241d';
+    g.beginPath();
+    g.arc(cx, by - 4, 4, 0, Math.PI * 2);
+    g.fill();
+  }
+}
+
+export function drawGranary(g: G, x: number, y: number): void {
+  const cx = x + TS / 2;
+  const by = y + TS - 3;
+  shadow(g, cx, by, 16, 5);
+  g.fillStyle = '#b08a52';
+  g.fillRect(cx - 13, by - 18, 26, 18);
+  g.fillStyle = '#8c5a2b';
+  g.beginPath();
+  g.moveTo(cx - 16, by - 17);
+  g.lineTo(cx, by - 30);
+  g.lineTo(cx + 16, by - 17);
+  g.closePath();
+  g.fill();
+  g.fillStyle = '#5a3a24';
+  g.fillRect(cx - 4, by - 10, 8, 10);
+  g.fillStyle = '#e6c46a';
+  g.fillRect(cx - 12, by - 6, 6, 4);
+}
+
+export function drawWell(g: G, x: number, y: number): void {
+  const cx = x + TS / 2;
+  const by = y + TS - 3;
+  shadow(g, cx, by, 10, 4);
+  g.fillStyle = '#8f8a80';
+  g.beginPath();
+  g.ellipse(cx, by - 5, 10, 5, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#1d2c3d';
+  g.beginPath();
+  g.ellipse(cx, by - 6, 7, 3, 0, 0, Math.PI * 2);
+  g.fill();
+  g.fillStyle = '#6b4a2f';
+  g.fillRect(cx - 9, by - 22, 2, 18);
+  g.fillRect(cx + 7, by - 22, 2, 18);
+  g.fillRect(cx - 10, by - 23, 20, 2);
+}
+
+export function drawRoadState(g: G, lm: Landmark, now: number): void {
+  const blocked = (lm.data.blockedUntil ?? -1) >= now;
+  if (!blocked) return;
+  for (const [tx, ty] of lm.tiles) {
+    g.fillStyle = 'rgba(92,64,38,0.82)';
+    g.fillRect(tx * TS, ty * TS + 4, TS, TS - 8);
+    g.fillStyle = 'rgba(60,40,22,0.6)';
+    g.beginPath();
+    g.arc(tx * TS + 10, ty * TS + 16, 6, 0, Math.PI * 2);
+    g.arc(tx * TS + 22, ty * TS + 12, 5, 0, Math.PI * 2);
+    g.fill();
+  }
+}
+
+export function drawPack(g: G, x: number, y: number, t: number, size: number, name: string, hungry: boolean): void {
+  for (let i = 0; i < size + 1; i++) {
+    const wx = x - 8 + i * 9;
+    const wy = y + Math.sin(t * 2 + i * 1.7) * 1.2;
+    shadow(g, wx, wy, 7, 2.4);
+    g.fillStyle = '#4d5560';
+    g.beginPath();
+    g.ellipse(wx, wy - 6, 7, 4, 0, 0, Math.PI * 2);
+    g.fill();
+    g.beginPath();
+    g.arc(wx + 7, wy - 9, 3.4, 0, Math.PI * 2);
+    g.fill();
+    g.beginPath();
+    g.moveTo(wx + 5, wy - 12);
+    g.lineTo(wx + 6, wy - 16);
+    g.lineTo(wx + 8.5, wy - 12);
+    g.fill();
+    g.fillRect(wx - 5, wy - 4, 2, 5);
+    g.fillRect(wx + 2, wy - 4, 2, 5);
+    g.strokeStyle = '#4d5560';
+    g.lineWidth = 2;
+    g.beginPath();
+    g.moveTo(wx - 7, wy - 7);
+    g.quadraticCurveTo(wx - 12, wy - 12, wx - 13, wy - 6);
+    g.stroke();
+    g.fillStyle = hungry ? '#ff5a4a' : '#f2d36b';
+    g.fillRect(wx + 8.4, wy - 10, 1.6, 1.6);
+  }
+  drawLabel(g, `${name} pack`, x, y - 22, '#ffb3a8');
 }
