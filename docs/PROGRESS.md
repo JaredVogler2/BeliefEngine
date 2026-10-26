@@ -7,11 +7,11 @@ implemented unless it was run.
 |---|---|---|
 | 00 | Master goal / contract | applied |
 | 01 | Design bible, rules, schema | working (docs/GAME_RULES.md, docs/CONTENT_SCHEMA.md) |
-| 02 | Architecture + bootstrap | in progress |
-| 03 | Social simulation | engine working, unit-tested partly |
-| 04 | Laws + world | engine working (flood, fire, bridge, rain/bells) |
-| 05 | Flood at Redbank vertical slice | engine: two bot strategies win, no-op loses; UI not yet built |
-| 06 | Interface + onboarding | not started |
+| 02 | Architecture + bootstrap | verified (npm ci, typecheck, lint, unit, build, E2E all run) |
+| 03 | Social simulation | verified by unit tests (hub vs hermit, cut graph, saturation, reverse signal, determinism) |
+| 04 | Laws + world | verified: causal toggle test (same beacons + flood, only belief differs), hysteresis, contradiction |
+| 05 | Flood at Redbank vertical slice | verified: both strategies replayed via real clicks to victory with identical state hashes; loss path; phone run |
+| 06 | Interface + onboarding | in progress (HUD, panels, tutorial, social lens, debrief exist; polish pending) |
 | 07 | Content + scenarios | not started |
 | 08 | Procedural runs | not started |
 | 09 | Progress + rewards | not started |
@@ -36,3 +36,14 @@ implemented unless it was run.
 * Evidence (command `npx tsx tmp/botrun.ts 30`, scratch script): no-op 0/30 wins, random 3/30, greedy fire-wall bot 26/30,
   greedy witness-bridge bot 28/30. Bots use exact previews, so these are upper bounds on human performance, and difficulty
   tuning is scheduled for phase 11.
+
+### Session 1, later
+* Built React UI + Canvas2D renderer (title with live backdrop, briefing, play HUD, claim hand, inspect/laws/village/forecast/log
+  panels, plan bar with undo and confirmed End Day, night digest, debrief with causal chains, settings, how-to).
+* `window.__belief` debug API (only with `?debug=1`).
+* **Bug found by E2E and fixed**: pressing Enter opened the End Day dialog and the same key press activated its primary button,
+  ending the day without confirmation. Fixed with `preventDefault` + deferred focus; covered by the keyboard test.
+* Evidence (all executed): `npx vitest run` 49 passed; `npx playwright test` 25 passed / 9 project-specific skips
+  (desktop 1366x768 and Pixel-7-like 390x844 touch, Chromium 1.63 build). axe-core WCAG 2.x A/AA scan has no critical or serious
+  violations on title, how-to, settings, scenarios, briefing, play, villager card, laws, forecast (desktop and phone).
+* Not yet verified: Firefox / WebKit (not installed in this environment), real devices, human fun.

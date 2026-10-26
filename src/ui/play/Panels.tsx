@@ -177,7 +177,7 @@ function VillagerCard({ id }: { id: string }) {
       <div className="kv"><span>Influence rank</span><span /><b>#{view.influenceRank} of {state.villagers.filter((x) => x.status !== 'dead').length}</b></div>
       <div className="kv"><span>Within 2 ties</span><span /><b>{view.reach2} people</b></div>
       {view.trusts.slice(0, 7).map((t) => (
-        <button key={t.id} className="tie" onClick={() => store.select({ kind: 'villager', id: t.id })} aria-label={`${t.name}: ${t.kind}, trust ${t.trust}. Select.`}>
+        <button key={t.id} className="tie" onClick={() => store.select({ kind: 'villager', id: t.id })}>
           <span>{t.name} <span className="muted">({t.kind})</span></span>
           <span className={t.trust >= 0 ? 'chip good' : 'chip bad'}>{t.trust >= 0 ? '+' : ''}{t.trust}</span>
         </button>
@@ -326,7 +326,6 @@ export function VillagePanel() {
               store.select({ kind: 'villager', id: v.id });
               getRenderer()?.focusVillager(v.id);
             }}
-            aria-label={`${v.name}, ${v.role}. ${v.status === 'dead' ? 'Lost.' : b ? `${b.label}.` : 'No opinion yet.'} ${v.dutyNote}`}
           >
             <Avatar look={v.look} faction={v.faction} label="" />
             <span style={{ minWidth: 0 }}>
@@ -347,7 +346,6 @@ export function VillagePanel() {
             store.select({ kind: 'landmark', id: l.id });
             getRenderer()?.focusTile(l.x, l.y, 1.3);
           }}
-          aria-label={`${l.name}, ${l.kind}. ${l.hp <= 0 ? 'Destroyed.' : l.lit ? 'Burning.' : ''}`}
         >
           <Icon name={l.kind === 'home' || l.kind === 'cabin' ? 'home' : l.kind === 'bridge' ? 'bridge' : l.kind === 'beacon' ? 'flame' : l.kind === 'belltower' ? 'bell' : l.kind === 'field' ? 'wheat' : 'compass'} />
           <span><b>{l.name}</b> <span className="muted small">{l.kind}</span></span>

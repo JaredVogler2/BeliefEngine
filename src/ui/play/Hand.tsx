@@ -24,7 +24,6 @@ export function Hand() {
             key={c.id}
             className={`claim ${locked ? 'locked' : ''} ${c.rival ? 'rival' : ''} ${tut?.hintClaims && isStarter ? 'hint' : ''}`}
             aria-pressed={pressed}
-            aria-label={`${c.text} ${locked ? `Unlocks on day ${c.unlockDay ?? '?'}.` : ''} Support ${Math.round(best.pressure * 100)} percent. ${best.status}.`}
             data-claim={c.id}
             disabled={locked}
             onClick={() => {

@@ -171,9 +171,9 @@ export class MapRenderer {
     const mh = this.state.world.h * TS;
     this.minZoom = this.computeMinZoom();
     const narrow = this.W < 640;
-    this.cam.zoom = narrow ? Math.max(this.minZoom, Math.min(1.0, this.W / (mw * 0.62))) : this.minZoom;
-    this.cam.cx = narrow ? mw * 0.62 : mw / 2;
-    this.cam.cy = narrow ? mh * 0.5 : mh / 2;
+    this.cam.zoom = narrow ? Math.max(this.minZoom, Math.min(1.1, Math.max(this.W / (mw * 0.5), this.H / mh))) : this.minZoom;
+    this.cam.cx = narrow ? 13.5 * TS : mw / 2;
+    this.cam.cy = narrow ? 8.5 * TS : mh / 2;
     this.clampCam();
     this.dirty = true;
   }

@@ -19,6 +19,7 @@
   --sans: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
   --safe-b: env(safe-area-inset-bottom, 0px);
   --safe-t: env(safe-area-inset-top, 0px);
+  --plan-h: 68px;
   font-size: 16px;
 }
 html[data-scale='compact'] { font-size: 14px; }
@@ -236,20 +237,26 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 /* ------------ small screens */
 @media (max-width: 900px) {
   .play { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; grid-template-areas: 'top' 'stage' 'plan'; }
-  .side { position: fixed; left: 0; right: 0; bottom: 0; z-index: 30; border-left: 0; border-top: 2px solid var(--gold); border-radius: 18px 18px 0 0; max-height: 62dvh; height: auto; box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.6); transform: translateY(calc(100% - 0px)); transition: transform 0.22s ease; padding-bottom: var(--safe-b); }
-  .side.open { transform: translateY(0); }
+  .side { position: fixed; left: 0; right: 0; bottom: calc(var(--plan-h) + var(--safe-b)); z-index: 30; border-left: 0; border-top: 2px solid var(--gold); border-radius: 18px 18px 0 0; max-height: min(58dvh, calc(100dvh - var(--plan-h) - 190px - var(--safe-b))); height: auto; box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.6); transform: translateY(110%); visibility: hidden; transition: transform 0.22s ease, visibility 0.22s; }
+  .side.open { transform: translateY(0); visibility: visible; }
   .side .grab { display: block; }
   .stats .stat .lbl { display: none; }
   .topbar { gap: 0.4rem; padding-left: 0.5rem; padding-right: 0.5rem; }
   .coach { bottom: 140px; }
 }
-.grab { display: none; width: 100%; height: 22px; background: #0f1a31; border: 0; border-radius: 18px 18px 0 0; position: relative; }
-.grab::after { content: ''; position: absolute; left: 50%; top: 8px; width: 46px; height: 5px; border-radius: 3px; background: var(--muted); transform: translateX(-50%); }
+.grab { display: none; flex: none; width: 100%; height: 28px; background: #0f1a31; border: 0; border-radius: 18px 18px 0 0; position: relative; }
+.grab::after { content: ''; position: absolute; left: 50%; top: 11px; width: 46px; height: 5px; border-radius: 3px; background: var(--muted); transform: translateX(-50%); }
 .sheet-toggle { display: none; }
 @media (max-width: 900px) {
   .sheet-toggle { display: inline-flex; }
 }
 @media (max-width: 560px) {
+  .topbar { flex-wrap: wrap; row-gap: 0.35rem; }
+  .topbar .threat { order: 10; flex-basis: 100%; flex: 1 1 100%; padding: 0.2rem 0.55rem; }
+  .topbar .stats { margin-left: auto; gap: 0.3rem; }
+  .hide-sm { display: none; }
+  .lbl, .lbl-n { display: none; }
+  .btn .lbl-n { display: none; }
   .topbar .threat .t-sub { display: none; }
   .end-btn { min-width: 112px; font-size: 0.95rem; padding-left: 0.7rem; padding-right: 0.7rem; }
   .plan { gap: 0.5rem; padding-left: 0.5rem; padding-right: 0.5rem; }
@@ -259,7 +266,10 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   .map-tools { top: 6px; right: 6px; }
   .map-tools .btn { width: 40px; height: 40px; min-height: 40px; }
   .digest { width: calc(100% - 20px); }
-  .coach { width: calc(100% - 20px); bottom: auto; top: 10px; }
+  .coach { width: calc(100% - 66px); bottom: auto; top: 8px; left: 8px; font-size: 0.82rem; padding: 0.45rem 0.6rem; }
+  .end-btn { min-width: 0; flex: 1; white-space: nowrap; font-size: 1rem; }
+  .plan .ap { gap: 0.3rem; }
+  .pip { width: 13px; height: 13px; }
 }
 @media (max-width: 360px) {
   .topbar .daybox { font-size: 0.95rem; }
@@ -276,3 +286,14 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 .title-bg::after { background: radial-gradient(ellipse at center, rgba(8, 12, 24, 0.62), rgba(8, 12, 24, 0.92)); }
 .claim:not([aria-pressed='true']) .c-line { display: none; }
 .claim { min-height: 0; flex-basis: 200px; }
+@media (max-width: 560px) {
+  .plan > .btn:not(.end-btn) { padding: 0; width: 44px; min-width: 44px; }
+}
+@media (max-width: 380px) {
+  .plan { gap: 0.3rem; padding-left: 0.4rem; padding-right: 0.4rem; }
+  .plan .ap > svg { display: none; }
+  .plan > .btn:not(.end-btn) { width: 40px; min-width: 40px; min-height: 40px; }
+  .end-btn { padding-left: 0.4rem; padding-right: 0.4rem; min-width: 84px; }
+  .topbar .stats .stat { padding: 0.15rem 0.35rem; }
+  .coach { font-size: 0.78rem; }
+}

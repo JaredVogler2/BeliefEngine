@@ -1,40 +1,74 @@
 # BELIEF ENGINE
 
-> **Make the village believe it—and reality obeys.**
->
-> A planned browser strategy game where influence networks, rivalry, evidence and public belief rewrite the laws of a living settlement. This repository currently contains a **detailed implementation prompt series** for Claude Code Opus 5.5 Max; it is **not yet an implemented/playable game**.
+> **Make the village believe it — and reality obeys.** A 2D browser strategy roguelite where shared belief rewrites the
+> physical laws of a small living region. You are the Keeper of Stories: you cannot move the river, but you can change what
+> people believe, and enough belief becomes law.
 
-## Start building
+This repository contains the **implemented game** (client-only TypeScript, free to run, no accounts or backend) plus the
+phase prompts it was built from (`prompts/`). Honest status lives in [`docs/PROGRESS.md`](docs/PROGRESS.md); known limits in
+[`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md).
 
-**Full executable prompt series:** [prompts/README.md](prompts/README.md)
+## Play it
 
-**Master agent brief:** [prompts/00_MASTER_GOAL.md](prompts/00_MASTER_GOAL.md)
+```bash
+npm ci
+npm run dev        # http://127.0.0.1:5173
+# or a production build:
+npm run build && npm run preview   # http://127.0.0.1:4173
+```
 
-Paste into Claude Code with this repository opened:
+Requires Node >= 22.12. Everything runs in the browser; saves and settings stay in `localStorage`. No network requests are made.
 
-\`\`\`text
-/goal Read prompts/README.md and prompts/00_MASTER_GOAL.md. Execute numbered phases 01–18 in order, implementing and testing the actual game. Commit after every verified phase. Prioritize playable Flood at Redbank vertical slice, then campaign, procedural expeditions, realistic balancing, polish, optional MCP gameplay and safe player-written belief composition. The final game must be browser-playable, replayable, responsive, and deterministically testable. No mock controls, invented tests or aspirational completion claims. Record evidence in docs/PROGRESS.md, and continue with the next phase without asking for routine design decisions.
-\`\`\`
+### 3-minute demo
+1. Press **Play → Begin → Begin the first day**.
+2. Tap the story card **River fears fire**, tap **Ivo Thatcher** on the map, press **Tell Ivo Thatcher** (1 Influence).
+3. Spend the rest, press **End Day**, read the night digest. Open the **Laws** tab to watch support climb.
+4. On a good-omen night (river *ebbing*, day 3 or 5), select a beacon in the **Village → Places** list and stage it as proof.
+5. Light beacons before the surge (day 5+). Watch the flood hatch redirect around the glowing law zones.
 
-If agent context/credit limits require shorter runs, execute the current phase file, update docs/PROGRESS.md with verification evidence and resume from the next incomplete phase on a new run.
+### Controls
+| Action | Mouse / touch | Keyboard |
+|---|---|---|
+| Select villager / landmark | click / tap | Village tab list (Tab, Enter) |
+| Pan / zoom | drag / wheel, pinch, +/- buttons | arrows or WASD / `+` `-`, `0` fits |
+| Choose story | click a card | `1`–`9` |
+| Undo last action | Undo button | `U` or Ctrl+Z |
+| Social lens | lens button | `L` |
+| End the day | End Day button (confirms) | `Enter` (confirms) |
+| Close / deselect | ✕ | `Esc` |
 
-## Vision
+## The game loop
+Claim → Spread → Belief → Law → Consequence. Stories travel along ties of trust between people who can walk to each other.
+Skeptics need to *see* something. When a place believes enough, the story becomes law (white line on the support bar), with
+side effects: fire spreads, watchers leave the fields, rain pools elsewhere. Rivals counter, and you can undo any planned action
+until you end the day. Rules: [`docs/GAME_RULES.md`](docs/GAME_RULES.md).
 
-Beliefs spread through a physically grounded social network. Strong enough local belief activates a bounded reality-law (e.g. a river avoids lit beacons). Those laws change flood paths, bridge behavior, food growth and villagers' incentives, often with dangerous side effects. The goal is not to maximize a global meter; it is to save a village by understanding and manipulating interconnected social and physical systems under a hard threat clock.
+### Scenarios
+* **Flood at Redbank** (7 days): two verified winning routes on seed 1 — the **Fire Wall** and the **Witness Bridge** — and a
+  no-action baseline that loses.
 
-- Browser single-player: React/Phaser + pure TypeScript deterministic simulation; local saves; no mandatory cloud API.
-- Agent play: optional Model Context Protocol adapters exposing legal game actions; a local MCP server is a required phase in the revised roadmap; secure remote sessions are optional infrastructure.
-- Player-composed beliefs: offline ontology-based interpretation supports bounded phrasings; opt-in LLM backend can interpret broader open-ended prose and propose balanced executable DSL, **not arbitrary generated scripts**.
-- Replayability: at least 3 different campaign scenarios, constrained validated procedural expeditions, daily seeded puzzle, competing viable strategies, meaningful consequences.
-- Verification: automated reproducible victories/losses, bot tournaments, real browser tests, and final cross-interface security and fun review.
+## Develop and test
+| Command | What it does |
+|---|---|
+| `npm run typecheck` | `tsc --noEmit` (strict) |
+| `npm run lint` | ESLint (the engine forbids `Math.random`/`Date.now`) |
+| `npm test` | Vitest unit + integration (determinism, replay, law causality, social mechanics, saves) |
+| `npm run test:e2e` | Playwright (builds and serves production): desktop + phone, real-click winning traces, persistence, a11y |
+| `npx tsx scripts/record-traces.ts` | re-record verified winning/losing traces into `tests/fixtures/` |
+| `npm run test:sim` | bot tournament harness (see docs/BALANCE_REPORT.md) |
 
-## Status
+Architecture (`src/`): `engine/` pure deterministic simulation (core, social, laws, world, content, ai, save), `render/` Canvas2D
+observer, `ui/` React, `audio/` procedural Web Audio. Decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md). Content schema:
+[`docs/CONTENT_SCHEMA.md`](docs/CONTENT_SCHEMA.md).
 
-- [x] Comprehensive phase-by-phase implementation prompts committed.
-- [ ] Actual browser game implemented.
-- [ ] Playable vertical slice validated.
-- [ ] MCP agent-game adapter implemented.
-- [ ] Player-authored natural-language beliefs implemented.
-- [ ] Production deployment tested.
+Developer flag: append `?debug=1` to expose `window.__belief` (state, hash) for tests. Debug runs are flagged and never feed
+records.
 
-**Do not interpret a prompt as shipped functionality.** The development agent must implement, test, commit and document each phase, then update this status honestly.
+## Deploying
+Static build in `dist/` (Vite). Vercel: framework preset *Vite*, build command `npm run build`, output `dist`. **Not deployed by
+this repository's automation; no live URL is claimed.**
+
+## Roadmap status
+- [x] Browser game: Flood at Redbank, undo, tutorial, debrief, saves, mobile layout
+- [ ] More scenarios, procedural expeditions, progression (see `docs/PROGRESS.md`)
+- [ ] MCP agent adapter, natural-language belief composer

@@ -107,8 +107,9 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     const el = ref.current;
-    const first = el?.querySelector<HTMLElement>('button, [href], input, select, [tabindex]:not([tabindex="-1"])');
-    first?.focus();
+    const first = el?.querySelector<HTMLElement>('[data-autofocus]') ?? el?.querySelector<HTMLElement>('button, [href], input, select, [tabindex]:not([tabindex="-1"])');
+    // focus on the next frame so the key press that opened the dialog cannot also activate its primary button
+    const raf = window.requestAnimationFrame(() => first?.focus());
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && onClose) {
         e.stopPropagation();
@@ -130,8 +131,10 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
     };
     document.addEventListener('keydown', onKey, true);
     return () => {
+      window.cancelAnimationFrame(raf);
       document.removeEventListener('keydown', onKey, true);
-      prev?.focus?.();
+      const a = document.activeElement;
+      if (!a || a === document.body || el?.contains(a)) prev?.focus?.();
     };
   }, [onClose]);
   return (

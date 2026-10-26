@@ -56,7 +56,13 @@ export async function selectPlace(page: Page, id: string) {
   await page.locator(`[data-place="${id}"]`).click();
 }
 
+export async function closeSheet(page: Page) {
+  const vp = page.viewportSize();
+  if (vp && vp.width <= 900 && (await page.locator('.side.open').count())) await page.getByTestId('sheet-toggle').click();
+}
+
 export async function chooseClaim(page: Page, claim: string) {
+  await closeSheet(page);
   const card = page.locator(`[data-claim="${claim}"]`);
   const pressed = await card.getAttribute('aria-pressed');
   if (pressed !== 'true') await card.click();
@@ -109,6 +115,7 @@ export async function performViaUi(page: Page, g: GameSession, action: Action) {
       await clickAct(page, /^Challenge/);
       return;
     case 'END_DAY':
+      await closeSheet(page);
       await page.getByTestId('end-day').click();
       await page.getByTestId('confirm-end').click();
       await expect(page.getByTestId('digest')).toBeVisible();

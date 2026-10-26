@@ -37,7 +37,7 @@ function TopBar() {
         <div className={`stat ${hud.food < 6 ? 'warn' : ''}`} title="Food in store"><Icon name="food" label="Food" /><span>{hud.food}</span></div>
         <div className="stat" title="Fuel in store"><Icon name="fuel" label="Fuel" /><span>{hud.fuel}</span></div>
       </div>
-      <button className="btn icon-btn" aria-label="How to play" onClick={() => store.set({ screen: 'howto' })}>
+      <button className="btn icon-btn hide-sm" aria-label="How to play" onClick={() => store.set({ screen: 'howto' })}>
         <Icon name="help" />
       </button>
       <button className="btn icon-btn" aria-label={ui.settings.sfx || ui.settings.music ? 'Mute all sound' : 'Unmute'} onClick={() => store.setSettings({ sfx: !(ui.settings.sfx || ui.settings.music), music: !(ui.settings.sfx || ui.settings.music) })}>
@@ -58,7 +58,7 @@ function PlanBar() {
         <Icon name="star" />
         <Pips ap={state.ap} max={state.apMax} />
         <b>{state.ap}</b>
-        <span className="muted small">+{state.apPerDay}/day</span>
+        <span className="muted small lbl">+{state.apPerDay}/day</span>
       </div>
       <div className="plan-list" aria-label="Actions planned today">
         {state.today.length === 0 && <span className="muted small">Nothing planned yet. Spent {spent}.</span>}
@@ -73,7 +73,7 @@ function PlanBar() {
         <Icon name="list" />
       </button>
       <button className="btn primary end-btn big" onClick={() => store.set({ confirmEnd: true })} data-testid="end-day">
-        End Day {state.day}
+        End Day <span className="lbl-n">{state.day}</span>
       </button>
     </footer>
   );
@@ -96,7 +96,7 @@ function ConfirmEnd() {
       </ul>
       <div className="row spread wrap" style={{ marginTop: '1rem' }}>
         <button className="btn" onClick={close} data-testid="keep-planning">Keep planning</button>
-        <button className="btn primary big" onClick={() => store.endDay()} data-testid="confirm-end">Let night fall</button>
+        <button className="btn primary big" onClick={() => store.endDay()} data-testid="confirm-end" data-autofocus>Let night fall</button>
       </div>
     </Modal>
   );
@@ -174,7 +174,8 @@ export function Play() {
         else if (store.ui.selection) store.select(null);
         return;
       }
-      if (e.key === 'Enter' && e.target === document.body && !store.ui.digest) {
+      if (e.key === 'Enter' && (e.target === document.body || (e.target as HTMLElement | null)?.tagName === 'CANVAS') && !store.ui.digest) {
+        e.preventDefault();
         store.set({ confirmEnd: true });
         return;
       }
@@ -243,7 +244,7 @@ export function Play() {
             </button>
           ))}
         </div>
-        <div className="panel" role="tabpanel">
+        <div className="panel" role="tabpanel" tabIndex={0} aria-label={`${tabLabel(ui.tab)} panel`}>
           {ui.tab === 'selected' && <SelectedPanel />}
           {ui.tab === 'laws' && <LawsPanel />}
           {ui.tab === 'village' && <VillagePanel />}
