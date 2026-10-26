@@ -1,3 +1,5 @@
+> **3D MOBILE OVERRIDE:** Apply this phase's accessibility and input objectives to the actual Three.js / React Three Fiber world, with adaptive WebGL2 quality levels, dimensional fallback models, raycast selection and smooth orbit/pan/zoom; see [3d-rebuild/08_ASSET_PIPELINE_AND_OPTIMIZATION.md](3d-rebuild/08_ASSET_PIPELINE_AND_OPTIMIZATION.md). Do not fall back to the old flat map by default.
+
 # Phase 13 — Make the game work on phones, keyboards and modest hardware
 
 The browser game must be truly usable with one hand on a phone, not merely render a desktop layout shrunk to 390 pixels. Treat accessibility and resilience as product quality.
