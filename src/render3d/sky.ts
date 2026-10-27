@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { DISPLAY_GLSL, displayUniforms } from './post.ts';
 
 /**
  * The backdrop: a soft gradient from a cool sky at the top of the frame to warm mist at the bottom, with a gentle vignette, drawn in
@@ -9,7 +10,7 @@ export function makeSky(): THREE.Mesh {
     depthWrite: false,
     depthTest: false,
     fog: false,
-    uniforms: { uTop: { value: new THREE.Color(0xa9cbe6) }, uHorizon: { value: new THREE.Color(0xf1ead0) }, uBottom: { value: new THREE.Color(0xc9d6bc) }, uTime: { value: 0 }, uCloud: { value: 0.3 }, uCloudCol: { value: new THREE.Color(0xffffff) } },
+    uniforms: { uTop: { value: new THREE.Color(0xa9cbe6) }, uHorizon: { value: new THREE.Color(0xf1ead0) }, uBottom: { value: new THREE.Color(0xc9d6bc) }, uTime: { value: 0 }, uCloud: { value: 0.3 }, uCloudCol: { value: new THREE.Color(0xffffff) }, ...displayUniforms },
     vertexShader: /* glsl */ `
       varying vec2 vUv;
       void main() {
@@ -25,6 +26,7 @@ export function makeSky(): THREE.Mesh {
       uniform float uTime;
       uniform float uCloud;
       uniform vec3 uCloudCol;
+      ${DISPLAY_GLSL}
       float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
       float vn(vec2 p) {
         vec2 i = floor(p);
@@ -56,7 +58,8 @@ export function makeSky(): THREE.Mesh {
         c = mix(c, uCloudCol * shade, clamp(cover * (0.55 + 0.45 * uCloud), 0.0, 0.95));
         vec2 d = vUv - 0.5;
         float vig = 1.0 - dot(d, d) * 0.55;
-        gl_FragColor = vec4(c * vig, 1.0);
+        // alpha -0.5: the sky is background for the finishing chain (no ink, no glow); the screen never shows this alpha
+        gl_FragColor = vec4(postDisplay(c * vig), -0.5);
         #include <colorspace_fragment>
       }
     `,

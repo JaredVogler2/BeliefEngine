@@ -57,7 +57,9 @@ const page = await ctx.newPage();
 const errors: string[] = [];
 page.on('pageerror', (e) => errors.push(e.message));
 page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-await page.goto(`${base}/?debug=1&renderer=${renderer}&quality=${quality}`);
+// --params post=0&scale=0.8: extra URL switches, passed through as they are (before/after comparisons)
+const extra = arg('params', '');
+await page.goto(`${base}/?debug=1&renderer=${renderer}&quality=${quality}${extra ? `&${extra}` : ''}`);
 await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
 await page.evaluate((j) => (window as unknown as { __belief: { load: (j: string) => boolean } }).__belief.load(j), json);
 await page.waitForSelector('.stage[data-ready="1"], [data-testid="debrief-scene"][data-ready="1"], [data-testid="debrief-scene"][data-renderer="2d"]', { timeout: 60000 }).catch(async () => { await page.waitForSelector('[data-testid="debrief"]', { timeout: 60000 }); });

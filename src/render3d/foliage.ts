@@ -6,6 +6,7 @@ import { fbm, makeNoise, type Rng } from './rand.ts';
 import type { SceneChanges, SceneSnapshot } from './snapshot.ts';
 import { TERRAIN } from './terrain.ts';
 import { makeTree, type TreeKind } from './trees.ts';
+import { markGround } from './post.ts';
 
 /**
  * The living ground: forests and orchards, shrubs, tufts of grass, wildflowers, rocks, reeds along the water, fenced fields with
@@ -31,6 +32,8 @@ function sway(mat: THREE.MeshStandardMaterial, amp: number, heightBase = 0): voi
        transformed.z += cos(uWind * 1.1 + ph * 1.3) * ${amp.toFixed(4)} * 0.7 * bend * bend * 4.0;`,
     );
   };
+  // the function's text is the same for every amplitude, so name the program by its numbers or three.js would share one between them
+  mat.customProgramCacheKey = () => `sway:${amp}:${heightBase}`;
 }
 
 interface Inst {
@@ -369,7 +372,7 @@ export class FoliageLayer implements Layer {
     }
     if (tufts.length) {
       const geo = tuftGeometry();
-      const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide });
+      const mat = markGround(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }));
       sway(mat, 0.03, 0.0);
       this.geos.push(geo);
       this.mats.push(mat);
@@ -377,7 +380,7 @@ export class FoliageLayer implements Layer {
     }
     if (flowers.length) {
       const geo = new THREE.SphereGeometry(0.013, 5, 4);
-      const mat = new THREE.MeshStandardMaterial({ roughness: 0.7 });
+      const mat = markGround(new THREE.MeshStandardMaterial({ roughness: 0.7 }));
       this.geos.push(geo);
       this.mats.push(mat);
       this.addMesh(instanced(geo, mat, flowers, false, false));
@@ -412,7 +415,8 @@ export class FoliageLayer implements Layer {
     }
     if (rocks.length) {
       const geo = rockGeometry(r);
-      const mat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 });
+      // small stones lie flat on the ground: no ink round each one
+      const mat = markGround(new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1 }));
       mat.color.set(0xa8a294);
       this.geos.push(geo);
       this.mats.push(mat);
@@ -421,7 +425,7 @@ export class FoliageLayer implements Layer {
     if (reeds.length) {
       const geo = new THREE.ConeGeometry(0.012, 0.34, 4, 1);
       geo.translate(0, 0.17, 0);
-      const mat = new THREE.MeshStandardMaterial({ color: 0x7d9a4a, roughness: 1, side: THREE.DoubleSide });
+      const mat = markGround(new THREE.MeshStandardMaterial({ color: 0x7d9a4a, roughness: 1, side: THREE.DoubleSide }));
       sway(mat, 0.05, 0);
       this.geos.push(geo);
       this.mats.push(mat);
@@ -497,7 +501,7 @@ export class FoliageLayer implements Layer {
     }
     if (cropItems.length) {
       const geo = plantGeometry();
-      const mat = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide });
+      const mat = markGround(new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 0.9, side: THREE.DoubleSide }));
       sway(mat, 0.02, 0);
       const mesh = new THREE.InstancedMesh(geo, mat, cropItems.length);
       mesh.castShadow = false;

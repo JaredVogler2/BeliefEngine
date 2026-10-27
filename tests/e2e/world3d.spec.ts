@@ -82,6 +82,42 @@ test.describe('the 3D world', () => {
     expect(errors.filter((e) => !/GL Driver Message|GPU stall/i.test(e))).toEqual([]);
   });
 
+  test('the finishing chain is on: the world is inked and lit by its sky, and a switch turns the ink off', async ({ page }) => {
+    const errors = watchConsole(page);
+    await startRedbank(page, 1, 'normal', URL3D);
+    await ready(page);
+    const info = (await renderer(page, (r) => r.info())) as unknown as { post: { ao: number; bloom: boolean; fxaa: boolean } | null; env: boolean };
+    // Chromium's WebGL2 can draw into a half-float buffer, so the chain is on (and the sky's light is in the environment map)
+    expect(info.post).not.toBeNull();
+    expect(info.env).toBe(true);
+    // the same frame with and without ink, read back in the task that drew it: the outlines must change a real share of the pixels
+    const changed = await page.evaluate(`(() => {
+      const r = window.__beRenderer;
+      const canvas = document.querySelector('.stage canvas');
+      const grab = () => {
+        r.renderNow();
+        const c = document.createElement('canvas');
+        c.width = canvas.width;
+        c.height = canvas.height;
+        const g = c.getContext('2d');
+        g.drawImage(canvas, 0, 0);
+        return g.getImageData(0, 0, c.width, c.height).data;
+      };
+      const inked = grab();
+      r.setPost({ ink: 0 });
+      const plain = grab();
+      r.setPost(null);
+      let n = 0;
+      for (let i = 0; i < inked.length; i += 4) {
+        if (Math.abs(inked[i] - plain[i]) + Math.abs(inked[i + 1] - plain[i + 1]) + Math.abs(inked[i + 2] - plain[i + 2]) > 40) n++;
+      }
+      return n / (inked.length / 4);
+    })()`);
+    expect(changed as number).toBeGreaterThan(0.005);
+    expect(changed as number).toBeLessThan(0.4);
+    expect(errors.filter((e) => !/GL Driver Message|GPU stall/i.test(e))).toEqual([]);
+  });
+
   test('a tap picks a villager through the 3D raycast, and the card beside them offers real actions', async ({ page }) => {
     await startRedbank(page, 1, 'normal', URL3D);
     await ready(page);

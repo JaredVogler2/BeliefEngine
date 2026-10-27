@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { SceneSnapshot } from './snapshot.ts';
+import { DISPLAY_GLSL, displayUniforms } from './post.ts';
 
 /**
  * Weather and the light of the day, as a mood the scene eases into. The mood is chosen from what the engine says: the chapter's
@@ -133,7 +134,7 @@ export class Rain {
     this.mat = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
-      uniforms: { uTime: { value: 0 }, uAmount: { value: 0 }, uWind: { value: 0.6 } },
+      uniforms: { uTime: { value: 0 }, uAmount: { value: 0 }, uWind: { value: 0.6 }, ...displayUniforms },
       vertexShader: /* glsl */ `
         attribute float aEnd;
         uniform float uTime;
@@ -152,10 +153,13 @@ export class Rain {
         }
       `,
       fragmentShader: /* glsl */ `
+        ${DISPLAY_GLSL}
         varying float vA;
         uniform float uAmount;
         void main() {
-          gl_FragColor = vec4(0.78, 0.86, 0.95, vA * 0.42 * uAmount);
+          // (a screen colour: drawn straight it is written as it is; through the finishing chain it is decoded and pre-compensated)
+          vec3 c = vec3(0.78, 0.86, 0.95);
+          gl_FragColor = vec4(uDisplayComp > 0.5 ? postDisplay(pow(c, vec3(2.2))) : c, vA * 0.42 * uAmount);
         }
       `,
     });

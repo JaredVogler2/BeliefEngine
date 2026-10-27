@@ -7,6 +7,7 @@ import type { SceneChanges, SceneSnapshot } from './snapshot.ts';
 import { getSceneSnapshot } from './snapshot.ts';
 import { makeGlyphs, type Glyphs } from './glyphs.ts';
 import { engineToWorld } from './coords.ts';
+import { DISPLAY_GLSL, displayUniforms } from './post.ts';
 
 /**
  * The belief magic of the village: effects played from what the engine logged and from the laws it reports. The planning is in
@@ -38,6 +39,7 @@ const RIBBON_VERT = /* glsl */ `
   }
 `;
 const RIBBON_FRAG = /* glsl */ `
+  ${DISPLAY_GLSL}
   varying float vU;
   uniform float uHead;
   uniform float uFade;
@@ -53,7 +55,7 @@ const RIBBON_FRAG = /* glsl */ `
     float dash = mix(1.0, step(0.5, fract(vU * 14.0)), uDash);
     float a = tail * uFade * dash;
     if (a < 0.01) discard;
-    gl_FragColor = vec4(uColor * (0.8 + 0.8 * tail), a);
+    gl_FragColor = vec4(postDisplay(uColor * (0.8 + 0.8 * tail)), a);
     #include <colorspace_fragment>
   }
 `;
@@ -177,7 +179,7 @@ export class EffectsLayer implements Layer {
       depthWrite: false,
       blending: THREE.AdditiveBlending,
       side: THREE.DoubleSide,
-      uniforms: { uTime: { value: 0 }, uHead: { value: 0 }, uFade: { value: 0 }, uColor: { value: new THREE.Color(1, 1, 1) }, uRough: { value: 0 }, uDash: { value: 0 }, uSolid: { value: 0 } },
+      uniforms: { uTime: { value: 0 }, uHead: { value: 0 }, uFade: { value: 0 }, uColor: { value: new THREE.Color(1, 1, 1) }, uRough: { value: 0 }, uDash: { value: 0 }, uSolid: { value: 0 }, ...displayUniforms },
     });
     const mesh = new THREE.Mesh(geo, mat);
     mesh.frustumCulled = false;

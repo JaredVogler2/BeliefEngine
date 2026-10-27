@@ -15,6 +15,8 @@ import { MaterialLib } from './materials.ts';
 import { createLayers } from './layers.ts';
 import { EffectsLayer } from './effects.ts';
 import { MagicField, attachMagicToStandard } from './magic.ts';
+import { PostChain, displayUniforms, preCompensate, type PostLook, type PostProfile } from './post.ts';
+import { makeEnvironment } from './env.ts';
 
 const DEFAULT_OPTS: RenderOpts = {
   reducedMotion: false, lens: 'none', showFlood: true, activeClaim: null, selection: null, hints: [], forecast: null, highContrast: false, quality: 'high', known: new Set(),
@@ -45,6 +47,14 @@ export class World3D implements WorldRenderer {
   private fill = new THREE.DirectionalLight(0xa9c4e8, 1.0);
   private sky: THREE.Mesh;
   private fog = new THREE.FogExp2(0xd9e4d6, 0.0105);
+  /** where the sun stands, as a direction from the village (the light, the shadows and the sky's glow all use it) */
+  private sunDir = new THREE.Vector3(-0.6, 0.58, 0.52).normalize();
+  /** the finishing chain (ink, hollows, glow, tone mapping, smoothing); null where the browser cannot draw into a high-range buffer */
+  private post: PostChain | null = null;
+  /** a debug switch: draw straight to the screen even though the chain exists (before/after comparisons) */
+  private postOff = false;
+  /** the sky's light as an environment map (ambient light and soft reflections) */
+  private envRT: THREE.WebGLRenderTarget | null = null;
   private W = 300;
   private H = 200;
   private dpr = 1;
@@ -102,8 +112,11 @@ export class World3D implements WorldRenderer {
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.02;
     this.renderer.shadowMap.enabled = this.profile.shadow > 0;
-    this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    // (three.js folded its soft variant into PCF: the softness is the shadow radius, set per tier)
+    this.renderer.shadowMap.type = THREE.PCFShadowMap;
     this.renderer.setClearColor(0xcfdccf, 1);
+    // a frame is several drawing passes: count them all, reset once per frame in draw()
+    this.renderer.info.autoReset = false;
     try {
       this.pinned = !!new URLSearchParams(window.location.search).get('quality');
     } catch {
@@ -131,6 +144,14 @@ export class World3D implements WorldRenderer {
     } catch {
       /* no URL in some test environments */
     }
+    let postWanted = true;
+    try {
+      postWanted = new URLSearchParams(window.location.search).get('post') !== '0';
+    } catch {
+      /* no URL in some test environments */
+    }
+    if (postWanted && PostChain.supported(this.renderer)) this.post = new PostChain(this.renderer, this.quality);
+    this.makeEnv();
     this.cam = new TabletopCamera(1.6);
     this.scene.fog = this.fog;
     this.sky = makeSky();
@@ -140,7 +161,7 @@ export class World3D implements WorldRenderer {
     this.sun.shadow.mapSize.set(this.profile.shadow || 1, this.profile.shadow || 1);
     this.sun.shadow.bias = -0.00045;
     this.sun.shadow.normalBias = 0.035;
-    this.sun.shadow.radius = 2.2;
+    this.sun.shadow.radius = this.quality === 'high' ? 3 : 2;
     this.scene.add(this.sun);
     this.scene.add(this.sun.target);
     this.fill.position.set(8, 6, -10);
@@ -157,6 +178,7 @@ export class World3D implements WorldRenderer {
   private onRestored = (): void => {
     this.contextLost = false;
     this.lastError = null;
+    this.makeEnv();
     if (this.snap) {
       const s = this.snap;
       this.snap = null;
@@ -194,6 +216,10 @@ export class World3D implements WorldRenderer {
     this.disposeWorld();
     this.sky.geometry.dispose();
     (this.sky.material as THREE.Material).dispose();
+    this.post?.dispose();
+    this.post = null;
+    this.envRT?.dispose();
+    this.envRT = null;
     this.renderer.dispose();
     this.renderer.forceContextLoss();
   }
@@ -204,8 +230,32 @@ export class World3D implements WorldRenderer {
     this.dpr = Math.min(dpr, this.profile.dpr);
     this.renderer.setPixelRatio(this.dpr * this.scale);
     this.renderer.setSize(this.W, this.H, false);
+    this.syncPostSize();
     this.cam.resize(this.W, this.H);
     this.draw();
+  }
+
+  private postActive(): boolean {
+    return !!this.post && !this.postOff;
+  }
+
+  /** the chain's buffers follow the drawing buffer (canvas size times pixel ratio times render scale) */
+  private syncPostSize(): void {
+    if (!this.post) return;
+    const v = this.renderer.getDrawingBufferSize(new THREE.Vector2());
+    this.post.setSize(v.x, v.y);
+  }
+
+  /** the sky's light, once per renderer (and again after a lost context, which takes the map with it) */
+  private makeEnv(): void {
+    this.envRT?.dispose();
+    this.envRT = null;
+    try {
+      this.envRT = makeEnvironment(this.renderer, this.sunDir);
+      this.scene.environment = this.envRT.texture;
+    } catch {
+      this.scene.environment = null;
+    }
   }
 
   setOptions(o: Partial<RenderOpts>): void {
@@ -235,11 +285,14 @@ export class World3D implements WorldRenderer {
     this.renderer.shadowMap.enabled = this.profile.shadow > 0;
     this.sun.castShadow = this.profile.shadow > 0;
     this.sun.shadow.mapSize.set(this.profile.shadow || 1, this.profile.shadow || 1);
+    this.sun.shadow.radius = q === 'high' ? 3 : 2;
     this.sun.shadow.map?.dispose();
     this.sun.shadow.map = null;
     this.dpr = Math.min(window.devicePixelRatio || 1, this.profile.dpr);
     this.renderer.setPixelRatio(this.dpr * this.scale);
     this.renderer.setSize(this.W, this.H, false);
+    this.post?.setQuality(q);
+    this.syncPostSize();
     if (this.snap) {
       const s = this.snap;
       this.snap = null;
@@ -363,10 +416,20 @@ export class World3D implements WorldRenderer {
     this.sun.intensity = m.sunIntensity;
     this.hemi.color.setHex(m.hemiSky);
     this.hemi.groundColor.setHex(m.hemiGround);
-    this.hemi.intensity = m.hemiIntensity;
+    // with the sky's light in the environment map the hemisphere light only carries the weather's tint; the map is scaled by how
+    // bright the weather's sky is against a calm day's
+    const skyLum = (hex: number): number => {
+      const c = new THREE.Color(hex);
+      return 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
+    };
+    this.hemi.intensity = m.hemiIntensity * (this.envRT ? 0.45 : 1);
+    this.scene.environmentIntensity = 0.42 * (m.hemiIntensity / 1.12) * (skyLum(m.hemiSky) / skyLum(0xc4dcf4));
     this.fill.intensity = m.fillIntensity;
-    this.fog.color.setHex(m.fog);
     this.renderer.toneMappingExposure = m.exposure;
+    // three.js mixes fog in after a material's own tone mapping and colour encoding, so drawn straight the haze shows the colour's
+    // linear values as screen values. Through the chain (one tone curve at the end) the colour is converted so it looks the same
+    this.fog.color.setHex(m.fog);
+    if (this.postActive()) preCompensate(this.fog.color.convertSRGBToLinear(), m.exposure);
     const u = (this.sky.material as THREE.ShaderMaterial).uniforms;
     (u.uTop.value as THREE.Color).setHex(m.skyTop);
     (u.uHorizon.value as THREE.Color).setHex(m.skyHorizon);
@@ -389,7 +452,7 @@ export class World3D implements WorldRenderer {
   private configureLight(snap: SceneSnapshot): void {
     const cx = snap.w / 2;
     const cz = snap.h / 2;
-    const dir = new THREE.Vector3(-0.6, 0.58, 0.52).normalize();
+    const dir = this.sunDir;
     this.sun.position.set(cx + dir.x * 60, dir.y * 60, cz + dir.z * 60);
     this.sun.target.position.set(cx, 0, cz);
     this.sun.target.updateMatrixWorld();
@@ -481,6 +544,7 @@ export class World3D implements WorldRenderer {
     this.scale = k;
     this.renderer.setPixelRatio(this.dpr * this.scale);
     this.renderer.setSize(this.W, this.H, false);
+    this.syncPostSize();
   }
 
   private draw(): void {
@@ -489,7 +553,17 @@ export class World3D implements WorldRenderer {
     this.fog.density = this.atmo.current.fogDensity * Math.min(1, Math.max(0.3, 40 / this.cam.distance));
     try {
       const t0 = performance.now();
-      this.renderer.render(this.scene, this.cam.camera);
+      this.renderer.info.reset();
+      displayUniforms.uDisplayComp.value = this.postActive() ? 1 : 0;
+      displayUniforms.uPostExposure.value = this.renderer.toneMappingExposure;
+      if (this.post && !this.postOff) {
+        // the ink is for the village and what is near it; it fades out over the far clouds and islands
+        const d = this.cam.distance;
+        this.post.render(this.scene, this.cam.camera, { inkFadeStart: d * 1.3 + 6, inkFadeEnd: d * 2.6 + 14, dprScale: this.renderer.getPixelRatio() });
+      } else {
+        this.renderer.setRenderTarget(null);
+        this.renderer.render(this.scene, this.cam.camera);
+      }
       const ms = performance.now() - t0;
       this.drawMs = this.drawMs === 0 ? ms : this.drawMs * 0.8 + ms * 0.2;
       this.frameCount++;
@@ -660,10 +734,33 @@ export class World3D implements WorldRenderer {
     return { fps: this.fps, effects, zoom: this.cam.zoomLevel };
   }
 
-  /** draw-call and memory figures for the developer quality monitor and the performance record */
-  info(): { calls: number; triangles: number; geometries: number; textures: number; fps: number; tier: Quality; frames: number; scale: number; drawMs: number; software: boolean; buildMs: number } {
+  /** draw-call and memory figures for the developer quality monitor and the performance record (calls and triangles: every pass of the last frame) */
+  info(): { calls: number; triangles: number; geometries: number; textures: number; fps: number; tier: Quality; frames: number; scale: number; drawMs: number; software: boolean; buildMs: number; post: PostProfile | null; env: boolean } {
     const i = this.renderer.info;
-    return { calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, fps: this.fps, tier: this.quality, frames: this.frameCount, scale: this.scale, drawMs: Math.round(this.drawMs * 10) / 10, software: this.software, buildMs: Math.round(this.buildMs) };
+    return {
+      calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, fps: this.fps, tier: this.quality, frames: this.frameCount, scale: this.scale,
+      drawMs: Math.round(this.drawMs * 10) / 10, software: this.software, buildMs: Math.round(this.buildMs), post: this.post && !this.postOff ? { ...this.post.settings } : null, env: !!this.envRT,
+    };
+  }
+
+  /**
+   * Debug and screenshot hook: switch parts of the finishing chain. `enabled: false` draws straight to the screen (the look before the
+   * chain); the other fields override the tier's own settings until the next quality change. `null` restores everything.
+   */
+  setPost(o: (Partial<PostProfile> & Partial<PostLook> & { enabled?: boolean }) | null): void {
+    if (!this.post) return;
+    if (o === null) {
+      this.postOff = false;
+      this.post.setQuality(this.quality);
+      this.syncPostSize();
+    } else {
+      if (o.enabled !== undefined) this.postOff = !o.enabled;
+      const p = this.post.settings;
+      if (o.ao !== undefined || o.bloom !== undefined || o.fxaa !== undefined) this.post.setProfile({ ao: o.ao ?? p.ao, bloom: o.bloom ?? p.bloom, fxaa: o.fxaa ?? p.fxaa });
+      for (const k of ['ink', 'inkColor', 'aoStrength', 'bloomStrength'] as const) if (o[k] !== undefined) this.post.look[k] = o[k] as number;
+    }
+    this.applyMood();
+    this.draw();
   }
 
   /** triangles and draw calls per part of the scene, counted from the geometry (for the performance record and the quality monitor) */
@@ -738,6 +835,31 @@ export class World3D implements WorldRenderer {
     if (this.water) count('water', this.water.mesh);
     for (const l of this.layers) count(l.group.name || 'layer', l.group);
     return rows;
+  }
+
+  /**
+   * Performance record: draw `frames` frames back to back (each one a sixtieth of a second of animation), waiting for each to finish
+   * on the graphics side (a one-pixel read), and return the frame times. Unlike the live loop this is not paced, so it measures what a
+   * frame costs here. The page is given a breath every few frames.
+   */
+  async benchmark(frames = 60): Promise<{ frames: number; medianMs: number; p99Ms: number; medianFps: number; low1Fps: number; calls: number; triangles: number }> {
+    const gl = this.renderer.getContext();
+    const px = new Uint8Array(4);
+    const times: number[] = [];
+    for (let i = 0; i < frames; i++) {
+      const t0 = performance.now();
+      this.simulate(1 / 60);
+      this.draw();
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, px);
+      times.push(performance.now() - t0);
+      if (i % 8 === 7) await new Promise((r) => setTimeout(r, 0));
+    }
+    const s = [...times].sort((a, b) => a - b);
+    const med = s[Math.floor(s.length / 2)];
+    const p99 = s[Math.min(s.length - 1, Math.floor(s.length * 0.99))];
+    const i = this.renderer.info.render;
+    const r1 = (v: number): number => Math.round(v * 10) / 10;
+    return { frames, medianMs: r1(med), p99Ms: r1(p99), medianFps: r1(1000 / med), low1Fps: r1(1000 / p99), calls: i.calls, triangles: i.triangles };
   }
 
   /** render one frame now, regardless of the loop, and wait for the GPU: used by screenshot capture */

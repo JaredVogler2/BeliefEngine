@@ -4,6 +4,7 @@ import type { Quality } from './context.ts';
 import { makeNoise, rng, range } from './rand.ts';
 import { makeTree, type TreeKind } from './trees.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
+import { DISPLAY_GLSL, displayUniforms } from './post.ts';
 
 /**
  * A sea of cloud far below the village, so the diorama sits in a place instead of a void: two slow layers of soft cloud that take the
@@ -29,6 +30,7 @@ const frag = (octaves: number): string => /* glsl */ `
   uniform float uLayer;
   uniform vec4 uPlate; // centre x, centre z, half width, half depth
   uniform vec2 uSun;   // where the plate's shadow falls, as an offset
+  ${DISPLAY_GLSL}
   float h21(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
   float vn(vec2 p) {
     vec2 i = floor(p);
@@ -64,7 +66,7 @@ const frag = (octaves: number): string => /* glsl */ `
     float a = body * fade * mix(0.9, 0.7, uLayer);
     c = mix(c, uHaze, smoothstep(40.0, 200.0, dist) * 0.6);
     if (a < 0.01) discard;
-    gl_FragColor = vec4(c, a);
+    gl_FragColor = vec4(postDisplay(c), a);
     #include <colorspace_fragment>
   }
 `;
@@ -149,6 +151,7 @@ export class CloudSea {
           uLayer: { value: i },
           uPlate: { value: new THREE.Vector4(w / 2, h / 2, w / 2, h / 2) },
           uSun: { value: new THREE.Vector2(6, -4) },
+          ...displayUniforms,
         },
       });
       const mesh = new THREE.Mesh(this.geo, m);

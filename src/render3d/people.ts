@@ -3,6 +3,7 @@ import { bridgeSpecOf, deckHeight, type BridgeSpec } from './civic.ts';
 import type { Layer, WorldContext } from './context.ts';
 import { engineToWorld } from './coords.ts';
 import { viewScale } from './particles.ts';
+import { DISPLAY_GLSL, displayUniforms } from './post.ts';
 import { seedFrom } from './rand.ts';
 import type { SceneChanges, SceneSnapshot, SceneVillager } from './snapshot.ts';
 
@@ -278,13 +279,15 @@ const ROUTE_VERT = /* glsl */ `
   }
 `;
 const ROUTE_FRAG = /* glsl */ `
+  ${DISPLAY_GLSL}
   varying float vPulse;
   void main() {
     vec2 p = gl_PointCoord - 0.5;
     float r = length(p) * 2.0;
     if (r > 1.0) discard;
     float a = (0.35 + 0.65 * vPulse) * (1.0 - smoothstep(0.55, 1.0, r));
-    gl_FragColor = vec4(1.0, 0.82, 0.42, a);
+    // (held just under white so the route gives off only a faint glow)
+    gl_FragColor = vec4(postDisplay(vec3(0.9, 0.76, 0.4)), a);
     #include <colorspace_fragment>
   }
 `;
@@ -304,6 +307,7 @@ const MARK_VERT = /* glsl */ `
   }
 `;
 const MARK_FRAG = /* glsl */ `
+  ${DISPLAY_GLSL}
   varying vec3 vColor;
   varying float vFade;
   void main() {
@@ -314,7 +318,8 @@ const MARK_FRAG = /* glsl */ `
     vec3 c = mix(vColor, vec3(1.0), smoothstep(0.3, 0.42, r));
     float a = vFade * 0.9;
     if (a < 0.02) discard;
-    gl_FragColor = vec4(c, a);
+    // (held under white: a mark is a label, it must not glow)
+    gl_FragColor = vec4(postDisplay(min(c, vec3(0.8))), a);
     #include <colorspace_fragment>
   }
 `;
@@ -366,7 +371,7 @@ export class PeopleLayer implements Layer {
     mg.setAttribute('position', new THREE.BufferAttribute(this.markPos, 3).setUsage(THREE.DynamicDrawUsage));
     mg.setAttribute('aColor', new THREE.BufferAttribute(this.markCol, 3).setUsage(THREE.DynamicDrawUsage));
     mg.setAttribute('aSize', new THREE.BufferAttribute(this.markSize, 1).setUsage(THREE.DynamicDrawUsage));
-    this.marks = new THREE.Points(mg, new THREE.ShaderMaterial({ vertexShader: MARK_VERT, fragmentShader: MARK_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale } }));
+    this.marks = new THREE.Points(mg, new THREE.ShaderMaterial({ vertexShader: MARK_VERT, fragmentShader: MARK_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale, ...displayUniforms } }));
     this.marks.frustumCulled = false;
     this.marks.renderOrder = 9;
     this.marks.name = 'people-marks';
@@ -375,7 +380,7 @@ export class PeopleLayer implements Layer {
     rg.setAttribute('position', new THREE.BufferAttribute(this.routePos, 3).setUsage(THREE.DynamicDrawUsage));
     rg.setAttribute('aIdx', new THREE.BufferAttribute(this.routeIdx, 1));
     rg.setDrawRange(0, 0);
-    this.routeDots = new THREE.Points(rg, new THREE.ShaderMaterial({ vertexShader: ROUTE_VERT, fragmentShader: ROUTE_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale, uTime: { value: 0 } } }));
+    this.routeDots = new THREE.Points(rg, new THREE.ShaderMaterial({ vertexShader: ROUTE_VERT, fragmentShader: ROUTE_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale, uTime: { value: 0 }, ...displayUniforms } }));
     this.routeDots.frustumCulled = false;
     this.routeDots.renderOrder = 9;
     this.routeDots.name = 'evacuation-route';

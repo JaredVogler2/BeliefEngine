@@ -3,6 +3,7 @@ import { CHANNEL_DEPTH, HEIGHT_UNIT } from './coords.ts';
 import { fbm, makeNoise } from './rand.ts';
 import { buildGroundTexture } from './groundTexture.ts';
 import type { SceneSnapshot } from './snapshot.ts';
+import { markGround } from './post.ts';
 
 /** engine terrain ids (src/engine/world/grid.ts), repeated here so the renderer needs nothing but the snapshot */
 export const TERRAIN = { GRASS: 0, RIVER: 1, FIELD: 2, HILL: 3, FOREST: 4, ROAD: 5, ROCK: 6, MARSH: 7, SAND: 8 } as const;
@@ -242,7 +243,7 @@ export function buildTerrainMesh(snap: SceneSnapshot, data: TerrainData, seedNum
   geo.setIndex(index);
   geo.computeVertexNormals();
   const ground = buildGroundTexture(snap, data, seedNum, maxAniso);
-  const mat = new THREE.MeshStandardMaterial({ map: ground.texture, roughness: 0.96, metalness: 0 });
+  const mat = markGround(new THREE.MeshStandardMaterial({ map: ground.texture, roughness: 0.96, metalness: 0 }));
   const mesh = new THREE.Mesh(geo, mat);
   mesh.receiveShadow = true;
   mesh.name = 'terrain';
