@@ -575,4 +575,6 @@ export interface CreateRunOptions {
   difficulty?: Difficulty;
   mode?: RunMode;
   modifiers?: Id[];
+  /** Daily Village: the UTC date (YYYYMMDD) the run was made for; stored in the run so it never changes mid-run */
+  dailyDate?: number;
 }

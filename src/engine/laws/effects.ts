@@ -1,4 +1,4 @@
-import { claimDef } from '../core/lookup.ts';
+import { claimDef, modActive } from '../core/lookup.ts';
 import type { ClaimDef, LawState, Landmark, RunState } from '../core/types.ts';
 import { activeLaws } from './resolver.ts';
 
@@ -157,7 +157,7 @@ export function computeModifiers(s: RunState): Modifiers {
         m.bridgeShield = Math.max(-0.5, m.bridgeShield - 0.3);
         break;
       case 'grain.grow':
-        for (const r of def.regions) m.cropBoost[r] = (m.cropBoost[r] ?? 0) + Math.round(10 * spec.intensity * st);
+        for (const r of def.regions) m.cropBoost[r] = (m.cropBoost[r] ?? 0) + Math.round(10 * spec.intensity * st * (modActive(s, 'clear_night_skies') ? 1.5 : 1));
         m.notes.push({ law: law.id, text: `${def.short}: crops ripen ${Math.round(10 * spec.intensity * st)}% faster each night (${pctTxt}).` });
         break;
       case 'grain.weaken':
@@ -199,7 +199,7 @@ export function computeModifiers(s: RunState): Modifiers {
           for (const r of def.regions) m.ignitionMult[r] = (m.ignitionMult[r] ?? 1) + 0.6 * st;
           break;
         case 'labor_drain':
-          if (spec.subject !== 'bridge') for (const r of def.regions) m.laborDrain[r] = (m.laborDrain[r] ?? 0) + Math.round(44 * st);
+          if (spec.subject !== 'bridge') for (const r of def.regions) m.laborDrain[r] = (m.laborDrain[r] ?? 0) + Math.round(44 * st * (modActive(s, 'busy_harvest') ? 1.35 : 1));
           break;
         case 'smoke_sickness':
           for (const src of sources) m.smokeLungs.push({ x: src.x, y: src.y, r: spec.radius + 1 });

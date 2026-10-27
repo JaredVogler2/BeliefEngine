@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { getAvailableActions, getForecast, getLawViews, getVillagerView, previewAction, describeAction, omenFor } from '../../engine/index.ts';
+import { councilBanDays, getAvailableActions, getForecast, getLawViews, getModifierViews, getVillagerView, previewAction, describeAction, omenFor } from '../../engine/index.ts';
 import type { Action, ClaimDef, Landmark, Preview, RunState } from '../../engine/index.ts';
 import { neighborsOf } from '../../engine/core/lookup.ts';
 import { Avatar, Bar, ClaimGlyph, Icon, evIcon } from '../components.tsx';
@@ -87,7 +87,25 @@ function EmptySelection() {
           <li key={i}>{h}</li>
         ))}
       </ul>
+      <Twists />
     </div>
+  );
+}
+
+/** The run modifiers in play, each with its effect and its price. */
+function Twists() {
+  const state = useStore((s) => s.state)!;
+  const twists = getModifierViews(state);
+  if (!twists.length) return null;
+  const bans = state.modifiers.includes('divided_council') ? councilBanDays(state.seed, state.maxDay).filter((d) => d >= state.day) : [];
+  return (
+    <section data-testid="twists-panel">
+      <h3>Twists this run</h3>
+      <ul className="small twists">
+        {twists.map((m) => <li key={m.id}><b>{m.name}</b>: {m.blurb} <span className="muted">{m.tradeoff}</span></li>)}
+      </ul>
+      {bans.length > 0 && <p className="small">Gatherings are banned on day{bans.length === 1 ? '' : 's'} {bans.join(', ')}.</p>}
+    </section>
   );
 }
 
@@ -457,6 +475,7 @@ export function ForecastPanel() {
           <li key={u.day}><b>Day {u.day}:</b> {u.label}{u.level !== null && flood ? ` (level ${u.level})` : ''}{flood ? ` — ${u.trend}` : ''}{u.warning ? ` — ${u.warning}` : ''}</li>
         ))}
       </ul>
+      <Twists />
     </div>
   );
 }

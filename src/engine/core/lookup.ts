@@ -77,3 +77,13 @@ export function neighborsOf(s: RunState, id: string): { id: string; edge: Edge; 
 export function modActive(s: RunState, id: string): boolean {
   return s.modifiers.includes(id);
 }
+
+/** Multiplier on how well repetition (telling, gathering, messengers, gossip) persuades under the active modifiers. */
+export function repeatMult(s: RunState): number {
+  return modActive(s, 'doubting_scholars') ? 0.8 : 1;
+}
+
+/** Multiplier on how convincing a staged demonstration is. */
+export function evidenceMult(s: RunState): number {
+  return modActive(s, 'doubting_scholars') ? 1.35 : 1;
+}

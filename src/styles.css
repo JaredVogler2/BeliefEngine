@@ -297,3 +297,13 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   .topbar .stats .stat { padding: 0.15rem 0.35rem; }
   .coach { font-size: 0.78rem; }
 }
+
+/* ------------------------------------------------------------ modes, twists, villages */
+.mode-tabs { margin: 0.6rem 0 1rem; }
+.twists { margin: 0.3rem 0 0.6rem 1.1rem; padding: 0; }
+.twists li { margin: 0.35rem 0; }
+.village-card { border: 1px solid var(--line); border-radius: 10px; padding: 0.8rem 1rem; background: color-mix(in srgb, var(--panel) 85%, transparent); }
+.village-card h3 { margin: 0 0 0.4rem; }
+.village-card h4 { margin: 0.7rem 0 0.2rem; font-size: 0.95rem; }
+.chip.warn { border-color: var(--gold); color: var(--gold); }
+.error-text { color: #ffb3bf; }

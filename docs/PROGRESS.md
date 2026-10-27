@@ -11,9 +11,9 @@ implemented unless it was run.
 | 03 | Social simulation | verified by unit tests (hub vs hermit, cut graph, saturation, reverse signal, determinism) |
 | 04 | Laws + world | verified: causal toggle test (same beacons + flood, only belief differs), hysteresis, contradiction |
 | 05 | Flood at Redbank vertical slice | verified: both strategies replayed via real clicks to victory with identical state hashes; loss path; phone run |
-| 06 | Interface + onboarding | in progress (HUD, panels, tutorial, social lens, debrief exist; polish pending) |
-| 07 | Content + scenarios | not started |
-| 08 | Procedural runs | not started |
+| 06 | Interface + onboarding | verified: HUD, panels, tutorial, social lens, debrief, phone layout; axe scan clean |
+| 07 | Content + scenarios | 3 of 5 shipped and verified (Redbank, Harvest, Ashwood); scenarios D and E not built (see KNOWN_ISSUES) |
+| 08 | Procedural runs | verified: 3 biomes, 14 modifiers, daily/share/replay flows, 1 000-seed offline run (docs/EXPEDITIONS.md) |
 | 09 | Progress + rewards | not started |
 | 10 | Agent AI + reactions | partial (rival faction campaign/rebuttal, evacuation) |
 | 11 | Balance bots + telemetry | partial (bot framework, baseline policies) |
@@ -47,3 +47,21 @@ implemented unless it was run.
   (desktop 1366x768 and Pixel-7-like 390x844 touch, Chromium 1.63 build). axe-core WCAG 2.x A/AA scan has no critical or serious
   violations on title, how-to, settings, scenarios, briefing, play, villager card, laws, forecast (desktop and phone).
 * Not yet verified: Firefox / WebKit (not installed in this environment), real devices, human fun.
+
+### Session 2 (phases 06-08 completed)
+* Phase 06/07: generalised the HUD, forecast, tutorial and renderer to crop, trade, wolf and smoke scenarios; **Harvest** and **Ashwood** play end
+  to end in the browser. Real-click Playwright replays of the recorded winning traces (two strategies each) reach victory with
+  identical state and event hashes; "do nothing" is a defeat with a scenario-specific debrief.
+* Bugs found by those E2E runs and fixed: counter-rumour button hidden for villagers a rival had *announced* a campaign against
+  (only shown after they already believed it); adoptable rival claims (Ashwood's decoy theory) were missing from the starter hand;
+  trade deals had no UI entry point.
+* **Latent bug found while building the generator:** woodcutters never produced fuel, because the dawn tally ran after
+  villagers had gone to bed (`duty === 'rest'`). Fixed (count at dusk); Ashwood fixtures re-recorded (same canonical seed, new hashes).
+* Performance: `cloneState` is now a hand-written copy that shares the immutable map and event objects; a full bot run went from
+  about 0.55 s to 0.15 s and the unit suite from 13 s to 4 s, with all recorded hashes unchanged.
+* Phase 08: expedition generator (river, drought, wolves), 14 run modifiers each with a measuring test, share-link validation,
+  UTC daily village, verified-village catalog. Evidence: `npm run gen:verify` over seeds 1-1000: 0 crashes, 0 villages won by doing
+  nothing, 85.5% won by at least one scripted planner (river 83%, drought 98%, wolves 75%), 51.6% by two or more different planners; 640 distinct
+  signatures. Full table in docs/BALANCE_REPORT.md. The 95% aspiration is **not** met, so the catalog is used for daily and
+  "another village" and typed-in seeds are labelled unverified.
+* Evidence (executed): `npx vitest run` 117 passed; `npx playwright test` 49 passed, 19 project-specific skips.

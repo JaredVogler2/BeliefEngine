@@ -38,6 +38,8 @@ export interface ScenarioDef {
   ap: { start: number; perDay: number; max: number };
   /** how much the actual threat schedule may deviate from the authored forecast, per day index (0 = none) */
   jitter: number[];
+  /** modifiers this scenario ships with (generated villages draw theirs from the seed) */
+  modifiers?: string[];
 }
 
 /** Archetype baselines (skepticism, openness, stubbornness, susceptibility, influence). */

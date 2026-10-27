@@ -2,8 +2,8 @@ import { Component, useEffect, type ErrorInfo, type ReactNode } from 'react';
 import { configureAudio } from './audio/audio.ts';
 import { Briefing, Credits, Debrief, HowTo, Scenarios, SettingsScreen, Title } from './ui/screens.tsx';
 import { Play } from './ui/play/Play.tsx';
-import { hasScenario } from './engine/content/registry.ts';
-import { GameSession, deserializeRun, eventHash, stateHash } from './engine/index.ts';
+import { GameSession, deserializeRun, eventHash, parseShare, stateHash } from './engine/index.ts';
+import { optionsFromDescriptor } from './ui/modes.ts';
 import { store, useStore } from './ui/store.ts';
 
 class Boundary extends Component<{ children: ReactNode }, { error: Error | null }> {
@@ -33,18 +33,20 @@ class Boundary extends Component<{ children: ReactNode }, { error: Error | null 
 }
 
 function parseDeepLink(): void {
-  const q = new URLSearchParams(window.location.search);
-  const scenario = q.get('scenario');
-  const seedRaw = q.get('seed');
-  if (!scenario || seedRaw === null) return;
-  const seed = Number.parseInt(seedRaw, 10);
-  const d = q.get('d');
-  const difficulty = d === 'story' || d === 'hard' ? d : 'normal';
-  if (!hasScenario(scenario) || !Number.isFinite(seed) || seed < 0 || seed > 2147483647) {
-    store.set({ loadError: 'That shared seed link is not valid for this version, so it was ignored.' });
+  const raw = window.location.search;
+  const q = new URLSearchParams(raw);
+  if (!q.has('mode') && !q.has('scenario')) return;
+  // legacy links: ?scenario=ID&seed=N&d=difficulty
+  const search = q.has('mode') ? raw : `?mode=story&scn=${encodeURIComponent(q.get('scenario') ?? '')}&seed=${encodeURIComponent(q.get('seed') ?? '')}${q.get('d') ? `&diff=${encodeURIComponent(q.get('d') ?? '')}` : ''}`;
+  const parsed = parseShare(search);
+  // keep the address bar clean (and keep ?debug=1 for tests)
+  window.history.replaceState(null, '', window.location.pathname + (q.get('debug') === '1' ? '?debug=1' : ''));
+  if (!parsed.ok) {
+    store.set({ loadError: `${parsed.error} The link was ignored.` });
     return;
   }
-  store.newRun({ scenarioId: scenario, seed, difficulty });
+  store.newRun(optionsFromDescriptor(parsed.descriptor));
+  store.set({ notes: parsed.notes });
 }
 
 export function App() {

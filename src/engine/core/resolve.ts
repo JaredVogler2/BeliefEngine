@@ -4,12 +4,13 @@ import { computeModifiers } from '../laws/effects.ts';
 import { runLawStep } from '../laws/resolver.ts';
 import { runSocialStep } from '../social/propagation.ts';
 import { runCropHarvest } from '../world/crops.ts';
-import { runDawnNeeds, runDeliveries, runHarvest } from '../world/economy.ts';
+import { countWoodcutters, runDawnNeeds, runDeliveries, runHarvest } from '../world/economy.ts';
 import { updateSmoke } from '../world/sickness.ts';
 import { runNight } from '../world/hazards.ts';
 import { cloneState } from './clone.ts';
 import { emit, type Ctx } from './events.ts';
-import { claimDef, findLandmark } from './lookup.ts';
+import { claimDef, findLandmark, modActive } from './lookup.ts';
+import { rand } from './rng.ts';
 import { evaluate } from './objectives.ts';
 import { buildOutcome } from './score.ts';
 import type { DaySummary, GameEvent, ResolveResult, RunState } from './types.ts';
@@ -46,6 +47,7 @@ export function resolveDay(state: RunState, opts: ResolveOptions = {}): ResolveR
   assignWatchers(ctx); // dusk: believers take their posts
   if (s.scn.features.crops) runCropHarvest(ctx);
   else runHarvest(ctx);
+  countWoodcutters(ctx);
   moveToNight(ctx);
   const mods = computeModifiers(s);
   for (const law of s.laws) if (law.status === 'active' || law.status === 'wavering') law.activeNights += 1;
@@ -79,6 +81,7 @@ export function resolveDay(state: RunState, opts: ResolveOptions = {}): ResolveR
         emit(ctx, { step: 'dawn', code: 'CLAIM_UNLOCKED', importance: 2, claim: c.id, text: `A new story is within reach: “${def.text}”` });
       }
     }
+    if (modActive(s, 'divided_council')) announceCouncil(ctx);
     runDeliveries(ctx);
     assignDay(ctx);
     const th = s.threat[Math.min(s.day, s.threat.length) - 1];
@@ -86,6 +89,25 @@ export function resolveDay(state: RunState, opts: ResolveOptions = {}): ResolveR
     summary.eventIds = ctx.events.map((e) => e.id);
   }
   return { state: s, events: ctx.events, summary };
+}
+
+/** Mornings on which the divided Council forbids public gatherings (never two in a row, never before day 3). */
+export function councilBanDays(seed: number, maxDay: number): number[] {
+  const days: number[] = [];
+  for (let d = 3; d < maxDay; d++) if (rand(seed, 'council-ban', d) < 0.34 && !days.includes(d - 1)) days.push(d);
+  for (let d = 3; days.length < 2 && d < maxDay; d++) if (!days.includes(d) && !days.includes(d - 1) && !days.includes(d + 1)) days.push(d);
+  return days.sort((a, b) => a - b);
+}
+
+function announceCouncil(ctx: Ctx): void {
+  const s = ctx.s;
+  const bans = councilBanDays(s.seed, s.maxDay);
+  if (bans.includes(s.day)) {
+    s.flags.gatherBanUntil = s.day;
+    emit(ctx, { step: 'dawn', code: 'COUNCIL_BAN', importance: 2, text: 'The divided Council has forbidden public gatherings today. Speak to people one at a time, or stage proof.' });
+  } else if (bans.includes(s.day + 1)) {
+    emit(ctx, { step: 'dawn', code: 'COUNCIL_PLAN', importance: 2, text: 'The Council is preparing to ban public gatherings tomorrow. Gather today if you mean to.' });
+  }
 }
 
 function emptySummary(day: number): DaySummary {

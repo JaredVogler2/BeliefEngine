@@ -19,6 +19,8 @@ export interface LawPusherConfig {
   physical?: (g: GameSession) => void;
   /** extra claims to push once the main law is active */
   then?: string[];
+  /** veto a candidate action (e.g. do not burn scarce fuel on proof that will not also protect anything) */
+  allow?: (s: RunState, a: Action) => boolean;
 }
 
 /** Support objective for a claim across regions: pressure dominates, conviction mass breaks ties. */
@@ -74,6 +76,7 @@ export function lawPusher(cfg: LawPusherConfig): Policy {
           if (a.type === 'SCOUT' || a.type === 'PICK_STARTER' || a.type === 'TRADE' || a.type === 'COMPOSE') continue;
           if (a.type === 'RITUAL' && !a.claim) continue;
           if (a.type === 'RITUAL' && cfg.stage === false) continue;
+          if (cfg.allow && !cfg.allow(s, a)) continue;
           const claim = ('claim' in a && a.claim) || cfg.claim;
           if (!targets.includes(claim)) continue;
           const r = applyAction(s, a);

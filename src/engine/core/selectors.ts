@@ -1,3 +1,4 @@
+import { getModifier } from '../gen/modifiers.ts';
 import { commitEvacuations, moveToNight, predictedWater } from '../ai/routines.ts';
 import { ARCHETYPES } from '../content/types.ts';
 import { computePressure } from '../laws/resolver.ts';
@@ -471,4 +472,24 @@ export function getHud(s: RunState): HudView {
     objectives: objectiveStatuses(s),
     threatLabel: th?.label ?? '', warning: th?.warning, phase: s.phase, freeScout: !s.freeScoutUsed,
   };
+}
+
+// ------------------------------------------------------------------ run modifiers
+
+export interface ModifierView {
+  id: string;
+  name: string;
+  icon: string;
+  blurb: string;
+  tradeoff: string;
+}
+
+/** The twists in play, with plain-language effect and price (shown in the briefing and the Tonight tab). */
+export function getModifierViews(s: RunState): ModifierView[] {
+  const out: ModifierView[] = [];
+  for (const id of s.modifiers) {
+    const m = getModifier(id);
+    if (m) out.push({ id: m.id, name: m.name, icon: m.icon, blurb: m.blurb, tradeoff: m.tradeoff });
+  }
+  return out;
 }

@@ -1,5 +1,5 @@
 import { emit, type Ctx } from '../core/events.ts';
-import { claimDef, findVillager } from '../core/lookup.ts';
+import { claimDef, findVillager, repeatMult } from '../core/lookup.ts';
 import { rand } from '../core/rng.ts';
 import type { RunState, Villager } from '../core/types.ts';
 import { components, connected, passableMask } from '../world/nav.ts';
@@ -106,7 +106,7 @@ export function runSocialStep(ctx: Ctx): void {
         ac = { listener: listener.id, claim: topic, sum: 0, count: 0, bestAbs: 0, bestSource: speaker.id, reason: g.reason };
         acc.set(key, ac);
       }
-      ac.sum += g.delta * w;
+      ac.sum += g.delta * w * repeatMult(s);
       ac.count += w;
       if (Math.abs(g.delta * w) > ac.bestAbs) {
         ac.bestAbs = Math.abs(g.delta * w);

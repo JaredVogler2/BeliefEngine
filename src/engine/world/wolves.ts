@@ -37,7 +37,8 @@ function nearestPrey(s: RunState, p: Pack, mods: Modifiers): { x: number; y: num
 
 function stepToward(s: RunState, p: Pack, tx: number, ty: number, mods: Modifiers): void {
   const w = s.world;
-  for (let step = 0; step < 3; step++) {
+  const steps = s.scn.consts.wolfSteps ?? 3;
+  for (let step = 0; step < steps; step++) {
     let bestD = Math.abs(tx - p.x) + Math.abs(ty - p.y);
     let bx = p.x;
     let by = p.y;

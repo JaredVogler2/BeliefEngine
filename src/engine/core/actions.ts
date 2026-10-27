@@ -1,6 +1,6 @@
 import { emit, type Ctx } from './events.ts';
 import { cloneState } from './clone.ts';
-import { claimDef, findLandmark, findVillager, trustOf, neighborsOf, edgeBetween, allClaimDefs } from './lookup.ts';
+import { claimDef, findLandmark, findVillager, trustOf, neighborsOf, edgeBetween, allClaimDefs, evidenceMult, modActive, repeatMult } from './lookup.ts';
 import type { Action, ActionError, ActionResult, ClaimDef, GameEvent, Landmark, RitualDef, RunState, Villager } from './types.ts';
 import { K, ensureBelief, evidenceGain, gossipDelta, REASON_TEXT, relevance, round1, seedGain } from '../social/persuasion.ts';
 import { bfsDist, components, connected, passableMask } from '../world/nav.ts';
@@ -163,7 +163,7 @@ function perform(ctx: Ctx, a: Action): Fail | null {
       const b = ensureBelief(v, a.claim);
       if (b.conv >= 88) return fail('ALREADY_CONVINCED', `${v.name} already believes it.`);
       if (v.keeperTrust < 8) return fail('NO_TRUST', `${v.name} will not hear you.`);
-      const gain = seedGain(v, b);
+      const gain = seedGain(v, b) * repeatMult(s);
       const before = b.conv;
       b.conv = round1(b.conv + gain);
       b.heard += 1;
@@ -203,7 +203,7 @@ function perform(ctx: Ctx, a: Action): Fail | null {
         speakerConv: fb.conv, speakerEvidence: fb.evidence, speakerInfluence: from.traits.influence + 15, speakerId: from.id, trust: t, edge,
         listener: to, listenerConv: tb.conv, listenerEvidence: tb.evidence, heard: tb.heard, lastSource: tb.lastSource, lastDay: tb.lastDay, day: s.day, relevance: relevance(def, to),
       });
-      const gain = g.delta * K.MESSENGER;
+      const gain = g.delta * K.MESSENGER * repeatMult(s);
       const before = tb.conv;
       tb.conv = round1(tb.conv + Math.max(-30, Math.min(40, gain)));
       tb.heard += 1;
@@ -317,6 +317,7 @@ function doRitual(ctx: Ctx, a: Extract<Action, { type: 'RITUAL' }>): Fail | null
     if ((s.world.stocks.fuel ?? 0) < ritual.fuel) return fail('NO_FUEL', `You need ${ritual.fuel} fuel; ${s.world.stocks.fuel ?? 0} left.`);
   }
   if (ritual.physical === 'ring' && (lm.data.ringing ?? 0) > 0) return fail('ALREADY_RUNG', 'The bells are already set to ring tonight.');
+  if (ritual.physical === 'ring' && modActive(s, 'silent_bells') && s.day < (s.scn.consts.bellsMendedDay ?? 4)) return fail('BELLS_SILENT', `The clapper is cracked. The bells cannot ring before day ${s.scn.consts.bellsMendedDay ?? 4}.`);
   if (ritual.physical === 'vigil' && lm.hp <= 0) return fail('DESTROYED', 'There is no bridge left to watch.');
   if (ritual.physical === 'vigil' && (s.flags.vigilDay ?? -1) === s.day) return fail('ALREADY_VIGIL', 'A vigil is already planned for tonight.');
   let def: ClaimDef | null = null;
@@ -344,7 +345,7 @@ function doRitual(ctx: Ctx, a: Extract<Action, { type: 'RITUAL' }>): Fail | null
   ensureIntroduced(s, a.claim);
   if (!s.stats.usedClaims.includes(a.claim)) s.stats.usedClaims.push(a.claim);
   // witnesses
-  const E = ritual.strength * (omen.value > 0 ? 1.35 : omen.value === 0 ? 0.45 : -0.9) * stagingFatigue(s, ritual.id, lm.id);
+  const E = ritual.strength * (omen.value > 0 ? 1.35 : omen.value === 0 ? 0.45 : -0.9) * stagingFatigue(s, ritual.id, lm.id) * (omen.value > 0 || omen.value === 0 ? evidenceMult(s) : 1);
   const { comp } = reachableTargets(s);
   const witnesses: Villager[] = [];
   for (const v of s.villagers) {
@@ -426,7 +427,7 @@ function doGather(ctx: Ctx, a: Extract<Action, { type: 'GATHER' }>): Fail | null
   for (const v of attendees) {
     const b = ensureBelief(v, a.claim);
     const before = b.conv;
-    const gain = seedGain(v, b) * K.GATHER * crowd;
+    const gain = seedGain(v, b) * K.GATHER * crowd * repeatMult(s) * (modActive(s, 'busy_harvest') ? 0.55 : 1);
     b.conv = round1(b.conv + gain);
     b.heard += 1;
     b.lastDay = s.day;

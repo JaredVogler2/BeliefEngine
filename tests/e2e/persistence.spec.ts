@@ -78,6 +78,6 @@ test.describe('saves, settings and recovery', () => {
     await expect(page.getByTestId('difficulty')).toHaveValue('hard');
     await page.goto('/?scenario=nonsense&seed=-4');
     await expect(page.getByTestId('title')).toBeVisible();
-    await expect(page.getByRole('alert')).toContainText('not valid');
+    await expect(page.getByRole('alert')).toContainText('ignored');
   });
 });

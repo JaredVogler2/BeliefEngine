@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { buildDebrief, createRun, getScenarioDef, listScenarios } from '../engine/index.ts';
+import { MAX_SEED, buildDebrief, catalogInfo, isVerifiedSeed, createRun, getModifier, getModifierViews, getScenarioDef, listScenarios, numberToDate } from '../engine/index.ts';
 import type { Difficulty } from '../engine/index.ts';
 import { MapRenderer } from '../render/MapRenderer.ts';
 import { unlockAudio, sfx } from '../audio/audio.ts';
 import { Icon } from './components.tsx';
-import { loadProgress } from './progress.ts';
+import { dailyBest, loadProgress, playedExpeditionSeeds } from './progress.ts';
+import { BIOME_LABEL, dailyLabel, dailyOptions, expeditionOptions, freshExpeditionSeed, previewVillage, randomEntropy, runKind, shareLink, storyOptions, todayUtc, type VillagePreview } from './modes.ts';
 import { store, useStore } from './store.ts';
 
 // ------------------------------------------------------------------ title
@@ -98,48 +99,140 @@ export function Title() {
 
 // ------------------------------------------------------------------ scenario select + briefing
 
+type ModeTab = 'story' | 'expedition' | 'daily';
+
+function ModifierList({ ids }: { ids: string[] }) {
+  if (!ids.length) return null;
+  return (
+    <ul className="twists">
+      {ids.map((id) => {
+        const m = getModifier(id);
+        return m ? <li key={id}><b>{m.name}</b>: {m.blurb} <span className="muted">{m.tradeoff}</span></li> : null;
+      })}
+    </ul>
+  );
+}
+
+function VillageCard({ p }: { p: VillagePreview }) {
+  return (
+    <div className="village-card" data-testid="village-preview">
+      <h3>{p.name}</h3>
+      <div className="row wrap">
+        <span className="chip">{BIOME_LABEL[p.biome] ?? p.biome}</span>
+        <span className="chip">{p.population} villagers</span>
+        <span className="chip">{p.days} days</span>
+        {p.verified ? <span className="chip good" title="A scripted planner won this village in offline testing.">Verified winnable</span> : <span className="chip warn" title="Not checked offline. It may be harder than usual, or not winnable.">Unverified seed</span>}
+      </div>
+      {p.modifiers.length > 0 && <><h4>Twists this time</h4><ModifierList ids={p.modifiers} /></>}
+    </div>
+  );
+}
+
 export function Scenarios() {
   const list = listScenarios();
   const prog = loadProgress();
+  const [tab, setTab] = useState<ModeTab>('story');
+  const [seedText, setSeedText] = useState<string>(() => String(freshExpeditionSeed(playedExpeditionSeeds())));
+  const seedNum = /^\d{1,10}$/.test(seedText) && Number(seedText) <= MAX_SEED ? Number(seedText) : null;
+  const village = seedNum === null ? null : previewVillage(seedNum);
+  const today = todayUtc();
+  const dailyOpts = dailyOptions(today);
+  const dailyVillage = previewVillage(dailyOpts.seed);
+  const best = dailyBest(today);
+  const recent = prog.runs.filter((r) => r.mode === 'daily' && !r.debug).slice(-5).reverse();
   return (
     <main className="screen">
       <div className="page">
         <button className="btn small" onClick={() => store.set({ screen: 'title' })}>← Back</button>
-        <h1 style={{ marginTop: '0.8rem' }}>Choose a story</h1>
-        <p className="muted">Each chapter adds a new twist. Every one can be won in more than one way.</p>
-        <div className="grid2">
-          {list.map((sc) => {
-            const wins = prog.runs.filter((r) => r.scenarioId === sc.id && r.result === 'victory' && !r.debug).length;
-            return (
-              <div key={sc.id} className="card scn-card" data-testid={`scn-${sc.id}`}>
-                <h2>{sc.name}</h2>
-                <p>{sc.tagline}</p>
-                <div className="row wrap">
-                  <span className="chip">{sc.days} days</span>
-                  <span className="chip">{'★'.repeat(sc.difficulty)}{'☆'.repeat(5 - sc.difficulty)} difficulty</span>
-                  <span className="chip">{sc.threat}</span>
-                  {wins > 0 && <span className="chip good">Won ×{wins}</span>}
-                </div>
-                <button className="btn primary" onClick={() => { sfx('click'); store.newRun({ scenarioId: sc.id, seed: 1, difficulty: 'normal' }); }} data-testid={`begin-${sc.id}`}>
-                  Begin
-                </button>
-              </div>
-            );
-          })}
+        <h1 style={{ marginTop: '0.8rem' }}>Choose how to play</h1>
+        <div className="tabs mode-tabs" role="tablist" aria-label="Game mode">
+          {([['story', 'Story chapters'], ['expedition', 'Expedition'], ['daily', 'Daily village']] as [ModeTab, string][]).map(([t, label]) => (
+            <button key={t} role="tab" className="tab" aria-selected={tab === t} data-testid={`mode-${t}`} onClick={() => { sfx('click'); setTab(t); }}>{label}</button>
+          ))}
         </div>
+        {tab === 'story' && (
+          <>
+            <p className="muted">Hand-made chapters, each with a new twist. Every one can be won in more than one way.</p>
+            <div className="grid2">
+              {list.map((sc) => {
+                const wins = prog.runs.filter((r) => r.scenarioId === sc.id && r.result === 'victory' && !r.debug).length;
+                return (
+                  <div key={sc.id} className="card scn-card" data-testid={`scn-${sc.id}`}>
+                    <h2>{sc.name}</h2>
+                    <p>{sc.tagline}</p>
+                    <div className="row wrap">
+                      <span className="chip">{sc.days} days</span>
+                      <span className="chip">{'★'.repeat(sc.difficulty)}{'☆'.repeat(5 - sc.difficulty)} difficulty</span>
+                      <span className="chip">{sc.threat}</span>
+                      {wins > 0 && <span className="chip good">Won ×{wins}</span>}
+                    </div>
+                    <button className="btn primary" onClick={() => { sfx('click'); store.newRun(storyOptions(sc.id)); }} data-testid={`begin-${sc.id}`}>
+                      Begin
+                    </button>
+                  </div>
+                );
+              })}
+            </div>
+          </>
+        )}
+        {tab === 'expedition' && (
+          <section data-testid="expedition-panel">
+            <p className="muted">A new village every time: its own map, people, ties of trust, crisis and twists. About 12–25 minutes. The same seed always builds the same village.</p>
+            <div className="card">
+              <div className="grid2">
+                <label className="field">
+                  <span>Village seed</span>
+                  <div className="row">
+                    <input type="text" inputMode="numeric" value={seedText} onChange={(e) => setSeedText(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))} aria-label="Village seed" data-testid="expedition-seed" />
+                    <button className="btn small" data-testid="expedition-another" onClick={() => { sfx('click'); setSeedText(String(freshExpeditionSeed(playedExpeditionSeeds()))); }}>Another village</button>
+                  </div>
+                </label>
+                <label className="field">
+                  <span>Wild card</span>
+                  <button className="btn small" data-testid="expedition-random" onClick={() => { sfx('click'); setSeedText(String(randomEntropy() % MAX_SEED)); }}>Any random seed (may be unverified)</button>
+                </label>
+              </div>
+              {village ? <VillageCard p={village} /> : <p className="error-text" role="alert">Enter a whole number from 0 to {MAX_SEED}.</p>}
+              <div className="row spread wrap" style={{ marginTop: '0.8rem' }}>
+                <span className="small muted">{catalogInfo().verified} villages verified offline. Any other seed still plays, but is marked unverified.</span>
+                <button className="btn primary big" disabled={seedNum === null} data-testid="begin-expedition" onClick={() => { if (seedNum !== null) { sfx('click'); store.newRun(expeditionOptions(seedNum)); } }}>Begin expedition</button>
+              </div>
+            </div>
+          </section>
+        )}
+        {tab === 'daily' && (
+          <section data-testid="daily-panel">
+            <p className="muted">One village for everyone, every UTC day: <b>{dailyLabel(today)}</b>. Same seed, same difficulty, no server. There is no global leaderboard; your results are kept on this device only.</p>
+            <div className="card">
+              <VillageCard p={dailyVillage} />
+              <p className="small" data-testid="daily-status">{best ? `Today: ${best.result === 'victory' ? 'won' : 'lost'} with a score of ${best.score}.` : 'Not played yet today.'}</p>
+              <div className="row spread wrap">
+                <span className="small muted">The date is read when you begin, in UTC, and is stored in the run so it never changes mid-game.</span>
+                <button className="btn primary big" data-testid="begin-daily" onClick={() => { sfx('click'); store.newRun(dailyOptions(todayUtc())); }}>{best ? 'Play it again' : "Play today's village"}</button>
+              </div>
+            </div>
+            {recent.length > 0 && (
+              <>
+                <h2>Recent dailies</h2>
+                <table className="breakdown"><tbody>
+                  {recent.map((r, i) => <tr key={i}><td>{r.dailyDate ? numberToDate(r.dailyDate) : '—'}</td><td>{r.name ?? r.scenarioId}</td><td>{r.result === 'victory' ? 'Victory' : 'Defeat'}</td><td>{r.score}</td></tr>)}
+                </tbody></table>
+              </>
+            )}
+          </section>
+        )}
       </div>
     </main>
   );
 }
 
 function randomSeed(): number {
-  const a = new Uint32Array(1);
-  window.crypto.getRandomValues(a);
-  return a[0] % 1000000;
+  return randomEntropy() % 1000000;
 }
 
 export function Briefing() {
   const state = useStore((s) => s.state);
+  const ui = useStore((s) => s.ui);
   const [seed, setSeed] = useState<string>(String(state?.seed ?? 1));
   const [diff, setDiff] = useState<Difficulty>(state?.difficulty ?? 'normal');
   if (!state) return null;
@@ -148,11 +241,15 @@ export function Briefing() {
   const maxLevel = Math.max(...series, 1);
   const seriesName = sc.threatKind === 'wolves' ? 'Packs hunting, night by night' : sc.threatKind === 'drought' ? 'The heat, night by night' : 'The river, night by night';
   const lossLine = sc.objectives.find((o) => o.instantLoss);
+  const kind = runKind(state);
+  const twists = getModifierViews(state);
+  const verified = kind === 'expedition' || kind === 'daily' ? isVerifiedSeed(state.seed) : null;
   const begin = () => {
     sfx('click');
     const n = Number.parseInt(seed, 10);
-    const sd = Number.isFinite(n) && n >= 0 && n <= 2147483647 ? n : 1;
-    if (sd !== state.seed || diff !== state.difficulty) store.newRun({ scenarioId: state.scenarioId, seed: sd, difficulty: diff });
+    const sd = Number.isFinite(n) && n >= 0 && n <= MAX_SEED ? n : 1;
+    if (kind === 'expedition' && (sd !== state.seed || diff !== state.difficulty)) store.newRun(expeditionOptions(sd, diff));
+    else if (kind === 'story' && (sd !== state.seed || diff !== state.difficulty)) store.newRun(storyOptions(state.scenarioId, sd, diff));
     store.set({ screen: 'play', activeClaim: null });
   };
   return (
@@ -160,6 +257,12 @@ export function Briefing() {
       <div className="page">
         <button className="btn small" onClick={() => store.set({ screen: 'scenarios' })}>← Back</button>
         <h1 style={{ marginTop: '0.8rem' }}>{sc.name}</h1>
+        <div className="row wrap" data-testid="briefing-meta">
+          <span className="chip">{kind === 'story' ? 'Story chapter' : kind === 'daily' ? `Daily village · ${dailyLabel(state.flags.dailyDate ?? todayUtc())} UTC` : 'Expedition'}</span>
+          {verified === true && <span className="chip good" title="A scripted planner won this exact village in offline testing.">Verified winnable</span>}
+          {verified === false && <span className="chip warn" title="Not checked offline. It may be harder than usual, or not winnable.">Unverified seed</span>}
+        </div>
+        {ui.notes.map((n, i) => <p key={i} className="toast warn" role="status" data-testid="link-note" style={{ position: 'static' }}>{n}</p>)}
         <p style={{ fontFamily: 'var(--serif)', fontSize: '1.2rem' }}>{sc.tagline}</p>
         {sc.briefing.map((l, i) => <p key={i}>{l}</p>)}
         <h2>{seriesName}</h2>
@@ -171,24 +274,30 @@ export function Briefing() {
             </div>
           ))}
         </div>
+        {twists.length > 0 && (
+          <section data-testid="twists">
+            <h2>Twists this time</h2>
+            <ul className="twists">{twists.map((m) => <li key={m.id}><b>{m.name}</b>: {m.blurb} <span className="muted">{m.tradeoff}</span></li>)}</ul>
+          </section>
+        )}
         <h2>You win if, at the end of day {sc.durationDays}</h2>
         <ul>{sc.objectives.filter((o) => !o.instantLoss && !o.heroic).map((o) => <li key={o.id}>{o.label}</li>)}</ul>
         <p className="small muted">{lossLine ? `You lose at once if the village falls below ${lossLine.value} people. ` : ''}You can undo any planned action until you end the day.</p>
         <div className="card" style={{ marginTop: '1rem' }}>
           <div className="grid2">
             <label className="field">
-              <span>Difficulty</span>
-              <select value={diff} onChange={(e) => setDiff(e.target.value as Difficulty)} data-testid="difficulty">
+              <span>Difficulty{kind === 'daily' ? ' (fixed for the daily)' : ''}</span>
+              <select value={diff} onChange={(e) => setDiff(e.target.value as Difficulty)} data-testid="difficulty" disabled={kind === 'daily'}>
                 <option value="story">Story — more Influence, kinder villagers</option>
                 <option value="normal">Normal</option>
                 <option value="hard">Hard — less fuel, a bolder rival</option>
               </select>
             </label>
             <label className="field">
-              <span>Seed (same seed = same flood, same rival)</span>
+              <span>{kind === 'expedition' ? 'Village seed (the seed builds the whole village)' : kind === 'daily' ? 'Village seed (set by the date)' : 'Seed (same seed = same crisis, same rival)'}</span>
               <div className="row">
-                <input type="text" inputMode="numeric" value={seed} onChange={(e) => setSeed(e.target.value.replace(/[^0-9]/g, '').slice(0, 9))} aria-label="Seed" data-testid="seed" />
-                <button className="btn small" onClick={() => setSeed(String(randomSeed()))}>Random</button>
+                <input type="text" inputMode="numeric" value={seed} onChange={(e) => setSeed(e.target.value.replace(/[^0-9]/g, '').slice(0, 10))} aria-label="Seed" data-testid="seed" readOnly={kind === 'daily'} />
+                {kind !== 'daily' && <button className="btn small" onClick={() => setSeed(String(randomSeed()))}>Random</button>}
               </div>
             </label>
           </div>
@@ -209,8 +318,20 @@ export function Debrief() {
   if (!state || !state.outcome) return null;
   const d = buildDebrief(state);
   const win = d.result === 'victory';
-  const link = `${window.location.origin}${window.location.pathname}?scenario=${state.scenarioId}&seed=${state.seed}&d=${state.difficulty}&v=${state.rulesVersion}`;
-  const alt = state.scn.starters.find((c) => c !== (state.stats.usedClaims[0] ?? state.starter));
+  const kind = runKind(state);
+  const link = shareLink(state);
+  const alt = kind === 'story' ? state.scn.starters.find((c) => c !== (state.stats.usedClaims[0] ?? state.starter)) : undefined;
+  const again = () => {
+    sfx('click');
+    store.newRun(kind === 'daily' ? dailyOptions(state.flags.dailyDate ?? todayUtc()) : kind === 'expedition' ? expeditionOptions(state.seed, state.difficulty) : storyOptions(state.scenarioId, state.seed, state.difficulty));
+    store.set({ screen: 'play' });
+  };
+  const different = () => {
+    sfx('click');
+    if (kind === 'story') store.newRun(storyOptions(state.scenarioId, randomSeed(), state.difficulty));
+    else store.newRun(expeditionOptions(freshExpeditionSeed([...playedExpeditionSeeds(), state.seed]), state.difficulty));
+    store.set({ screen: 'play' });
+  };
   return (
     <main className="screen" data-testid="debrief">
       <div className="page">
@@ -223,9 +344,11 @@ export function Debrief() {
         </div>
         <p>{d.story}</p>
         <div className="row wrap">
-          <button className="btn primary big" data-testid="retry-same" onClick={() => { sfx('click'); store.newRun({ scenarioId: state.scenarioId, seed: state.seed, difficulty: state.difficulty }); store.set({ screen: 'play' }); }}>Retry this seed</button>
-          <button className="btn big" data-testid="new-seed" onClick={() => { sfx('click'); store.newRun({ scenarioId: state.scenarioId, seed: randomSeed(), difficulty: state.difficulty }); store.set({ screen: 'play' }); }}>New seed</button>
-          {alt && <button className="btn big" data-testid="try-other" onClick={() => { sfx('click'); store.newRun({ scenarioId: state.scenarioId, seed: state.seed, difficulty: state.difficulty }); store.set({ screen: 'play' }); }}>Try another approach</button>}
+          <button className="btn primary big" data-testid="retry-same" onClick={again}>{kind === 'story' ? 'Retry this seed' : kind === 'daily' ? "Replay today's village" : 'Replay this village'}</button>
+          {kind !== 'daily' && <button className="btn big" data-testid="new-seed" onClick={different}>{kind === 'story' ? 'New seed' : 'Different village'}</button>}
+          {kind === 'daily' && <button className="btn big" data-testid="new-seed" onClick={different}>Try an expedition</button>}
+          {kind === 'expedition' && <button className="btn big" data-testid="to-daily" onClick={() => { sfx('click'); store.newRun(dailyOptions(todayUtc())); store.set({ screen: 'play' }); }}>Today’s challenge</button>}
+          {alt && <button className="btn big" data-testid="try-other" onClick={again}>Try another approach</button>}
         </div>
         <h2>Why it went this way</h2>
         {d.chains.map((c, i) => (
@@ -243,10 +366,10 @@ export function Debrief() {
         <p>{d.saved} of {state.villagers.length} survived. {d.homesSpared} home(s) and {d.livesSpared} life/lives spared by laws.{d.lost.length ? ` Lost: ${d.lost.map((l) => `${l.name} (${l.cause}, day ${l.day})`).join('; ')}.` : ''}</p>
         <h2>Score {d.score}</h2>
         <table className="breakdown"><tbody>{Object.entries(d.breakdown).map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}</tbody></table>
-        <p className="small muted">{d.seedInfo}. Score is a rough guide only; the story above matters more.</p>
+        <p className="small muted" data-testid="seed-info">{d.seedInfo}{kind !== 'story' ? ` · village ${state.scenarioId}` : ''}{state.modifiers.length ? ` · twists: ${state.modifiers.join(', ')}` : ''}. Score is a rough guide only; the story above matters more.</p>
         <ul className="small">{d.tips.map((t, i) => <li key={i}>{t}</li>)}</ul>
         <div className="row wrap" style={{ marginTop: '1rem' }}>
-          <button className="btn" onClick={() => { void navigator.clipboard?.writeText(link).then(() => store.toast('Seed link copied.', 'good'), () => store.toast(link)); }}><Icon name="share" /> Share this seed</button>
+          <button className="btn" data-testid="share" onClick={() => { void navigator.clipboard?.writeText(link).then(() => store.toast('Link copied. It holds only the mode, the seed and the version.', 'good'), () => store.toast(link)); }}><Icon name="share" /> Share this {kind === 'story' ? 'seed' : 'village'}</button>
           <button className="btn" onClick={() => store.set({ screen: 'title' })}>Main menu</button>
         </div>
       </div>

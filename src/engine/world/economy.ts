@@ -45,6 +45,13 @@ export function runHarvest(ctx: Ctx): number {
   return produced;
 }
 
+/** Daytime: woodcutters who actually worked today bring in the fuel that is counted at dawn. */
+export function countWoodcutters(ctx: Ctx): void {
+  const s = ctx.s;
+  if (!(s.scn.consts.fuelPerDay > 0)) return;
+  s.flags.cuttersToday = s.villagers.filter((v) => v.status !== 'dead' && v.role.toLowerCase().includes('woodcutter') && v.duty === 'work' && v.energy >= 25).length;
+}
+
 /** Dawn bookkeeping: eating, fear, recovery. */
 export function runDawnNeeds(ctx: Ctx): void {
   const s = ctx.s;
@@ -68,8 +75,7 @@ export function runDawnNeeds(ctx: Ctx): void {
   }
   const fpd = s.scn.consts.fuelPerDay ?? 0;
   if (fpd > 0) {
-    const cutters = s.villagers.filter((v) => v.status !== 'dead' && v.role.toLowerCase().includes('woodcutter') && v.duty !== 'rest').length;
-    const gain = Math.min(fpd, cutters);
+    const gain = Math.min(fpd, s.flags.cuttersToday ?? 0);
     if (gain > 0) stocks.fuel = (stocks.fuel ?? 0) + gain;
   }
   emit(ctx, {

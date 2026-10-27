@@ -2,6 +2,7 @@ import type { ScenarioDef } from './types.ts';
 import { ashwood } from './scenarios/ashwood.ts';
 import { harvest } from './scenarios/harvest.ts';
 import { redbank } from './scenarios/redbank.ts';
+import { resolveExpedition } from '../gen/expedition.ts';
 
 const AUTHORED: Record<string, ScenarioDef> = {
   redbank,
@@ -27,6 +28,8 @@ export function getScenarioDef(id: string): ScenarioDef {
     const g = r(id);
     if (g) return g;
   }
+  const x = resolveExpedition(id);
+  if (x) return x;
   throw new Error(`Unknown scenario: ${id}`);
 }
 

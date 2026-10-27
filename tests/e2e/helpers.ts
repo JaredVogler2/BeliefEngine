@@ -45,7 +45,7 @@ export async function startScenario(page: Page, scenario: string, seed = 1, diff
   await expect(page.getByTestId('play')).toBeVisible();
 }
 
-async function openSheet(page: Page, tab: string) {
+export async function openSheet(page: Page, tab: string) {
   const vp = page.viewportSize();
   if (vp && vp.width <= 900) {
     const open = await page.locator('.side.open').count();

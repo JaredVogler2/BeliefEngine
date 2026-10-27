@@ -41,6 +41,8 @@ export interface UiState {
   announce: string;
   showFlood: boolean;
   scenarioId: string;
+  /** plain-language notes about how the current run was opened (e.g. an older link) */
+  notes: string[];
 }
 
 type Listener = () => void;
@@ -61,7 +63,7 @@ export class GameStore {
     this.ui = {
       screen: 'title', selection: null, activeClaim: null, lens: 'none', tab: 'selected', sheetOpen: false, digest: null, confirmEnd: false,
       settings, toasts: [], loadError: null, tutorialDone: !settings.tutorial, debug: params.get('debug') === '1', announce: '', showFlood: settings.showFlood,
-      scenarioId: 'redbank',
+      scenarioId: 'redbank', notes: [],
     };
   }
 
@@ -116,7 +118,7 @@ export class GameStore {
   newRun(opts: CreateRunOptions): void {
     this.session = GameSession.create(opts);
     this.prevState = null;
-    this.ui = { ...this.ui, screen: 'briefing', selection: null, activeClaim: null, digest: null, confirmEnd: false, lens: 'none', tab: 'selected', sheetOpen: false, announce: '', loadError: null, scenarioId: opts.scenarioId, tutorialDone: !this.ui.settings.tutorial };
+    this.ui = { ...this.ui, screen: 'briefing', selection: null, activeClaim: null, digest: null, confirmEnd: false, lens: 'none', tab: 'selected', sheetOpen: false, announce: '', loadError: null, scenarioId: opts.scenarioId, notes: [], tutorialDone: !this.ui.settings.tutorial };
     this.persist();
     this.emit();
   }

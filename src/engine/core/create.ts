@@ -1,5 +1,6 @@
 import { ARCHETYPES, type ScenarioDef, type VillagerDef } from '../content/types.ts';
 import { getScenarioDef } from '../content/registry.ts';
+import { applyModifiers, sanitizeModifiers } from '../gen/modifiers.ts';
 import { buildWorld } from '../world/build.ts';
 import { assignDay } from '../ai/routines.ts';
 import { emit, type Ctx } from './events.ts';
@@ -53,7 +54,13 @@ function actualThreat(def: ScenarioDef, seed: number) {
 }
 
 export function createRun(opts: CreateRunOptions): RunState {
-  const def = getScenarioDef(opts.scenarioId);
+  return createRunFromDef(getScenarioDef(opts.scenarioId), opts);
+}
+
+/** Build a run from an explicit scenario definition (used by the generator to verify a village before it is registered). */
+export function createRunFromDef(base: ScenarioDef, opts: CreateRunOptions): RunState {
+  const modifiers = sanitizeModifiers(base, opts.modifiers ?? base.modifiers ?? []);
+  const def = applyModifiers(base, modifiers, opts.seed | 0);
   const difficulty = opts.difficulty ?? 'normal';
   const world = buildWorld(def.map);
   const apPerDay = def.ap.perDay + (difficulty === 'story' ? 1 : 0);
@@ -88,7 +95,7 @@ export function createRun(opts: CreateRunOptions): RunState {
     seed: opts.seed | 0,
     difficulty,
     mode: opts.mode ?? 'story',
-    modifiers: (opts.modifiers ?? []).slice(),
+    modifiers,
     day: 1,
     maxDay: def.runtime.durationDays,
     phase: 'planning',
@@ -111,7 +118,7 @@ export function createRun(opts: CreateRunOptions): RunState {
     today: [],
     history: [],
     stats: emptyStats(),
-    flags: {},
+    flags: opts.dailyDate ? { dailyDate: opts.dailyDate } : {},
     beatsSeen: [],
     scn: def.runtime,
   };

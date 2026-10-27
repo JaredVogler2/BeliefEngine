@@ -11,7 +11,7 @@
   "lawsActivated": [
    "wolves_fear_smoke"
   ],
-  "stateHash": "1726db2c60d0e9",
+  "stateHash": "13a7e3ee6a7183",
   "eventHash": "1f358b1ba32cb2",
   "actions": [
    {
@@ -135,8 +135,8 @@
   "lawsActivated": [
    "wolves_follow_smoke"
   ],
-  "stateHash": "142dff7d282cba",
-  "eventHash": "090c6acb2ce82a",
+  "stateHash": "1289cece156c39",
+  "eventHash": "1494e8e2036ede",
   "actions": [
    {
     "type": "PICK_STARTER",
@@ -238,6 +238,16 @@
     "type": "END_DAY"
    },
    {
+    "type": "RITUAL",
+    "ritual": "burn_smoke",
+    "landmark": "c_d1"
+   },
+   {
+    "type": "RITUAL",
+    "ritual": "burn_smoke",
+    "landmark": "c_d2"
+   },
+   {
     "type": "END_DAY"
    }
   ]
@@ -248,7 +258,7 @@
   "alive": 13,
   "homes": 11,
   "food": 12,
-  "stateHash": "0886918a668aeb",
+  "stateHash": "0b9fc2f5146de2",
   "eventHash": "15fbce84aaeeb6",
   "actions": [
    {
@@ -286,7 +296,7 @@
   "policy": "smokeRing",
   "result": "defeat",
   "alive": 13,
-  "stateHash": "05020bc94c0e1e",
+  "stateHash": "1ba6fc49f6b229",
   "eventHash": "100683e800e2c8",
   "actions": [
    {
