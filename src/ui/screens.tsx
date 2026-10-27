@@ -8,6 +8,7 @@ import { Icon } from './components.tsx';
 import { dailyBest, loadProgress, playedExpeditionSeeds } from './progress.ts';
 import { OptionsCard, Rewards } from './extras.tsx';
 import { BIOME_LABEL, dailyLabel, dailyOptions, expeditionOptions, freshExpeditionSeed, previewVillage, randomEntropy, runKind, shareLink, storyOptions, todayUtc, type VillagePreview } from './modes.ts';
+import { downloadText } from './files.ts';
 import { store, useStore } from './store.ts';
 
 // ------------------------------------------------------------------ title
@@ -427,6 +428,7 @@ export function HowTo() {
 
 export function SettingsScreen() {
   const ui = useStore((s) => s.ui);
+  const saveFile = useRef<HTMLInputElement>(null);
   const st = ui.settings;
   const inGame = !!store.state && !store.state.outcome;
   return (
@@ -450,6 +452,16 @@ export function SettingsScreen() {
               <option value="auto">Auto</option><option value="high">High</option><option value="low">Low (fewer effects)</option>
             </select></label>
           <label className="toggle-row"><span>Show tips in the first days</span><input type="checkbox" checked={st.tutorial} onChange={(e) => store.setSettings({ tutorial: e.target.checked })} /></label>
+        </div>
+        <div className="card" style={{ marginTop: '1rem' }} data-testid="save-files">
+          <h2>Saved games</h2>
+          <p className="small muted">A save file is plain JSON holding one run. Download it to keep a copy, move to another browser, or show a coaching agent your game; load it back here. Files are checked exactly like the automatic save.</p>
+          <div className="row wrap">
+            {inGame && <button className="btn" data-testid="download-save" onClick={() => { const j = store.exportSave(); if (j) downloadText(`belief-engine-${store.state!.scenarioId}-day${store.state!.day}.json`, j); }}>Download this game</button>}
+            <button className="btn" onClick={() => saveFile.current?.click()} data-testid="load-save">Load a game file…</button>
+            <input ref={saveFile} type="file" accept="application/json,.json" hidden data-testid="load-save-file" onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; void f.text().then((txt) => store.loadSaveText(txt)); e.target.value = ''; }} />
+          </div>
+          {ui.loadError && <p role="alert" className="error-text" data-testid="load-error">{ui.loadError}</p>}
         </div>
         <div className="row wrap" style={{ marginTop: '1rem' }}>
           <button className="btn" onClick={() => store.resetSettings()}>Reset settings</button>

@@ -27,5 +27,14 @@ export default defineConfig({
       name: 'phone',
       use: { ...devices['Pixel 7'], viewport: { width: 390, height: 844 } },
     },
+    // Cross-browser smoke (opt in: needs `npx playwright install firefox webkit`, and on Linux `npx playwright install-deps webkit`).
+    // Run with BE_CROSS_BROWSER=1 npm run test:e2e -- --project=firefox --project=webkit --project=iphone
+    ...(process.env.BE_CROSS_BROWSER === '1'
+      ? [
+          { name: 'firefox', testMatch: /smoke\.spec\.ts/, use: { ...devices['Desktop Firefox'], viewport: { width: 1366, height: 768 } } },
+          { name: 'webkit', testMatch: /smoke\.spec\.ts/, use: { ...devices['Desktop Safari'], viewport: { width: 1366, height: 768 } } },
+          { name: 'iphone', testMatch: /smoke\.spec\.ts/, use: { ...devices['iPhone 14'] } },
+        ]
+      : []),
   ],
 });

@@ -4,6 +4,7 @@ import { sfx } from '../audio/audio.ts';
 import { Icon, Modal } from './components.tsx';
 import { exportJson, importJson, loadProgress, resetProgress } from './progress.ts';
 import { numberToDate } from '../engine/index.ts';
+import { downloadText } from './files.ts';
 import { store } from './store.ts';
 
 type Tab = 'laws' | 'lore' | 'postcards' | 'badges' | 'unlocks' | 'stats' | 'archive';
@@ -17,17 +18,6 @@ const EFFECT_TEXT: Record<string, string> = {
 };
 
 const STARTER_LAWS = ['river_fears_fire', 'bridge_stands_watched', 'moonlight_ripens_grain', 'rain_follows_bells', 'wolves_fear_smoke', 'wolves_follow_smoke'];
-
-function download(name: string, text: string): void {
-  const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  window.setTimeout(() => URL.revokeObjectURL(url), 2000);
-}
 
 export function Atlas() {
   const [tab, setTab] = useState<Tab>('laws');
@@ -153,7 +143,7 @@ export function Atlas() {
           <section data-testid="atlas-archive">
             <p>Your archive is a small JSON file on this device. Export it to keep a copy or move it to another browser; import restores it. Nothing in it identifies you.</p>
             <div className="row wrap">
-              <button className="btn" data-testid="export" onClick={() => { download('belief-engine-atlas.json', exportJson()); setMsg({ kind: 'good', text: 'Exported.' }); }}>Export archive</button>
+              <button className="btn" data-testid="export" onClick={() => { downloadText('belief-engine-atlas.json', exportJson()); setMsg({ kind: 'good', text: 'Exported.' }); }}>Export archive</button>
               <button className="btn" onClick={() => file.current?.click()}>Import from file…</button>
               <input ref={file} type="file" accept="application/json,.json" hidden data-testid="import-file" onChange={(e) => { const f = e.target.files?.[0]; if (!f) return; void f.text().then((t) => setImportText(t)); e.target.value = ''; }} />
               <button className="btn danger" data-testid="reset" onClick={() => setConfirmReset(true)}>Reset progress…</button>

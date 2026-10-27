@@ -11,6 +11,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
+    "size": "tsx scripts/check-bundle.ts",
+    "profile": "tsx scripts/profile-ui.ts",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
@@ -18,6 +20,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
+    "test:e2e:browsers": "BE_CROSS_BROWSER=1 playwright test tests/e2e/smoke.spec.ts --project=desktop --project=firefox --project=webkit --project=iphone",
     "test:sim": "tsx scripts/tournament.ts",
     "test:sim:smoke": "tsx scripts/tournament.ts --smoke",
     "mcp": "tsx mcp/server.ts",

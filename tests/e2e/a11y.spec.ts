@@ -1,6 +1,8 @@
 import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
-import { chooseClaim, selectVillager, startRedbank } from './helpers.ts';
+import { GameSession, serializeRun } from '../../src/engine/index.ts';
+import { policyById } from '../../src/engine/ai/bots/generic.ts';
+import { chooseClaim, openSheet, selectVillager, startRedbank } from './helpers.ts';
 
 async function audit(page: Page, label: string) {
   const res = await new AxeBuilder({ page: page as unknown as ConstructorParameters<typeof AxeBuilder>[0]['page'] }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
@@ -31,6 +33,54 @@ test.describe('accessibility', () => {
     await audit(page, 'laws');
     await page.getByTestId('tab-forecast').click();
     await audit(page, 'forecast');
+  });
+
+  test('the Atlas, digest, end-day dialog, log, social lens and debrief pass axe too, at large text and in high contrast', async ({ page }) => {
+    const played = (days: number, policy: string) => {
+      const g = GameSession.create({ scenarioId: 'redbank', seed: 1 });
+      const p = policyById(policy);
+      for (let i = 0; i < days && !g.state.outcome; i++) p.playDay(g);
+      return serializeRun(g.state);
+    };
+    const load = async (json: string) => {
+      await page.goto('/?debug=1');
+      await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
+      await page.evaluate((j) => (window as unknown as { __belief: { load: (s: string) => boolean } }).__belief.load(j), json);
+    };
+    // large text + high contrast are the two settings most likely to expose contrast and clipping problems
+    await page.addInitScript(() => localStorage.setItem('be:settings:v1', JSON.stringify({ textScale: 'large', highContrast: true, tutorial: false })));
+    await page.goto('/');
+    await page.getByTestId('atlas-open').click();
+    for (const tab of ['laws', 'lore', 'postcards', 'badges', 'unlocks', 'stats', 'archive']) {
+      await page.getByTestId(`atlas-tab-${tab}`).click();
+      await audit(page, `atlas/${tab} (large, high contrast)`);
+    }
+    await load(played(5, 'evidence-first'));
+    await audit(page, 'play with a live law (large, high contrast)');
+    await openSheet(page, 'log');
+    await audit(page, 'log (large, high contrast)');
+    await page.getByTestId('end-day').click();
+    await audit(page, 'end-day dialog (large, high contrast)');
+    await page.getByTestId('confirm-end').click();
+    await audit(page, 'morning digest (large, high contrast)');
+    await page.getByTestId('digest-continue').click();
+    await load(played(20, 'evidence-first'));
+    await expect(page.getByTestId('debrief-scene')).toBeVisible();
+    await audit(page, 'debrief with scene (large, high contrast)');
+  });
+
+  test('every state is axe-clean on the smallest supported phone (320x568)', async ({ page }) => {
+    test.skip((page.viewportSize()?.width ?? 0) > 600, 'phone project only');
+    await page.setViewportSize({ width: 320, height: 568 });
+    await page.goto('/?debug=1');
+    await audit(page, 'title 320');
+    await page.getByTestId('play').click();
+    await audit(page, 'scenarios 320');
+    await page.getByTestId('begin-redbank').click();
+    await audit(page, 'briefing 320');
+    await page.getByTestId('begin').click();
+    await audit(page, 'play 320');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1), 'no sideways scroll at 320').toBe(true);
   });
 
   test('a whole turn is playable with the keyboard alone', async ({ page }) => {

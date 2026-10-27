@@ -50,7 +50,16 @@ function parseDeepLink(): void {
   store.set({ notes: parsed.notes });
 }
 
+/** The whole shell sits inside a boundary too: an error outside the screen switch must not leave a blank page. */
 export function App() {
+  return (
+    <Boundary>
+      <Shell />
+    </Boundary>
+  );
+}
+
+function Shell() {
   const ui = useStore((s) => s.ui);
   useEffect(() => {
     parseDeepLink();
@@ -60,6 +69,8 @@ export function App() {
         get session() { return store.session; },
         load: (json: string) => { const r = deserializeRun(json); if (r.ok) { store.session = new GameSession(r.state); store.set({ screen: r.state.outcome ? 'debrief' : 'play', digest: null, tutorialDone: true }); } return r.ok; },
         hash: () => (store.state ? stateHash(store.state) : null),
+        /** test hook: break rendering on purpose to exercise the recovery screen */
+        crash: () => store.set({ settings: undefined as never }),
         eventHash: () => (store.state ? eventHash(store.state) : null),
         store,
       };

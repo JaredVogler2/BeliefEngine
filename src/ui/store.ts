@@ -127,6 +127,31 @@ export class GameStore {
     this.emit();
   }
 
+  /** The current run as a save file the player can keep or hand to another tool (browser, MCP coach). Null if there is no run. */
+  exportSave(): string | null {
+    return this.state ? serializeRun(this.state) : null;
+  }
+
+  /** Load a save file the player picked. Validated exactly like the autosave; on failure nothing changes and a reason is shown. */
+  loadSaveText(text: string): boolean {
+    if (text.length > 2_000_000) {
+      this.set({ loadError: 'That file is too large to be a Belief Engine save.' });
+      return false;
+    }
+    const r = deserializeRun(text);
+    if (!r.ok) {
+      this.set({ loadError: r.error });
+      return false;
+    }
+    this.session = new GameSession(r.state);
+    this.prevState = null;
+    this.persist();
+    const first = r.state.scn.starters.find((c) => r.state.claims.find((x) => x.id === c)?.available) ?? null;
+    this.ui = { ...this.ui, screen: r.state.outcome ? 'debrief' : 'play', selection: null, activeClaim: first, digest: null, confirmEnd: false, loadError: null, scenarioId: r.state.scenarioId, tutorialDone: true };
+    this.emit();
+    return true;
+  }
+
   continueRun(): boolean {
     const raw = readKey(KEYS.save);
     if (!raw) return false;
@@ -156,7 +181,10 @@ export class GameStore {
       removeKey(KEYS.save);
       return;
     }
+    const wasOk = this.lastSavedOk;
     this.lastSavedOk = writeKey(KEYS.save, serializeRun(s));
+    // tell the player once, with the way out, instead of failing silently
+    if (wasOk && !this.lastSavedOk) this.toast('This browser would not save the game (storage is full or blocked). You can keep playing; use Settings > Download this game to keep a copy.', 'error');
   }
 
   act(action: Action): ActionResult | null {
