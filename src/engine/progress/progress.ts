@@ -62,6 +62,7 @@ export function makeRecord(s: RunState, opts: { debug: boolean; finishedAt?: str
     apSpent: s.stats.apSpent,
     rescued: s.stats.homesSpared + s.stats.livesSaved,
     debug: opts.debug,
+    ...(s.flags.inventor ? { custom: true } : {}),
     ...(opts.finishedAt ? { finishedAt: opts.finishedAt } : {}),
   };
   return { ...rec, signature: hashValue([rec.id, rec.result, rec.score, rec.rules, rec.debug]).slice(0, 10) };
@@ -90,6 +91,13 @@ export function applyRun(before: Progress, s: RunState, opts: { debug: boolean; 
   p.runs.push(record);
   if (p.runs.length > MAX_RUNS) p.runs = p.runs.slice(-MAX_RUNS);
   if (opts.debug) return { progress: p, record, duplicate: false, newAchievements: [], newUnlocks: [], newKnowledge: [], newLaws: [], postcard };
+  if (record.custom) {
+    // an Inventor run is kept apart: no atlas entries, no unlocks, no ranked badges; its own badge only
+    const ctx: AchievementCtx = { s, rec: record, before, runs: p.runs.filter((r) => !r.custom), atlasLaws: new Set(Object.keys(p.atlas.laws)), newKnowledge: [] };
+    const own = ACHIEVEMENTS.filter((a) => a.id === 'custom_law' && !p.achievements[a.id] && a.test(ctx));
+    for (const a of own) p.achievements[a.id] = { run: record.id, ...(opts.finishedAt ? { at: opts.finishedAt } : {}) };
+    return { progress: p, record, duplicate: false, newAchievements: own, newUnlocks: [], newKnowledge: [], newLaws: [], postcard };
+  }
 
   // atlas: laws, knowledge, postcards
   const newLaws: string[] = [];
@@ -118,7 +126,7 @@ export function applyRun(before: Progress, s: RunState, opts: { debug: boolean; 
   p.atlas.postcards[s.scenarioId] = cards.slice(-6);
 
   // achievements, then unlocks (evaluated against the archive including this run)
-  const ctx: AchievementCtx = { s, rec: record, before, runs: p.runs, atlasLaws: new Set(Object.keys(p.atlas.laws)), newKnowledge: newKnowledgeIds };
+  const ctx: AchievementCtx = { s, rec: record, before, runs: p.runs.filter((r) => !r.custom), atlasLaws: new Set(Object.keys(p.atlas.laws)), newKnowledge: newKnowledgeIds };
   const newAchievements = ACHIEVEMENTS.filter((a) => !p.achievements[a.id] && a.test(ctx));
   for (const a of newAchievements) p.achievements[a.id] = { run: record.id, ...(opts.finishedAt ? { at: opts.finishedAt } : {}) };
   const newUnlocks = UNLOCKS.filter((u) => !p.unlocks[u.id] && u.test(ctx));
@@ -142,7 +150,7 @@ export interface ProgressStats {
 }
 
 export function progressStats(p: Progress): ProgressStats {
-  const real = p.runs.filter((r) => !r.debug);
+  const real = p.runs.filter((r) => !r.debug && !r.custom);
   const wins = real.filter((r) => r.result === 'victory');
   const byMode: Record<string, number[]> = {};
   for (const r of wins) (byMode[r.mode] ??= []).push(r.score);

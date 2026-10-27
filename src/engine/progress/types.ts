@@ -33,6 +33,8 @@ export interface RunRecord {
   rescued: number;
   /** true if the run used the debug loader; such runs never earn rewards */
   debug: boolean;
+  /** an Inventor run (the player wrote beliefs): kept apart from ranked records, earns only its own badge */
+  custom?: boolean;
   /** short integrity fingerprint of the key outcome fields (for local comparison only; not a security feature) */
   signature: string;
   finishedAt?: string;

@@ -1,4 +1,5 @@
-import { RULES_VERSION, SCHEMA_VERSION, type RunState } from '../core/types.ts';
+import { RULES_VERSION, SCHEMA_VERSION, type ClaimDef, type RunState } from '../core/types.ts';
+import { verifyCustomClaim } from '../nl/build.ts';
 
 export const SAVE_FORMAT = 'belief-engine-save';
 
@@ -49,5 +50,13 @@ export function deserializeRun(json: string): LoadResult {
   const w = st.world as Record<string, unknown>;
   if (!isObj(w) || !Array.isArray(w.terrain) || !Array.isArray(w.elev) || typeof w.w !== 'number' || typeof w.h !== 'number' || w.terrain.length !== (w.w as number) * (w.h as number))
     return { ok: false, error: 'The save has a corrupt map.' };
+  // a belief the player wrote is rebuilt from its structure; a save whose numbers were edited by hand is not accepted as one
+  for (const c of st.claims as unknown[]) {
+    const def = isObj(c) && isObj(c.def) ? (c.def as unknown as ClaimDef) : null;
+    if (def?.custom) {
+      const why = verifyCustomClaim(def, st.villagers as { district: string }[], ((st.scn as { claimDefs?: ClaimDef[] } | undefined)?.claimDefs ?? []) as ClaimDef[], ((st.scn as { starters?: string[] } | undefined)?.starters ?? []) as string[]);
+      if (why) return { ok: false, error: `The save holds a written belief that does not check out (${why}).` };
+    }
+  }
   return { ok: true, state: st as unknown as RunState };
 }

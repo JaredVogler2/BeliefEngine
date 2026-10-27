@@ -4,6 +4,8 @@
  * Convention: conviction is an integer-ish value in [-100, 100]; traits and needs are 0..100.
  */
 
+import type { BeliefAST } from '../nl/ast.ts';
+
 export const SCHEMA_VERSION = 1;
 export const RULES_VERSION = '1.0.0';
 
@@ -82,8 +84,10 @@ export interface ClaimDef {
   params?: Record<string, string | number>;
   startsAvailable: boolean;
   unlockDay?: number;
-  /** custom (player composed) claim bookkeeping */
-  custom?: { text: string; astHash: string; parser: string; balance: number };
+  /** a compound belief's second clause (laws/effects.ts runs each); thresholds and costs live on `spec` */
+  extra?: RuleSpec[];
+  /** custom (player composed) claim bookkeeping: what was typed, the structure it became, who read it, and a checksum of the balance */
+  custom?: { text: string; astHash: string; parser: string; balance: number; ast: BeliefAST; source: 'offline' | 'model'; nl: number };
 }
 
 export type OmenKind = 'river_trend' | 'bridge_calm' | 'rain_tonight' | 'pack_quiet' | 'moon_clear' | 'fire_calm' | 'none';
@@ -595,4 +599,6 @@ export interface CreateRunOptions {
   draft?: Id[];
   /** unlocked optional starting stories to add to the opening choice */
   extraClaims?: Id[];
+  /** Inventor run: the Keeper may write beliefs of their own (unranked: it earns no scores, badges or atlas entries except its own) */
+  inventor?: boolean;
 }

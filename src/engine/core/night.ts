@@ -1,4 +1,5 @@
-import { claimDef, findVillager } from './lookup.ts';
+import { allClaimDefs, claimDef, findVillager } from './lookup.ts';
+import { firstName } from './names.ts';
 import { K } from '../social/persuasion.ts';
 import type { DaySummary, GameEvent, RunState } from './types.ts';
 
@@ -15,13 +16,13 @@ export interface NightReport {
   lines: GameEvent[];
 }
 
-const first = (name: string): string => name.split(' ')[0];
+const first = firstName;
 const joinNames = (xs: string[]): string => (xs.length <= 1 ? (xs[0] ?? '') : `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`);
 
 export function nightReport(s: RunState, events: GameEvent[], summary: DaySummary): NightReport {
   const lines = events.filter((e) => e.importance >= 2).slice(0, 14);
   const story: string[] = [];
-  const keepers = new Set(s.scn.claimDefs.filter((c) => !c.rival).map((c) => c.id));
+  const keepers = new Set(allClaimDefs(s).filter((c) => !c.rival).map((c) => c.id));
 
   // who was reached tonight, per story
   const moved = new Map<string, { target: string; from: number; to: number; actor?: string }[]>();

@@ -169,5 +169,6 @@ export function optionsFromState(s: import('../core/types.ts').RunState): import
     ...(s.flags.drafted ? { draft: s.scn.claimDefs.filter((c) => !c.rival).map((c) => c.id) } : {}),
     // twists the player chose (as opposed to the ones a generated village drew from its seed)
     ...(s.flags.twisted ? { modifiers: mods } : {}),
+    ...(s.flags.inventor ? { inventor: true } : {}),
   };
 }

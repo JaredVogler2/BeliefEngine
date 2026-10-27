@@ -110,14 +110,19 @@ Telling someone is claim, villager, button. The `T` key now tells the selected v
 | Is the best strategy found by observation and experiment? | Mostly: scouting, previews and the what-if card; one Redbank route is too dominant. | FR-04, FR-08 |
 | Are the novelty systems cosmetic or strategic? | Twists change persuasion and costs and say so before the run; unlocks add choices, not power. | none needed |
 
-## The agent and natural-language phases at review time
+## The agent and natural-language phases (re-checked after phase 17)
 
-Phase 16 (the local MCP server) exists; phase 17 (natural-language beliefs) does not yet, so this section is re-checked when it does.
+Phases 16 (the local MCP server) and 17 (player-written beliefs) now exist. What was checked, and what it found:
 
 * **Same limits as a human.** Agents act through the same `GameSession`: tests show the Influence cap, the refusal to overspend, undo, the once-a-day rules and the replay hashes are identical (`tests/unit/mcp-service.test.ts`). Found by this review: `end_day` returned a thinner morning than the browser; it now carries the same story lines.
 * **Causality and errors.** Events carry `reason` and `cause`; refusals carry `alternatives` and an error code. `get_results` can include the what-if analysis.
-* **Offline.** The server and the browser game make no network requests; a test checks that the server code imports no network or process-spawning module and needs no key.
-* **Not applicable yet.** Player-written beliefs, prompt injection through claim text, generated code, provider credentials and remote storage, authorization and concurrency (the server is local stdio; remote HTTP is not implemented). `submit_belief` is a stub that answers `CAPABILITY_NOT_ENABLED`.
+* **Offline.** The server and the browser game make no network requests; a test checks that the server code imports no network or process-spawning module and needs no key. The optional online interpreter is separate, off by default, and `server/interpreter.ts` is not imported by the MCP server or the browser build unless `VITE_INTERPRETER_URL` is set.
+* **Overpowered or free effects.** A written belief is priced by one formula from its structure alone; nothing in a sentence can set a cost, a threshold or a strength. This review found the formula *failing* its own rule (a written copy of a built-in law was easier than the built-in; a bot won Harvest 30/30 with the copy and 18/30 with the original) and a believer requirement no small hamlet could meet; both are fixed and now tested against every built-in law (`nl-balance.test.ts`). Effects that did not execute (a bell-powered river belief, a sickness cost) were found and fixed (`advertised-costs.test.ts`).
+* **Works with the API disconnected.** The offline composer is the whole feature: with no provider, key or network every flow still works (`nl-llm.test.ts` checks that every failure of the online path is an answer, not an error; the Playwright flows run with no interpreter configured).
+* **Prompt injection, unsafe code, credential leakage.** Sentences are data: instruction-shaped text is refused by name, control and invisible characters are stripped, nothing is executed or evaluated, markup is rendered as text. With a model, the claim travels as a JSON string in the user turn and the reply is held to a strict schema; a recognisable fake key is routed through provider output, errors and outages and never reaches a response or the console (`nl-llm.test.ts`, `nl-corpus.test.ts`, `mcp-beliefs.test.ts`). Not covered: a live provider (none was run), and a determined adversary testing the offline reader with sentences nobody has thought of.
+* **Real agent sessions found problems the tests did not** (`docs/data/nl/claude-code-inventor-session-*.md`): a confirmation token that went stale after any other action, a default region with no bell tower, a generic refusal, missing next actions, and a Harvest vocabulary in which every sentence that worked was already a built-in story.
+* **Phase 18 re-ran the balance question with the final build** (`docs/FINAL_ACCEPTANCE.md`): an exploit hunt over every offered written belief and the strongest compound pairings found one belief that beat the best built-in route (Redbank, 40 of 40 against 36 of 40); it was fixed and re-measured at 40 seeds per cell. A scripted novice that follows the on-screen prompts lost every chapter, which is a floor and not a verdict on people.
+* **Not applicable yet.** Remote storage, authorization and concurrency (the server is local stdio; remote HTTP is not implemented); provider credentials in production (the proxy has never been deployed).
 
 ## Scores (author's heuristics, not market validation)
 

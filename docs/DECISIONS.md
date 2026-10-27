@@ -59,3 +59,22 @@ spread "A crowded bridge is a broken bridge" once the bridge law has 12% support
 Measured effect and caveats are in `docs/BALANCE_REPORT.md`. While integrating it a real bug appeared and was fixed: bridge duty and
 bridge-law credit treated every `subject: bridge` claim alike, so a *rival* bridge rumour sent its own believers (Harl, a field hand) to the deck
 and cost the food that route lives on. Only the Keeper's own bridge stories now do.
+
+## D15. Written beliefs: one formula, a strength cap and the chapter's own pacing (phases 17 and 18)
+A sentence becomes a belief by a typed structure and one balance formula, never by the sentence asking for numbers (`docs/NL_BELIEFS.md`).
+The first formula failed against the built-in laws (a written copy of *Moonlight ripens grain* was easier than the original and a bot won 30 of 30
+with it), so the rule became: **never easier than the built-in law of the same kind**, enforced by a test over every law in every chapter. The phase 18
+exploit hunt then found a second hole the formula could not see: a belief about the whole of something (no reach to price) at full strength, written on
+day 1 for an answer the chapter only unlocks on day 4, won Redbank 40 of 40 against 36 of 40 for the best built-in route. Two rules followed:
+(1) a belief about the whole of something is never stronger than the strongest built-in belief of its kind, so strength is *capped* where it cannot be *priced*;
+(2) a written copy of an answer the chapter holds back is told only from the day that answer unlocks. Opening stories (the starters) are not held back, so
+copies of them are told at once: the first version applied the wait to starters too and made every written copy arrive too late to wake before the flood.
+Both rules are re-checked at load (`verifyCustomClaim`), so a save cannot remove them.
+
+## D16. The engine version did not change for phase 17 (phase 18)
+Phase 17 added an action (`COMPOSE`), claim fields and new effect code, but every recorded state and event hash of the existing chapters and tournament traces
+replays identically, and the 1 000-seed verification of generated villages gives the same 853 villages with the same winning planners, so `RULES_VERSION`
+stays `1.0.0`. (Bumping it would have changed the state hash of every recorded run, because the version is part of the state, and would have hidden a real regression
+behind regenerated fixtures.) An older engine rejects a run containing `COMPOSE`. What a run was recorded under is now written next to it instead
+(`src/engine/save/versions.ts`: rules, schema, generator, belief language and a fingerprint of the opening state), and a run recorded under other versions is refused
+with the reason rather than replayed into a different result.

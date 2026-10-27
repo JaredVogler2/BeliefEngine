@@ -128,7 +128,7 @@ export function createRunFromDef(base: ScenarioDef, opts: CreateRunOptions): Run
     today: [],
     history: [],
     stats: emptyStats(),
-    flags: { ...(opts.dailyDate ? { dailyDate: opts.dailyDate } : {}), ...(opts.draft && staged !== base && staged.runtime.claimDefs.length < base.runtime.claimDefs.length ? { drafted: 1 } : {}), ...(voluntary ? { twisted: modifiers.length } : {}) },
+    flags: { ...(opts.dailyDate ? { dailyDate: opts.dailyDate } : {}), ...(opts.draft && staged !== base && staged.runtime.claimDefs.length < base.runtime.claimDefs.length ? { drafted: 1 } : {}), ...(voluntary ? { twisted: modifiers.length } : {}), ...(opts.inventor && (opts.mode ?? 'story') !== 'daily' ? { inventor: 1 } : {}) },
     beatsSeen: [],
     scn: def.runtime,
   };

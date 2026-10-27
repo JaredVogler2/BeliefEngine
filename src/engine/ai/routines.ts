@@ -1,5 +1,5 @@
 import { emit, type Ctx } from '../core/events.ts';
-import { claimDef, findLandmark, findVillager, landmark } from '../core/lookup.ts';
+import { allClaimDefs, claimDef, findLandmark, findVillager, landmark } from '../core/lookup.ts';
 import { hashKeys } from '../core/rng.ts';
 import type { Landmark, RunState, Villager } from '../core/types.ts';
 import { computeModifiers } from '../laws/effects.ts';
@@ -175,9 +175,9 @@ export function assignWatchers(ctx: Ctx): void {
   if (!br) return;
   br.data.watchers = 0;
   // only the Keeper's own bridge stories send believers to the deck; a rival's ("crowds break bridges") never does
-  const bridgeClaims = s.scn.claimDefs.filter((c) => c.spec.subject === 'bridge' && !c.rival);
+  // (a composed belief that *weakens* the bridge, or one powered by bells, sends nobody to watch it)
+  const bridgeClaims = allClaimDefs(s).filter((c) => c.spec.subject === 'bridge' && c.spec.effect === 'strengthen' && c.spec.trigger.kind === 'watchers' && !c.rival);
   const claimIds = new Set(bridgeClaims.map((c) => c.id));
-  for (const c of s.claims) if (c.def?.spec.subject === 'bridge' && !c.def.rival) claimIds.add(c.id);
   if (!claimIds.size) return;
   const lawLive = s.laws.some((l) => claimIds.has(l.claimId) && (l.status === 'active' || l.status === 'wavering'));
   const vigil = (s.flags.vigilDay ?? -1) === s.day;

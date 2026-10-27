@@ -1,4 +1,4 @@
-import { getHand } from '../../engine/index.ts';
+import { findClaimDef, getHand } from '../../engine/index.ts';
 import { ClaimGlyph } from '../components.tsx';
 import { store, useStore } from '../store.ts';
 import { getTutorial } from '../tutorial.ts';
@@ -14,7 +14,7 @@ export function Hand() {
     <div className={`hand ${pickingStarter ? 'choosing' : ''}`} role="group" aria-label="Your stories">
       {hand.map((c, i) => {
         const main = c.laws[0];
-        const on = state.scn.claimDefs.find((d) => d.id === c.id)?.spec.thresholds.on ?? 0.6;
+        const on = findClaimDef(state, c.id)?.spec.thresholds.on ?? 0.6;
         const isStarter = state.scn.starters.includes(c.id) && pickingStarter;
         const locked = !c.available && !isStarter;
         const pressed = ui.activeClaim === c.id;
@@ -56,10 +56,18 @@ export function Hand() {
             {locked && <span className="chip lock">{c.unlockDay ? `Unlocks on day ${c.unlockDay}` : 'Not available yet'}</span>}
             {!locked && !isStarter && <span className="c-line">{c.risk}</span>}
             {c.rival && <span className="chip violet">Rival rumour — challenge it</span>}
+            {c.custom && <span className="chip violet" data-testid="custom-chip">Your own belief</span>}
             {main && false}
           </button>
         );
       })}
+      {state.flags.inventor && !pickingStarter && !state.outcome && (
+        <button className="claim write" onClick={() => store.set({ composing: true })} data-testid="compose-open">
+          <span className="c-top"><ClaimGlyph icon="scroll" /><span className="c-text">Write a belief</span></span>
+          <span className="c-line">Say in a sentence what the village should come to believe. Preview is free.</span>
+          <span className="chip violet">Inventor run · unranked</span>
+        </button>
+      )}
     </div>
   );
 }

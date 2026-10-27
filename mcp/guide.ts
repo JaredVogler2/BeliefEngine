@@ -32,6 +32,18 @@ You never see future dice, hidden state or other runs. Nothing can set a random 
 5. Always check food and the objectives; a won flood can still lose on hunger.
 6. Call end_day only when you are done planning. Read the digest, explain it, then plan the next day.
 
+## Writing your own beliefs (Inventor runs)
+Start a run with create_game { inventor: true } (unranked: no atlas, no unlocks, no personal bests; at most two beliefs per run). The composer matches a
+fixed vocabulary (it does not understand free language), so call list_belief_examples { runId } first: it lists the sentences this village understands
+exactly. A belief names what behaves (river, rain, bridge, crops, wolves, sickness, fire), how, and what powers it (lit beacons, smoke fires, ringing
+bells, watchers on the bridge, night work, or nothing). Many of them are already built-in stories; writing one of those only costs Influence. Then
+submit_belief { runId, text } reads one
+sentence into bounded mechanics. It is free and changes nothing: you get up to three interpretations, each with what it really does in this village,
+what it needs (for example lit beacons or watchers), its Influence cost, the local support and firm believers it needs, its risks, and a safety-check
+result. A belief that is too strong is not refused: it is narrowed (reach first, then strength) until it fits, and the interpretation says so under "adjustments"; a sentence about invulnerability, forever, free food or wealth is refused outright. Pick one and confirm_belief { runId, token }. A written belief is a story like any other: it does nothing until villagers believe it
+(SEED, MESSENGER, proof), and a stronger belief needs more believers. A sentence the village cannot model is refused with the reason and the nearest
+beliefs it can. Tokens last ten minutes and belong to one run; at confirm time the game rebuilds the belief and checks it again against the village as it is then.
+
 ## Reliability
 Every mutating call returns a \`revision\`. Pass \`expectedRevision\` so a stale plan is rejected rather than applied, and an
 \`idempotencyKey\` so a retried call never acts twice (end_day never advances two days because a request was repeated).
@@ -55,6 +67,10 @@ export const TOOLS_GUIDE = `# Tool cheat sheet (examples)
 - get_results { runId } -> debrief (after the run ends). With whatIf: true, after a defeat it also names the last day a different plan could
   still have saved the village (a few seconds; replays the run on its own seed, so it shows a route existed, not that it was easy to see).
   export_replay { runId } -> exact action log.
+- create_game { scenarioId: "redbank", seed: 1, inventor: true } -> an unranked run where you may write beliefs.
+- list_belief_examples { runId } -> the beliefs this village understands, as sentences, with which are already built-in stories.
+- submit_belief { runId, text: "The river slows beside lit beacons." } -> interpretations with tokens (free, changes nothing).
+- confirm_belief { runId, token, expectedRevision, idempotencyKey } -> pays and writes it; then take_action SEED with the new claim id.
 - Coach mode: import_game { saveJson } (the browser's save) then compare_possible_actions and recommend; the human clicks.
   grant_control { runId } only when the human says so.
 `;

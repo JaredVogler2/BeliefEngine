@@ -23,12 +23,12 @@ export const COMPAT: Record<Subject, Effect[]> = {
 export const TRIGGERS: Record<Subject, TriggerKind[]> = {
   river: ['lit_beacon', 'smoke_fire', 'bell', 'evidence'],
   rain: ['bell'],
-  bridge: ['watchers'],
-  grain: ['night', 'evidence'],
+  bridge: ['watchers', 'bell'],
+  grain: ['night', 'evidence', 'bell', 'always'],
   wolf: ['smoke_fire', 'lit_beacon', 'bell'],
   stone: ['always', 'evidence'],
   smoke: ['smoke_fire', 'lit_beacon'],
-  illness: ['always', 'lit_beacon'],
+  illness: ['always', 'lit_beacon', 'smoke_fire'],
   fire: ['always', 'watchers'],
 };
 
@@ -75,19 +75,26 @@ export function validateSpec(spec: unknown): SpecIssue[] {
   return issues;
 }
 
+/** Raw physical reach x strength x how easily the trigger is met. Shared by the authored-rule budget and the belief composer. */
+export function specPower(spec: Pick<RuleSpec, 'radius' | 'intensity' | 'trigger'>): number {
+  const reach = spec.radius === 0 ? 4 : Math.PI * (spec.radius + 0.5) ** 2 * 0.35;
+  // a bridge that needs fewer watchers is easier to power
+  const triggerEase =
+    spec.trigger.kind === 'always' ? 1.6 : spec.trigger.kind === 'night' ? 1.15 : spec.trigger.kind === 'evidence' ? 0.9 : spec.trigger.kind === 'watchers' ? ((spec.trigger.min ?? 1) >= 3 ? 1 : (spec.trigger.min ?? 1) === 2 ? 1.1 : 1.25) : 1;
+  return reach * spec.intensity * triggerEase;
+}
+
 /**
  * Transparent power budget. Stronger/larger/easier laws need higher adoption, and must carry downsides.
  * power = reach * intensity weight * triggerEase ; cost = threshold + sides + upkeep.
  */
 export function powerBudget(spec: RuleSpec): { power: number; offset: number; balanced: boolean; minOn: number; sidesNeeded: number } {
-  const reach = spec.radius === 0 ? 4 : Math.PI * (spec.radius + 0.5) ** 2 * 0.35;
-  const triggerEase = spec.trigger.kind === 'always' ? 1.6 : spec.trigger.kind === 'night' ? 1.15 : spec.trigger.kind === 'evidence' ? 0.9 : 1;
-  const power = reach * spec.intensity * triggerEase;
+  const power = specPower(spec);
   const sidePower = spec.side.reduce((a, s) => a + SIDE_EFFECT_INFO[s].power, 0);
   const offset =
     (spec.thresholds.on - 0.5) * 40 + spec.thresholds.minSupporters * 1.2 + spec.upkeep.fuel * 4 + sidePower * 1.8 + (spec.thresholds.decay - 20) * 0.1;
   // Required adoption grows with power; side effects buy a cheaper threshold up to a floor.
-  const minOn = Math.min(0.9, 0.52 + power / 90 - sidePower * 0.012);
+  const minOn = Math.min(0.9, 0.5 + power / 160 - sidePower * 0.012);
   const sidesNeeded = power > 28 ? 2 : power > 12 ? 1 : 0;
   const balanced = spec.thresholds.on >= minOn - 0.001 && spec.side.length >= sidesNeeded && power <= 80;
   return { power, offset, balanced, minOn, sidesNeeded };

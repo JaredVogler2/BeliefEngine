@@ -104,19 +104,27 @@ export function Bar({ value, max = 100, kind = '', marks = [], label }: { value:
 
 export function Modal({ title, onClose, children, wide }: { title: string; onClose?: () => void; children: ReactNode; wide?: boolean }) {
   const ref = useRef<HTMLDivElement>(null);
+  // the latest close handler, kept in a ref: the dialog's focus handling must run once when it opens and once when it closes, not
+  // every time the parent re-renders (typing in a field inside the dialog re-renders the parent on every key, which would give focus
+  // back to whatever opened the dialog)
+  const closeRef = useRef(onClose);
+  useEffect(() => {
+    closeRef.current = onClose;
+  });
+  const closable = !!onClose;
   useEffect(() => {
     const prev = document.activeElement as HTMLElement | null;
     const el = ref.current;
-    const first = el?.querySelector<HTMLElement>('[data-autofocus]') ?? el?.querySelector<HTMLElement>('button, [href], input, select, [tabindex]:not([tabindex="-1"])');
+    const first = el?.querySelector<HTMLElement>('[data-autofocus]') ?? el?.querySelector<HTMLElement>('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
     // focus on the next frame so the key press that opened the dialog cannot also activate its primary button
     const raf = window.requestAnimationFrame(() => first?.focus());
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && onClose) {
+      if (e.key === 'Escape' && closeRef.current) {
         e.stopPropagation();
-        onClose();
+        closeRef.current();
       }
       if (e.key === 'Tab' && el) {
-        const f = Array.from(el.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input, select, [tabindex]:not([tabindex="-1"])'));
+        const f = Array.from(el.querySelectorAll<HTMLElement>('button:not(:disabled), [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'));
         if (!f.length) return;
         const a = f[0];
         const z = f[f.length - 1];
@@ -136,7 +144,7 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
       const a = document.activeElement;
       if (!a || a === document.body || el?.contains(a)) prev?.focus?.();
     };
-  }, [onClose]);
+  }, [closable]);
   return (
     <div className="overlay" onMouseDown={(e) => e.target === e.currentTarget && onClose?.()}>
       <div className="modal" role="dialog" aria-modal="true" aria-label={title} ref={ref} style={wide ? { width: 'min(760px,100%)' } : undefined}>

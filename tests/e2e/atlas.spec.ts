@@ -32,7 +32,7 @@ test.describe('Atlas, rewards and unlocked options', () => {
       await expect(page.getByTestId(`atlas-${t}`)).toBeVisible();
     }
     await page.getByTestId('atlas-tab-badges').click();
-    await expect(page.locator('[data-badge]')).toHaveCount(20);
+    await expect(page.locator('[data-badge]')).toHaveCount(21);
     await expect(page.locator('[data-badge][data-earned="true"]')).toHaveCount(0);
     expect(errors).toEqual([]);
   });

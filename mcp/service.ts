@@ -12,9 +12,11 @@ import { join } from 'node:path';
 import { z } from 'zod';
 import {
   GEN_VERSION, GameSession, MAX_SEED, RULES_VERSION, buildDebrief, nightReport, findCounterfactual, deserializeRun, describeAction, eventHash, expeditionId, getAvailableActions, getForecast, getHud, getLawViews, getScenarioDef,
-  getVillagerView, listScenarios, parseExpeditionId, previewAction, serializeRun, stateHash, influenceRanks, getHand, objectiveStatuses,
+  getVillagerView, listScenarios, parseExpeditionId, previewAction, serializeRun, stateHash, influenceRanks, getHand, objectiveStatuses, interpretBelief, allOffers, MAX_CUSTOM_CLAIMS,
 } from '../src/engine/index.ts';
+import type { Draft } from '../src/engine/index.ts';
 import type { Action, CreateRunOptions, Difficulty, GameEvent, RunState } from '../src/engine/index.ts';
+import { replayVersions, versionDrift, type ReplayVersions } from '../src/engine/save/versions.ts';
 import { claimDef } from '../src/engine/core/lookup.ts';
 import { computePressure } from '../src/engine/laws/resolver.ts';
 import { effectText } from '../src/engine/core/selectors.ts';
@@ -116,6 +118,20 @@ function brief(e: GameEvent): Record<string, unknown> {
   return o;
 }
 
+const TOKEN_TTL_MS = 10 * 60 * 1000;
+const MAX_TOKENS = 200;
+
+interface BeliefToken {
+  runId: string;
+  /** the revision it was interpreted at: informational (the engine rebuilds and re-checks the belief against the village as it is at confirm time) */
+  revision: number;
+  astHash: string;
+  draft: Draft;
+  expiresAt: number;
+  /** set once confirmed, so confirming the same token again returns the same answer instead of paying twice */
+  done?: ToolResult;
+}
+
 function conciseAction(a: Action): Record<string, unknown> {
   return { ...a };
 }
@@ -126,6 +142,10 @@ export class GameService {
   private readonly maxRuns: number;
   readonly debugTools: boolean;
   private readonly clock: () => number;
+  /** confirmation tokens for interpreted beliefs: in memory only, short-lived, bound to one run and one structure */
+  private tokens = new Map<string, BeliefToken>();
+  /** runs on disk that were refused on load, with the reason (a version difference), so the caller is told why instead of "no such run" */
+  private refused = new Map<string, string>();
 
   constructor(opts: ServiceOptions) {
     this.home = opts.home;
@@ -145,7 +165,7 @@ export class GameService {
     if (!this.home) return;
     const body = JSON.stringify({
       format: SAVE_FORMAT, v: 1, id: r.id, mode: r.mode, options: r.options, revision: r.revision, createdAt: r.createdAt, updatedAt: r.updatedAt,
-      actions: r.actions, idem: [...r.idem.entries()].slice(-IDEM_KEEP), base: r.base, state: serializeRun(r.session.state),
+      versions: r.base ? undefined : replayVersions(r.options), actions: r.actions, idem: [...r.idem.entries()].slice(-IDEM_KEEP), base: r.base, state: serializeRun(r.session.state),
     });
     const tmp = this.file(r.id) + '.tmp';
     writeFileSync(tmp, body);
@@ -160,8 +180,15 @@ export class GameService {
     try {
       const raw = JSON.parse(readFileSync(f, 'utf8')) as {
         format: string; id: string; mode: Mode; options: CreateRunOptions; revision: number; createdAt: number; updatedAt: number; actions: Action[]; idem: [string, ToolResult][]; state: string; base?: string;
+        versions?: Partial<ReplayVersions>;
       };
       if (raw.format !== SAVE_FORMAT || raw.id !== runId) return null;
+      // a run recorded under other rules, content or belief language is not silently re-played into a different result: say what differs
+      const drift = raw.base ? [] : versionDrift(raw.versions, replayVersions(raw.options));
+      if (drift.length) {
+        this.refused.set(runId, `This run was recorded under different versions than this engine has, so replaying it would not reproduce what happened: ${drift.join('; ')}. The file is kept untouched on disk; open it with the engine version that recorded it.`);
+        return null;
+      }
       const loaded = deserializeRun(raw.state);
       if (!loaded.ok) return null;
       const replayed = replayFromStart(raw.options, raw.base, raw.actions);
@@ -186,6 +213,8 @@ export class GameService {
         r = loaded;
       }
     }
+    const why = this.refused.get(runId);
+    if (!r && why) return fail('RUN_VERSION_MISMATCH', why);
     return r ?? fail('UNKNOWN_RUN', 'No such run on this server. Start one with create_game, or import_game.');
   }
 
@@ -213,7 +242,9 @@ export class GameService {
     const view: Record<string, unknown> = {
       runId: r.id,
       revision: r.revision,
-      mode: r.mode,
+      // who may act on this run (delegate: the agent, coach: read-only); not the game mode, which is gameMode
+      controller: r.mode,
+      gameMode: s.mode,
       scenario: { id: s.scenarioId, name: s.scn.name },
       seed: s.seed,
       difficulty: s.difficulty,
@@ -222,6 +253,7 @@ export class GameService {
       phase: s.phase,
       influence: { remaining: s.ap, max: s.apMax, perDay: s.apPerDay },
       openingStoryChosen: s.starter !== null,
+      ...(s.flags.inventor ? { inventor: { unranked: true, beliefsWritten: s.claims.filter((c) => c.def?.custom).length, maxBeliefs: MAX_CUSTOM_CLAIMS } } : {}),
       starters: s.starter === null ? s.scn.starters.map((c) => ({ claim: c, text: claimDef(s, c).text, short: claimDef(s, c).short })) : undefined,
       objectives: objectiveStatuses(s),
       tonight: { label: hud.threatLabel, warning: hud.warning ?? null, kind: fc.kind, omens: fc.tonight.omen },
@@ -278,7 +310,7 @@ export class GameService {
     });
   }
 
-  createGame(a: { scenarioId?: string; seed?: number; difficulty?: Difficulty; mode?: 'story' | 'expedition'; controller?: Mode }): ToolResult {
+  createGame(a: { scenarioId?: string; seed?: number; difficulty?: Difficulty; mode?: 'story' | 'expedition'; controller?: Mode; inventor?: boolean }): ToolResult {
     const difficulty = a.difficulty ?? 'normal';
     const mode = a.mode ?? 'story';
     let seed = a.seed;
@@ -291,7 +323,7 @@ export class GameService {
     if (!scenarioId) return fail('BAD_SCENARIO', 'Give a scenarioId (see list_scenarios) or mode "expedition" with a seed.', { alternatives: listScenarios().map((l) => l.id) });
     if (!listScenarios().some((l) => l.id === scenarioId) && !parseExpeditionId(scenarioId)) return fail('BAD_SCENARIO', `Unknown scenario "${scenarioId}".`, { alternatives: listScenarios().map((l) => l.id) });
     if (!Number.isInteger(seed)) return fail('BAD_SEED', 'The seed must be a whole number.');
-    const options: CreateRunOptions = { scenarioId, seed, difficulty, mode: mode === 'expedition' ? 'expedition' : 'story' };
+    const options: CreateRunOptions = { scenarioId, seed, difficulty, mode: mode === 'expedition' ? 'expedition' : 'story', ...(a.inventor ? { inventor: true } : {}) };
     let session: GameSession;
     try {
       session = GameSession.create(options);
@@ -301,7 +333,7 @@ export class GameService {
     const r = this.register(options, a.controller ?? 'delegate', session);
     if (!('id' in r)) return r;
     const s = r.session.state;
-    return ok(`Started ${s.scn.name} (seed ${s.seed}, ${s.difficulty}). Day 1 of ${s.maxDay}; ${s.ap} Influence. Choose an opening story first.`, {
+    return ok(`Started ${s.scn.name} (seed ${s.seed}, ${s.difficulty}${a.inventor ? ', Inventor run: unranked' : ''}). Day 1 of ${s.maxDay}; ${s.ap} Influence. Choose an opening story first.`, {
       runId: r.id,
       access: { scope: 'this server process and its home directory only', controller: r.mode, note: 'Run ids are unguessable but are not a security boundary; do not expose this server over a network.' },
       briefing: s.scn.briefing,
@@ -422,16 +454,18 @@ export class GameService {
     return opts.slice(0, limit).map((o) => ({ action: conciseAction(o.action), label: o.label, cost: o.cost, enabled: o.enabled, ...(o.reason ? { whyNot: o.reason } : {}) }));
   }
 
-  listActions(a: { runId: string; targetId?: string; includeDisabled?: boolean; limit?: number }): ToolResult {
+  listActions(a: { runId: string; targetId?: string; claimId?: string; includeDisabled?: boolean; limit?: number }): ToolResult {
     const r = this.get(a.runId);
     if (!('id' in r)) return r;
     const s = r.session.state;
     if (s.outcome) return ok('The run is over; there are no actions.', { runId: r.id, revision: r.revision, actions: [] });
-    const all = getAvailableActions(s, a.targetId ? (s.villagers.some((v) => v.id === a.targetId) ? { villager: a.targetId } : { landmark: a.targetId }) : {}, { includeDisabled: !!a.includeDisabled });
+    let all = getAvailableActions(s, a.targetId ? (s.villagers.some((v) => v.id === a.targetId) ? { villager: a.targetId } : { landmark: a.targetId }) : {}, { includeDisabled: !!a.includeDisabled });
+    // one story's actions only (a belief just written is far down a long list otherwise)
+    if (a.claimId) all = all.filter((o) => (o.action as { claim?: string }).claim === a.claimId);
     const limit = Math.min(a.limit ?? 60, 120);
     const grouped: Record<string, number> = {};
     for (const o of all) grouped[o.action.type] = (grouped[o.action.type] ?? 0) + 1;
-    return ok(`${all.length} legal action${all.length === 1 ? '' : 's'}${a.targetId ? ` involving ${a.targetId}` : ''}, Influence ${s.ap}. END_DAY is always available through end_day.`, {
+    return ok(`${all.length} legal action${all.length === 1 ? '' : 's'}${a.targetId ? ` involving ${a.targetId}` : ''}${a.claimId ? ` for ${a.claimId}` : ''}, Influence ${s.ap}. END_DAY is always available through end_day.`, {
       runId: r.id, revision: r.revision, influence: s.ap, total: all.length, shown: Math.min(all.length, limit), byType: grouped,
       actions: all.slice(0, limit).map((o) => ({ action: conciseAction(o.action), label: o.label, cost: o.cost, enabled: o.enabled, ...(o.reason ? { whyNot: o.reason } : {}) })),
     });
@@ -531,6 +565,119 @@ export class GameService {
     return this.remember(r, a.idempotencyKey, result);
   }
 
+  // ---------------------------------------------------------------- natural-language beliefs (Inventor runs)
+
+  private describeDraft(d: Draft, token: string): Record<string, unknown> {
+    return {
+      token,
+      title: d.title,
+      rating: d.rating,
+      mechanics: d.mechanics,
+      requires: d.requires,
+      support: { localSupportPercent: d.support.percent, firmBelievers: d.support.believers },
+      cost: { influenceToWrite: d.cost.compose, influencePerTelling: d.cost.perTelling },
+      risks: d.risks,
+      adjustments: d.adjustments,
+      assumptions: d.assumptions,
+      contradicts: d.contradicts,
+      safetyCheck: { passed: d.stress.invariantsOk && d.stress.powered, nightsSimulated: d.stress.nights, changed: d.stress.changed, problems: d.stress.problems },
+      alreadyAStory: d.existing ? { id: d.existing.id, short: d.existing.short, available: d.existing.available, unlockDay: d.existing.unlockDay } : null,
+      structure: d.ast,
+    };
+  }
+
+  /**
+   * Interpret a sentence into bounded, balanced proposals. Changes nothing and costs nothing: no revision, no Influence. The text is
+   * data: it goes to the offline reader, never to a model, a shell or a file. Each proposal carries a short-lived confirmation token.
+   */
+  submitBelief(a: { runId: string; text: string; targetRegion?: string }): ToolResult {
+    const r = this.get(a.runId);
+    if (!('id' in r)) return r;
+    const s = r.session.state;
+    if (!s.flags.inventor)
+      return fail('CAPABILITY_NOT_ENABLED', 'Writing beliefs of your own is part of Inventor runs, and this run was not started as one. Start one with create_game { inventor: true }; Inventor runs are unranked.', {
+        alternatives: ['create_game { inventor: true, ... }', 'inspect_claim on a built-in story', 'take_action with a built-in claim id'],
+      });
+    if (s.outcome) return fail('RUN_OVER', 'The run is over. Use get_results.', { alternatives: ['get_results', 'retry_or_new_game'] });
+    if (a.targetRegion && !s.world.regions.some((x) => x.id === a.targetRegion))
+      return fail('BAD_REGION', `This village has no region "${a.targetRegion.slice(0, 40)}".`, { alternatives: s.world.regions.map((x) => x.id) });
+    const result = interpretBelief(s, a.text, { region: a.targetRegion });
+    // forget expired tokens, and keep the table small
+    const now = this.clock();
+    for (const [k, t] of this.tokens) if (t.expiresAt <= now) this.tokens.delete(k);
+    while (this.tokens.size >= MAX_TOKENS) this.tokens.delete(this.tokens.keys().next().value as string);
+    const interpretations = result.drafts.map((d) => {
+      const token = randomBytes(16).toString('hex');
+      this.tokens.set(token, { runId: r.id, revision: r.revision, astHash: d.claim.custom?.astHash ?? '', draft: d, expiresAt: now + TOKEN_TTL_MS });
+      return this.describeDraft(d, token);
+    });
+    const dup = result.drafts.find((d) => d.existing);
+    const dupNote = dup?.existing
+      ? ` Note: reading “${dup.title}” is already the built-in story “${dup.existing.short}” (${dup.existing.available ? 'it is in your hand now: you can tell it with claim ' + dup.existing.id + ' without paying to write your own version' : `available from day ${dup.existing.unlockDay ?? 'later'}`}).`
+      : '';
+    const text = interpretations.length
+      ? `${result.message}${dupNote} ${interpretations.length} interpretation${interpretations.length === 1 ? '' : 's'}; nothing is written until confirm_belief is called with a token.`
+      : result.message;
+    return ok(text, {
+      runId: r.id, revision: r.revision, status: result.status, message: `${result.message}${dupNote}`, source: result.source, parser: result.parser, version: result.version,
+      interpretations, rejected: result.rejected, offers: result.offers.map((o) => ({ sentence: o.sentence, builtInStory: o.builtIn })), ignoredWords: result.ignored,
+      influence: { remaining: s.ap },
+      confirmWith: interpretations.length ? 'confirm_belief { runId, token, expectedRevision, idempotencyKey }' : undefined,
+      tokenValidSeconds: TOKEN_TTL_MS / 1000,
+      note: 'Interpretations are proposals. The game rebuilds the belief from its structure when you confirm; nothing here can make it stronger or cheaper.',
+    });
+  }
+
+  /** The beliefs this village can host, as sentences the composer always understands (the only guide to the vocabulary is this list and the refusals). */
+  listBeliefExamples(a: { runId: string }): ToolResult {
+    const r = this.get(a.runId);
+    if (!('id' in r)) return r;
+    const s = r.session.state;
+    if (!s.flags.inventor) return fail('CAPABILITY_NOT_ENABLED', 'Writing beliefs of your own is part of Inventor runs, and this run was not started as one. Start one with create_game { inventor: true }.', { alternatives: ['create_game { inventor: true, ... }'] });
+    const offers = allOffers(s);
+    return ok(`${offers.length} beliefs this village can host. Any of these sentences is understood exactly; a sentence of your own must name what behaves (river, rain, bridge, crops, wolves, sickness, fire), how, and what powers it (lit beacons, smoke fires, ringing bells, watchers, night).`, {
+      runId: r.id, revision: r.revision, influence: { remaining: s.ap },
+      examples: offers.map((o) => ({ sentence: o.sentence, title: o.title, subject: o.subject, effect: o.effect, poweredBy: o.trigger, alreadyABuiltInStory: o.builtIn })),
+      beliefsWritten: s.claims.filter((c) => c.def?.custom).length, maxBeliefs: MAX_CUSTOM_CLAIMS,
+      note: 'A sentence may combine two of these into one stronger belief (it costs more). Sentences about time, immortality, free food or wealth, controlling minds, or instructions to the game are refused.',
+    });
+  }
+
+  /** Pay for and write one interpreted belief. The same COMPOSE action the browser performs. Confirming a token twice answers the same, once. */
+  confirmBelief(a: { runId: string; token: string; expectedRevision?: number; idempotencyKey?: string }): ToolResult {
+    const r = this.get(a.runId);
+    if (!('id' in r)) return r;
+    const now = this.clock();
+    const t = this.tokens.get(a.token);
+    if (!t || t.runId !== r.id || t.expiresAt <= now)
+      return fail('TOKEN_INVALID', 'That confirmation token is unknown, expired, or belongs to another run. Call submit_belief again.', { alternatives: ['submit_belief'] });
+    if (t.done) return t.done.ok ? { ...t.done, data: { ...t.done.data, replayedFromToken: true } } : t.done;
+    const early = this.guard(r, a);
+    if (early) return early;
+    const act: Action = { type: 'COMPOSE', claim: t.draft.claim };
+    const res = r.session.act(act);
+    if (!res.ok) return fail(res.error.code, res.error.message, { alternatives: res.error.alternatives, currentRevision: r.revision });
+    r.actions.push(act);
+    r.revision += 1;
+    r.updatedAt = this.clock();
+    const s = r.session.state;
+    const claim = t.draft.claim;
+    const result = ok(res.summary || `Wrote “${claim.short}”.`, {
+      runId: r.id, revision: r.revision, accepted: true, cost: res.cost, remainingInfluence: s.ap,
+      claim: { id: claim.id, short: claim.short, text: claim.text, regions: claim.regions, ritual: claim.ritual ?? null, supportNeededPercent: Math.round(claim.spec.thresholds.on * 100), firmBelieversNeeded: claim.spec.thresholds.minSupporters },
+      events: res.events.map(brief),
+      availableFromDay: claim.unlockDay !== undefined && s.day < claim.unlockDay ? claim.unlockDay : s.day,
+      next: claim.unlockDay !== undefined && s.day < claim.unlockDay
+        ? `The village will not take this belief up until day ${claim.unlockDay} (the day the built-in story of its kind unlocks), so no action can tell it before then: spend today's influence on a belief that is already in your hand, end the day, and come back to list_actions { claimId: "${claim.id}" } on day ${claim.unlockDay}.`
+        : 'It is a law only if villagers come to believe it: tell people with take_action SEED, then carry it with MESSENGER, and provide whatever physical trigger it needs. list_actions { claimId } shows only this belief\'s actions.',
+      nextValidActions: getAvailableActions(s, {}).filter((o) => (o.action as { claim?: string }).claim === claim.id).slice(0, 8).map((o) => ({ action: conciseAction(o.action), label: o.label, cost: o.cost, enabled: o.enabled })),
+    });
+    t.done = result;
+    this.tokens.set(a.token, t);
+    this.save(r);
+    return this.remember(r, a.idempotencyKey, result);
+  }
+
   getHistory(a: { runId: string; fromDay?: number; afterEventId?: number; limit?: number; minImportance?: 0 | 1 | 2 | 3 }): ToolResult {
     const r = this.get(a.runId);
     if (!('id' in r)) return r;
@@ -558,7 +705,7 @@ export class GameService {
       ...(cf ? { whatIf: { lastDayItCouldStillBeSaved: alt(cf.latest), earliestDifferentOpening: alt(cf.earliest), plansTried: cf.plans, note: 'Replays on this seed with the real dice, played by a simple program: it shows a route existed, not that it was easy to see. Finding none does not prove the run was unwinnable.' } } : {}),
       runId: r.id, revision: r.revision, result: d.result, headline: d.headline, story: d.story, score: d.score, breakdown: d.breakdown, medal: d.medal, saved: d.saved, lost: d.lost,
       causalChains: d.chains.map((c) => ({ title: c.title, kind: c.kind, steps: c.steps })), missed: d.missed, tips: d.tips, seedInfo: d.seedInfo,
-      verification: { stateHash: stateHash(s), eventHash: eventHash(s), rulesVersion: RULES_VERSION, actions: r.actions.length },
+      verification: { stateHash: stateHash(s), eventHash: eventHash(s), rulesVersion: RULES_VERSION, versions: r.base ? undefined : replayVersions(r.options), actions: r.actions.length },
     });
   }
 
@@ -572,7 +719,7 @@ export class GameService {
       opts.seed = seed;
       opts.scenarioId = expeditionId(seed);
     }
-    return this.createGame({ scenarioId: opts.scenarioId, seed: opts.seed, difficulty: opts.difficulty, mode: o.mode === 'expedition' ? 'expedition' : 'story', controller: a.controller ?? r.mode });
+    return this.createGame({ scenarioId: opts.scenarioId, seed: opts.seed, difficulty: opts.difficulty, mode: o.mode === 'expedition' ? 'expedition' : 'story', controller: a.controller ?? r.mode, inventor: !!o.inventor });
   }
 
   exportReplay(a: { runId: string }): ToolResult {
@@ -580,7 +727,7 @@ export class GameService {
     if (!('id' in r)) return r;
     const s = r.session.state;
     return ok(`Replay of ${r.actions.length} accepted actions. Feed it to the browser engine or replayRun to reproduce the run exactly.`, {
-      runId: r.id, revision: r.revision, replay: { ...r.options, actions: r.actions }, rulesVersion: RULES_VERSION, stateHash: stateHash(s), eventHash: eventHash(s), finished: !!s.outcome,
+      runId: r.id, revision: r.revision, replay: { ...r.options, actions: r.actions }, rulesVersion: RULES_VERSION, versions: replayVersions(r.options), stateHash: stateHash(s), eventHash: eventHash(s), finished: !!s.outcome,
     });
   }
 
@@ -590,7 +737,7 @@ export class GameService {
     const loaded = deserializeRun(a.saveJson);
     if (!loaded.ok) return fail('BAD_SAVE', loaded.error);
     const s = loaded.state;
-    const options: CreateRunOptions = { scenarioId: s.scenarioId, seed: s.seed, difficulty: s.difficulty, mode: s.mode };
+    const options: CreateRunOptions = { scenarioId: s.scenarioId, seed: s.seed, difficulty: s.difficulty, mode: s.mode, ...(s.flags.inventor ? { inventor: true } : {}) };
     const r = this.register(options, a.controller ?? 'coach', new GameSession(s), []);
     if (!('id' in r)) return r;
     // an imported run's replay log starts at the import (the save is kept as its base), so it still verifies after a restart

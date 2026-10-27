@@ -33,6 +33,8 @@ export interface UiState {
   sheetOpen: boolean;
   digest: Resolution | null;
   confirmEnd: boolean;
+  /** the Write-a-belief dialog is open (Inventor runs) */
+  composing: boolean;
   settings: Settings;
   toasts: Toast[];
   loadError: string | null;
@@ -65,7 +67,7 @@ export class GameStore {
     const settings = loadSettings();
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
     this.ui = {
-      screen: 'title', selection: null, activeClaim: null, lens: 'none', tab: 'selected', sheetOpen: false, digest: null, confirmEnd: false,
+      screen: 'title', selection: null, activeClaim: null, lens: 'none', tab: 'selected', sheetOpen: false, digest: null, confirmEnd: false, composing: false,
       settings, toasts: [], loadError: null, tutorialDone: !settings.tutorial, debug: params.get('debug') === '1', announce: '', showFlood: settings.showFlood,
       scenarioId: 'redbank', notes: [], reward: null, lastAction: null,
     };
@@ -122,7 +124,7 @@ export class GameStore {
   newRun(opts: CreateRunOptions): void {
     this.session = GameSession.create(opts);
     this.prevState = null;
-    this.ui = { ...this.ui, screen: 'briefing', selection: null, activeClaim: null, digest: null, confirmEnd: false, lens: 'none', tab: 'selected', sheetOpen: false, announce: '', loadError: null, scenarioId: opts.scenarioId, notes: [], reward: null, tutorialDone: !this.ui.settings.tutorial };
+    this.ui = { ...this.ui, screen: 'briefing', selection: null, activeClaim: null, digest: null, confirmEnd: false, lens: 'none', tab: 'selected', sheetOpen: false, composing: false, announce: '', loadError: null, scenarioId: opts.scenarioId, notes: [], reward: null, tutorialDone: !this.ui.settings.tutorial };
     this.persist();
     this.emit();
   }

@@ -1,6 +1,7 @@
 import { councilBanDays, getAvailableActions, getCallouts, getForecast, getIntents, getLawViews, getModifierViews, getVillagerView, memoryLines, previewAction, describeAction, omenFor } from '../../engine/index.ts';
 import type { Action, ClaimDef, Landmark, Preview, RunState } from '../../engine/index.ts';
-import { neighborsOf } from '../../engine/core/lookup.ts';
+import { findClaimDef, neighborsOf } from '../../engine/core/lookup.ts';
+import { firstName } from '../../engine/core/names.ts';
 import { Avatar, Bar, ClaimGlyph, Icon, evIcon } from '../components.tsx';
 import { store, useStore, type SideTab } from '../store.ts';
 import { getRenderer } from './MapView.tsx';
@@ -17,7 +18,7 @@ interface Opt {
 
 function ActionRow({ o, onDone }: { o: Opt; onDone?: () => void }) {
   const ok = o.preview.ok;
-  const deltas = o.preview.deltas.slice(0, 3).map((d) => `${d.name.split(' ')[0]} ${d.before}→${d.after}`).join(', ');
+  const deltas = o.preview.deltas.slice(0, 3).map((d) => `${firstName(d.name)} ${d.before}→${d.after}`).join(', ');
   return (
     <button
       className={`act ${o.badge === 'good' ? 'omen-good' : o.badge === 'bad' ? 'omen-bad' : ''}`}
@@ -47,7 +48,7 @@ function ActionRow({ o, onDone }: { o: Opt; onDone?: () => void }) {
 
 /** Player stories are always playable; a rival theory only when the scenario lets the Keeper adopt it. */
 function playable(s: RunState, claimId: string): boolean {
-  const d = s.scn.claimDefs.find((c) => c.id === claimId);
+  const d = findClaimDef(s, claimId);
   return !!d && (!d.rival || !!d.adoptable);
 }
 
@@ -131,7 +132,7 @@ function VillagerCard({ id }: { id: string }) {
   const intents = getIntents(state, id);
   const memories = memoryLines(v);
   const claimId = ui.activeClaim;
-  const claimShort = claimId ? state.scn.claimDefs.find((c) => c.id === claimId)?.short ?? claimId : null;
+  const claimShort = claimId ? findClaimDef(state, claimId)?.short ?? claimId : null;
 
   const opts = ((): Opt[] => {
     const out: Opt[] = [];
@@ -180,14 +181,14 @@ function VillagerCard({ id }: { id: string }) {
       {view.status !== 'dead' && <p className="small" style={{ margin: '0.3rem 0 0' }}>{view.dutyNote}{view.place ? ` (${view.place})` : ''}</p>}
 
       <h3>What can I do?</h3>
-      {!claimId && <p className="small muted">Choose a story card below to see how to tell it to {view.name.split(' ')[0]}.</p>}
+      {!claimId && <p className="small muted">Choose a story card below to see how to tell it to {firstName(view.name)}.</p>}
       {claimId && <p className="small muted">Active story: <b>{claimShort}</b></p>}
-      {!view.canBeReached && view.status !== 'dead' && <p className="small" style={{ color: 'var(--gold)' }}>You cannot walk to {view.name.split(' ')[0]} today. Only a messenger on their side can reach them.</p>}
+      {!view.canBeReached && view.status !== 'dead' && <p className="small" style={{ color: 'var(--gold)' }}>You cannot walk to {firstName(view.name)} today. Only a messenger on their side can reach them.</p>}
       <div className="actions">
         {seed.map((o, i) => <ActionRow key={'s' + i} o={o} />)}
-        {msgFrom.length > 0 && <div className="small muted" style={{ marginTop: '0.3rem' }}>{view.name.split(' ')[0]} can carry it to:</div>}
+        {msgFrom.length > 0 && <div className="small muted" style={{ marginTop: '0.3rem' }}>{firstName(view.name)} can carry it to:</div>}
         {msgFrom.map((o, i) => <ActionRow key={'f' + i} o={o} />)}
-        {msgTo.length > 0 && <div className="small muted" style={{ marginTop: '0.3rem' }}>Believers who can carry it to {view.name.split(' ')[0]}:</div>}
+        {msgTo.length > 0 && <div className="small muted" style={{ marginTop: '0.3rem' }}>Believers who can carry it to {firstName(view.name)}:</div>}
         {msgTo.map((o, i) => <ActionRow key={'t' + i} o={o} />)}
         {counter.map((o, i) => <ActionRow key={'c' + i} o={o} />)}
         {trade.map((o, i) => <ActionRow key={'d' + i} o={o} />)}
@@ -283,7 +284,7 @@ function LandmarkCard({ id }: { id: string }) {
     for (const r of state.scn.rituals.filter((q) => q.landmark === l.kind)) {
       const claims: (string | undefined)[] = [undefined];
       if (claimId) {
-        const def = state.scn.claimDefs.find((c) => c.id === claimId);
+        const def = findClaimDef(state, claimId);
         if (def?.ritual === r.id) claims.unshift(claimId);
       }
       for (const c of claims) {
@@ -296,7 +297,7 @@ function LandmarkCard({ id }: { id: string }) {
     return out;
   })();
   if (!l) return null;
-  const def: ClaimDef | undefined = claimId ? state.scn.claimDefs.find((c) => c.id === claimId) : undefined;
+  const def: ClaimDef | undefined = claimId ? findClaimDef(state, claimId) : undefined;
   const ritual = def?.ritual ? state.scn.rituals.find((r) => r.id === def.ritual) : undefined;
   const omen = ritual && ritual.landmark === l.kind ? omenFor(state, ritual.omen) : null;
   const occupants = state.villagers.filter((v) => v.status !== 'dead' && v.place === l.id);
@@ -307,7 +308,7 @@ function LandmarkCard({ id }: { id: string }) {
       <p>{landmarkBlurb(l)}</p>
       {l.kind === 'bridge' && <Bar value={l.hp} max={l.maxHp} kind={l.hp / l.maxHp < 0.4 ? 'red' : 'gold'} label="Bridge integrity" />}
       {occupants.length > 0 && (
-        <p className="small">Here now: {occupants.map((o) => o.name.split(' ')[0]).join(', ')}.</p>
+        <p className="small">Here now: {occupants.map((o) => firstName(o.name)).join(', ')}.</p>
       )}
       {omen && (
         <div className={`chip ${omen.value > 0 ? 'good' : omen.value < 0 ? 'bad' : ''}`} style={{ whiteSpace: 'normal', marginBottom: '0.5rem' }}>
@@ -353,7 +354,7 @@ export function LawsPanel() {
           </div>
           <div className="kv"><span>Support</span><Bar value={l.pressure * 100} kind="gold" marks={[l.on * 100, l.off * 100]} label={`Support for ${l.short} in ${l.regionName}`} /><b>{Math.round(l.pressure * 100)}%</b></div>
           <div className="kv"><span>Awakening</span><Bar value={l.progress} kind="blue" label="Awakening progress" /><b>{l.progress}%</b></div>
-          <div className="small">Firm believers: <b>{l.supporters.length}</b> / {l.minSupporters} needed{l.supporters.length ? ` (${l.supporters.map((x) => x.name.split(' ')[0]).join(', ')})` : ''}.</div>
+          <div className="small">Firm believers: <b>{l.supporters.length}</b> / {l.minSupporters} needed{l.supporters.length ? ` (${l.supporters.map((x) => firstName(x.name)).join(', ')})` : ''}.</div>
           <div className="small muted">{l.note}</div>
           <ul>
             <li>{l.benefit}</li>
@@ -365,7 +366,7 @@ export function LawsPanel() {
             <div className="small" style={{ marginTop: '0.3rem' }}>
               <b>Win over next:</b>{' '}
               {l.nextSteps.map((n) => (
-                <button key={n.id} className="chip gold" onClick={() => store.select({ kind: 'villager', id: n.id })} style={{ cursor: 'pointer', margin: '2px' }}>{n.name.split(' ')[0]} — {n.why}</button>
+                <button key={n.id} className="chip gold" onClick={() => store.select({ kind: 'villager', id: n.id })} style={{ cursor: 'pointer', margin: '2px' }}>{firstName(n.name)} — {n.why}</button>
               ))}
             </div>
           )}

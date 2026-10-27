@@ -48,6 +48,20 @@ export function runSickness(ctx: Ctx, mods: Modifiers): void {
       }
     }
   }
+  // open doors let the cold in: the weak (children, elders, anyone already run down) lose a little health each night
+  let coldSick = 0;
+  for (const v of s.villagers) {
+    const drain = mods.coldDrain[v.district] ?? 0;
+    if (v.status === 'dead' || drain <= 0) continue;
+    if (v.health < 75 || v.archetype === 'child' || v.archetype === 'elder') {
+      v.health = clamp(v.health - drain, 0, 100);
+      if (v.health < 45 && v.status === 'ok') {
+        v.status = 'sick';
+        coldSick++;
+      }
+    }
+  }
+  if (coldSick) emit(ctx, { step: 'hazard', code: 'COLD_SICKNESS', importance: 2, text: `${coldSick} villager${coldSick === 1 ? '' : 's'} fall sick from the cold the open doors let in. They cannot work tomorrow.` });
   if (newlySick) emit(ctx, { step: 'hazard', code: 'SMOKE_SICKNESS', importance: 2, text: `${newlySick} villager${newlySick === 1 ? '' : 's'} fall sick from the smoke. They cannot work tomorrow.` });
 }
 

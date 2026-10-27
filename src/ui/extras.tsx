@@ -37,6 +37,37 @@ export function Rewards({ reward }: { reward: RunReward }) {
   );
 }
 
+/** Inventor mode: the player may write beliefs of their own. Always available (not unlocked), never in the daily, never ranked. */
+export function InventorCard({ state }: { state: RunState }) {
+  if (runKind(state) === 'daily') return null;
+  const cur = optionsFromState(state);
+  const on = !!state.flags.inventor;
+  return (
+    <section className="card" data-testid="inventor-card" style={{ marginTop: '1rem' }}>
+      <h2 style={{ marginTop: 0 }}>Inventor mode</h2>
+      <label className="toggle-row" style={{ borderBottom: 0 }}>
+        <span>
+          <b>Write beliefs of your own in this run.</b>{' '}
+          <span className="muted">
+            You type a sentence; the game shows what it would really do, what it needs and what it costs, and you decide. A belief you write is weighed by
+            the same rules as the built-in ones: it only works if villagers come to believe it, and stronger beliefs ask more of them.
+            An Inventor run is <b>unranked</b>: no personal bests, no Atlas entries, no unlocks. It can earn one badge of its own.
+          </span>
+        </span>
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(e) => {
+            sfx('click');
+            store.newRun({ ...cur, inventor: e.target.checked ? true : undefined });
+          }}
+          data-testid="opt-inventor"
+        />
+      </label>
+    </section>
+  );
+}
+
 /** Briefing choices that exist because of what the player has unlocked. Each one changes a rule of the run. */
 export function OptionsCard({ state }: { state: RunState }) {
   const ui = useStore((s) => s.ui);

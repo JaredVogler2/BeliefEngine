@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { getForecast, getHud, getLawViews, describeAction, nightReport } from '../../engine/index.ts';
+import { allClaimDefs, firstName, getForecast, getHud, getLawViews, describeAction, nightReport } from '../../engine/index.ts';
 import { setAmbience, setSceneAudio, setThreatIntensity, unlockAudio } from '../../audio/audio.ts';
 import { Icon, Modal, Pips, evIcon } from '../components.tsx';
 import { store, useStore } from '../store.ts';
 import { getTutorial } from '../tutorial.ts';
+import { Compose } from './Compose.tsx';
 import { Hand } from './Hand.tsx';
 import { MapView } from './MapView.tsx';
 import { ForecastPanel, LawsPanel, LogPanel, SelectedPanel, TABS, VillagePanel, tabLabel } from './Panels.tsx';
@@ -100,8 +101,8 @@ function ConfirmEnd() {
         <li>Unspent Influence: <b>{unspent}</b> (you will have {Math.min(state.apMax, unspent + state.apPerDay)} tomorrow; the cap is {state.apMax}).</li>
         <li>Tonight: {f.tonight.label}, level {f.tonight.level}, {f.tonight.trend}.</li>
         {f.homesAtRisk.length > 0 && <li>{f.homesAtRisk.length} home(s) in the water’s reach.</li>}
-        {f.peopleAtRisk.length > 0 && <li style={{ color: '#ffb3bf' }}>{f.peopleAtRisk.map((p) => p.name.split(' ')[0]).join(', ')} may be lost.</li>}
-        {f.trapped.length > 0 && <li style={{ color: '#ffb3bf' }}>{f.trapped.map((p) => p.split(' ')[0]).join(', ')} cannot reach safety.</li>}
+        {f.peopleAtRisk.length > 0 && <li style={{ color: '#ffb3bf' }}>{f.peopleAtRisk.map((p) => firstName(p.name)).join(', ')} may be lost.</li>}
+        {f.trapped.length > 0 && <li style={{ color: '#ffb3bf' }}>{f.trapped.map((p) => firstName(p)).join(', ')} cannot reach safety.</li>}
       </ul>
       <div className="row spread wrap" style={{ marginTop: '1rem' }}>
         <button className="btn" onClick={close} data-testid="keep-planning">Keep planning</button>
@@ -182,7 +183,7 @@ export function Play() {
       const t = e.target as HTMLElement | null;
       if (t && ['INPUT', 'SELECT', 'TEXTAREA'].includes(t.tagName)) return;
       const s = store.state;
-      if (!s || store.ui.confirmEnd) return;
+      if (!s || store.ui.confirmEnd || store.ui.composing) return;
       if (e.key === 'Escape') {
         if (store.ui.digest) return;
         if (store.ui.sheetOpen) store.set({ sheetOpen: false });
@@ -195,7 +196,7 @@ export function Play() {
         return;
       }
       if (/^[1-9]$/.test(e.key)) {
-        const claims = s.scn.claimDefs.filter((c) => !c.rival);
+        const claims = allClaimDefs(s).filter((c) => !c.rival);
         const c = claims[Number(e.key) - 1];
         if (c) {
           const cs = s.claims.find((x) => x.id === c.id);
@@ -243,7 +244,7 @@ export function Play() {
   // pick a sensible default active story
   useEffect(() => {
     if (!state || ui.activeClaim) return;
-    const first = state.scn.claimDefs.find((c) => !c.rival && state.claims.find((x) => x.id === c.id)?.available);
+    const first = allClaimDefs(state).find((c) => !c.rival && state.claims.find((x) => x.id === c.id)?.available);
     if (first) store.set({ activeClaim: first.id });
   }, [state, ui.activeClaim]);
 
@@ -278,6 +279,7 @@ export function Play() {
       </aside>
       <PlanBar />
       {ui.confirmEnd && <ConfirmEnd />}
+      {ui.composing && <Compose />}
       <Toasts />
       <div className="sr-only" aria-live="polite" role="status" data-testid="announce">{ui.announce}</div>
     </div>

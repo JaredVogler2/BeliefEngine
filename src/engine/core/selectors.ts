@@ -302,6 +302,8 @@ export interface ClaimCard {
   risk: string;
   flavor: string;
   available: boolean;
+  /** written by the player in an Inventor run */
+  custom: boolean;
   unlockDay: number | null;
   rival: boolean;
   laws: { regionId: string; regionName: string; pressure: number; status: LawState['status']; progress: number }[];
@@ -317,7 +319,7 @@ export function getHand(s: RunState): ClaimCard[] {
       const ritual = d.ritual ? s.scn.rituals.find((r) => r.id === d.ritual) : undefined;
       return {
         id: d.id, text: d.text, short: d.short, icon: d.icon, benefit: d.benefit, risk: d.risk, flavor: d.flavor,
-        available: c.available, unlockDay: d.unlockDay ?? null, rival: !!d.rival,
+        available: c.available, custom: !!d.custom, unlockDay: d.unlockDay ?? null, rival: !!d.rival,
         laws: s.laws.filter((l) => l.claimId === d.id).map((l) => ({
           regionId: l.regionId, regionName: s.world.regions.find((r) => r.id === l.regionId)?.name ?? l.regionId,
           pressure: Math.round(l.pressure * 100) / 100, status: l.status, progress: Math.round(l.progress),

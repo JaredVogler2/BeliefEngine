@@ -11,7 +11,7 @@ import type { Policy } from '../../src/engine/ai/bots/types.ts';
 import { witnessPolicies } from '../../src/engine/gen/witness.ts';
 import { FRUGAL_AP_PER_DAY } from '../../src/engine/progress/achievements.ts';
 import { PRESETS, applyDraft, extraClaimsFor } from '../../src/engine/progress/options.ts';
-import { getScenarioDef } from '../../src/engine/index.ts';
+import { getScenarioDef, interpretBelief } from '../../src/engine/index.ts';
 import { readFileSync } from 'node:fs';
 
 function play(p: Policy, o: CreateRunOptions): RunState {
@@ -154,6 +154,16 @@ describe('achievements: at least sixteen, each provably attainable', () => {
         last = last.concat(ids(r));
       }
       return last;
+    },
+    custom_law: () => {
+      // an Inventor run: the player writes a belief, it becomes law, and only this badge is paid
+      const g = GameSession.create({ scenarioId: 'redbank', seed: 1, difficulty: 'story', inventor: true });
+      g.act({ type: 'PICK_STARTER', claim: g.state.scn.starters[0] });
+      const d = interpretBelief(g.state, 'No flood can break a bridge that is watched.').drafts[0];
+      g.act({ type: 'COMPOSE', claim: d.claim });
+      const pol = lawPusher({ name: 'inventor', claim: d.claim.id, regions: d.claim.regions, counter: false, reserve: () => 0 });
+      for (let i = 0; i < 10 && !g.state.outcome; i++) pol.playDay(g);
+      return ids(fold(emptyProgress(), g.state));
     },
     cartographer: () => {
       let p = emptyProgress();

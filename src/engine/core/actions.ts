@@ -2,6 +2,9 @@ import { emit, type Ctx } from './events.ts';
 import { cloneState } from './clone.ts';
 import { claimDef, findLandmark, findVillager, trustOf, neighborsOf, edgeBetween, allClaimDefs, evidenceMult, modActive, repeatMult } from './lookup.ts';
 import { pledgeKey } from '../progress/options.ts';
+import { MAX_CUSTOM_CLAIMS, buildClaim, composeCostOf } from '../nl/build.ts';
+import { installClaim } from '../nl/stress.ts';
+import { NL_VERSION } from '../nl/ontology.ts';
 import { memoryFactor, remember } from './memory.ts';
 import type { Action, ActionError, ActionResult, ClaimDef, GameEvent, Landmark, RitualDef, RunState, Villager } from './types.ts';
 import { K, ensureBelief, evidenceGain, gossipDelta, REASON_TEXT, relevance, round1, seedGain } from '../social/persuasion.ts';
@@ -46,7 +49,8 @@ export function actionCost(s: RunState, a: Action): number {
     case 'TRADE':
       return s.scn.deals?.find((d) => d.id === a.deal)?.ap ?? 1;
     case 'COMPOSE':
-      return 1;
+      // what a belief costs to write follows from its strength (nl/balance.ts), never from what the request says it costs
+      return composeCostOf(a.claim?.custom?.ast);
     case 'END_DAY':
       return 0;
   }
@@ -271,10 +275,37 @@ function perform(ctx: Ctx, a: Action): Fail | null {
     case 'TRADE':
       return doTrade(ctx, a);
     case 'COMPOSE':
-      return fail('NOT_AVAILABLE', 'That action is not available in this scenario.');
+      return doCompose(ctx, a);
     case 'END_DAY':
       return fail('USE_END_DAY', 'End the day with resolveDay().');
   }
+}
+
+/**
+ * Compose Belief. The request carries a structure and the player's words; everything else (the rule, its thresholds, what it costs,
+ * what it contradicts, whether it passes the safety test) is rebuilt here by the same function the composer used, so a stale,
+ * edited or invented claim is refused and nothing the client says about its own strength is believed.
+ */
+function doCompose(ctx: Ctx, a: Extract<Action, { type: 'COMPOSE' }>): Fail | null {
+  const s = ctx.s;
+  if (!s.flags.inventor) return fail('NOT_AVAILABLE', 'Writing your own belief is part of Inventor runs. Start one from the briefing (Inventor mode is unranked).');
+  const made = s.claims.filter((c) => c.def?.custom).length;
+  if (made >= MAX_CUSTOM_CLAIMS) return fail('TOO_MANY', `You can write at most ${MAX_CUSTOM_CLAIMS} beliefs in one run.`);
+  const custom = a.claim?.custom;
+  if (!custom || typeof custom.text !== 'string') return fail('BAD_BELIEF', 'A composed belief must carry the text it was written from and its structure.');
+  if (custom.nl !== NL_VERSION) return fail('STALE_BELIEF', `That belief was written for version ${String(custom.nl)} of the belief language; this game reads version ${NL_VERSION}, and the same words could now mean something else. Write it again.`);
+  const built = buildClaim(s, custom.ast, custom.text, { title: a.claim.short, source: custom.source === 'model' ? 'model' : 'offline', stress: true });
+  if (!built.ok) return fail(built.code, built.message, built.alternatives);
+  const def = built.draft.claim;
+  if (def.custom?.astHash !== custom.astHash) return fail('STALE_BELIEF', 'That belief was prepared under other rules or for another village. Interpret it again.');
+  if (s.claims.some((c) => c.id === def.id)) return fail('ALREADY_WRITTEN', 'You already wrote that belief.');
+  installClaim(s, def);
+  s.flags.composed = ((s.flags.composed as number | undefined) ?? 0) + 1;
+  emit(ctx, {
+    step: 'action', code: 'BELIEF_WRITTEN', importance: 2, claim: def.id,
+    text: `You write a new belief into the village: “${def.short}”. It needs ${Math.round(def.spec.thresholds.on * 100)}% local support and ${def.spec.thresholds.minSupporters} firm believers before it can wake. ${def.unlockDay !== undefined && s.day < def.unlockDay ? `The village will take it up on day ${def.unlockDay}.` : 'Now tell someone.'}`,
+  });
+  return null;
 }
 
 function doTrade(ctx: Ctx, a: Extract<Action, { type: 'TRADE' }>): Fail | null {
@@ -286,8 +317,8 @@ function doTrade(ctx: Ctx, a: Extract<Action, { type: 'TRADE' }>): Fail | null {
   if (!keeperCanReach(s, broker.x, broker.y)) return fail('NO_PATH', `${broker.name} is cut off.`);
   const used = (s.flags[`deal:${deal.id}`] ?? 0) as number;
   if (used >= deal.limit) return fail('DEAL_USED', `${broker.name} will not send more than ${deal.limit} shipments.`);
-  const best = Math.max(0, ...s.scn.claimDefs.filter((c) => !c.rival).map((c) => broker.beliefs[c.id]?.conv ?? 0));
-  if (best < deal.minConviction) return fail('WANTS_PROOF', `${broker.name} wants proof before sharing grain: she must firmly believe one of your stories (${Math.round(best)} of ${deal.minConviction} needed).`, ['Stage proof where she can see it', 'Have a trusted friend carry the story to her']);
+  const best = Math.max(0, ...allClaimDefs(s).filter((c) => !c.rival).map((c) => broker.beliefs[c.id]?.conv ?? 0));
+  if (best < deal.minConviction) return fail('WANTS_PROOF', `${broker.name} wants proof before sharing grain: she must firmly believe one of your stories (her conviction in your best one is ${Math.round(best)} on a scale of 100; she needs ${deal.minConviction}).`, ['Stage proof where she can see it', 'Have a trusted friend carry the story to her']);
   let slot = 0;
   while (s.flags[`caravan:${slot}`] !== undefined) slot++;
   if (slot >= 1) return fail('IN_TRANSIT', 'A shipment is already on the road. Dalia will not send a second until it arrives.');
@@ -503,7 +534,7 @@ function labelOf(s: RunState, a: Action): string {
     case 'TRADE':
       return s.scn.deals?.find((d) => d.id === a.deal)?.label ?? `Trade: ${a.deal}`;
     case 'COMPOSE':
-      return `Compose: ${a.claim.text}`;
+      return `Write a belief: “${a.claim.short || a.claim.text}”`;
     case 'END_DAY':
       return 'End the day';
   }

@@ -7,7 +7,14 @@ const root = document.getElementById('root');
 if (!root) throw new Error('Missing #root element');
 
 function unsupported(msg: string): void {
-  root!.innerHTML = `<main style="max-width:520px;margin:4rem auto;padding:1.5rem;font-family:system-ui;color:#f4ecd8"><h1>Belief Engine</h1><p>${msg}</p></main>`;
+  const main = document.createElement('main');
+  main.style.cssText = 'max-width:520px;margin:4rem auto;padding:1.5rem;font-family:system-ui;color:#f4ecd8';
+  const title = document.createElement('h1');
+  title.textContent = 'Belief Engine';
+  const text = document.createElement('p');
+  text.textContent = msg;
+  main.append(title, text);
+  root!.replaceChildren(main);
 }
 
 if (!('structuredClone' in globalThis) || !('ResizeObserver' in globalThis) || !document.createElement('canvas').getContext) {

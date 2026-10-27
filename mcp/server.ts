@@ -61,6 +61,7 @@ export function buildServer(service: GameService): McpServer {
       difficulty: z.enum(['story', 'normal', 'hard']).optional(),
       mode: z.enum(['story', 'expedition']).optional(),
       controller: z.enum(['delegate', 'coach']).optional(),
+      inventor: z.boolean().optional().describe('Inventor run (unranked): the agent may write beliefs of its own with submit_belief and confirm_belief.'),
     },
     annotations: WRITE,
   }, async (a) => run(() => service.createGame(a)));
@@ -87,7 +88,7 @@ export function buildServer(service: GameService): McpServer {
 
   server.registerTool('list_actions', {
     title: 'List legal actions', description: 'Legal action templates with costs for the current planning phase, optionally only those involving a villager or landmark. includeDisabled adds illegal ones with the reason.',
-    inputSchema: { runId: runIdSchema, targetId: z.string().max(80).optional(), includeDisabled: z.boolean().optional(), limit: z.number().int().min(1).max(120).optional() }, annotations: RO,
+    inputSchema: { runId: runIdSchema, targetId: z.string().max(80).optional(), claimId: z.string().max(80).optional().describe('Only actions that use this story (for example one you just wrote).'), includeDisabled: z.boolean().optional(), limit: z.number().int().min(1).max(120).optional() }, annotations: RO,
   }, async (a) => run(() => service.listActions(a)));
 
   server.registerTool('compare_possible_actions', {
@@ -142,11 +143,23 @@ export function buildServer(service: GameService): McpServer {
   server.registerTool('get_tutorial', { title: 'Tutorial', description: 'Rules, what is hidden, how to play well, and tool usage examples in one text.', inputSchema: {}, annotations: RO },
     async () => ({ content: [{ type: 'text', text: `${RULES_TEXT}\n${TOOLS_GUIDE}` }], structuredContent: { rulesVersion: RULES_VERSION, serverVersion: SERVER_VERSION } }));
 
-  // Phase 17 plugs the natural-language composer in here; until then the capability is honestly reported as not enabled.
   server.registerTool('submit_belief', {
-    title: 'Submit a belief (natural language)', description: 'Propose a story in your own words. The same offline composer as the browser interprets it into bounded mechanics and returns interpretations and a confirmation token; confirm_belief then pays and adds it.',
-    inputSchema: { runId: runIdSchema, text: z.string().min(1).max(280), targetRegion: z.string().max(40).optional() }, annotations: WRITE,
-  }, async () => toCallResult({ ok: false, error: { code: 'CAPABILITY_NOT_ENABLED', message: 'The natural-language belief composer is not enabled in this build.', alternatives: ['inspect_claim on a canonical claim', 'take_action with a canonical claim id'] } }));
+    title: 'Submit a belief (natural language)',
+    description: 'Inventor runs only (create_game with inventor: true). Say in one sentence what the village should believe. The offline composer, the same one the browser uses, reads it into bounded mechanics and returns up to three interpretations, each with what it would really do, what it needs, what it costs and a safety-check result, and a short-lived confirmation token. Free: changes nothing. The text is treated as data; a refused sentence comes back with the reason and beliefs that can be modelled.',
+    inputSchema: { runId: runIdSchema, text: z.string().min(1).max(280), targetRegion: z.string().max(40).optional().describe('A region id of this village to place the belief in (see inspect_map).') }, annotations: RO,
+  }, async (a) => run(() => service.submitBelief(a)));
+
+  server.registerTool('list_belief_examples', {
+    title: 'List beliefs this village understands',
+    description: 'Inventor runs only. The beliefs this village can host, each as a sentence submit_belief understands exactly, with whether it is already a built-in story (writing one of those only costs Influence). Read this first: the composer matches a fixed vocabulary, so this list is the quickest way to learn it.',
+    inputSchema: { runId: runIdSchema }, annotations: RO,
+  }, async (a) => run(() => service.listBeliefExamples(a)));
+
+  server.registerTool('confirm_belief', {
+    title: 'Confirm a belief',
+    description: 'Pay Influence and write one interpretation from submit_belief into the village (the same COMPOSE action the browser performs). The belief is rebuilt from its structure at this point, so nothing can make it cheaper or stronger. It becomes law only when villagers come to believe it: tell people, spread it, and give it the physical trigger it needs. Confirming the same token twice answers the same once.',
+    inputSchema: { runId: runIdSchema, token: z.string().regex(/^[0-9a-f]{32}$/, 'a token is 32 hex characters from submit_belief'), expectedRevision: z.number().int().min(0).optional(), idempotencyKey: z.string().min(1).max(80).optional() }, annotations: WRITE,
+  }, async (a) => run(() => service.confirmBelief(a)));
 
   if (service.debugTools) {
     server.registerTool('debug_dump_state', {

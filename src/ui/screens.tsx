@@ -7,7 +7,7 @@ import { MapRenderer } from '../render/MapRenderer.ts';
 import { unlockAudio, sfx } from '../audio/audio.ts';
 import { Icon } from './components.tsx';
 import { dailyBest, loadProgress, playedExpeditionSeeds } from './progress.ts';
-import { OptionsCard, Rewards } from './extras.tsx';
+import { InventorCard, OptionsCard, Rewards } from './extras.tsx';
 import { BIOME_LABEL, dailyLabel, dailyOptions, expeditionOptions, freshExpeditionSeed, previewVillage, randomEntropy, runKind, shareLink, storyOptions, todayUtc, type VillagePreview } from './modes.ts';
 import { downloadText } from './files.ts';
 import { useWhatIf } from './whatif.ts';
@@ -310,6 +310,7 @@ export function Briefing() {
           </div>
         </div>
         <OptionsCard state={state} />
+        <InventorCard state={state} />
         <div className="row spread wrap sticky-cta">
           <button className="btn" onClick={begin}>Skip briefing</button>
           <button className="btn primary big" onClick={begin} data-testid="begin">Begin the first day</button>
@@ -363,6 +364,32 @@ function WhatIfCard({ state }: { state: RunState }) {
   );
 }
 
+/** What an Inventor run wrote, whether each belief ever became law, and the plain statement that the run is unranked. */
+function InventorNote({ state }: { state: RunState }) {
+  const mine = state.claims.filter((c) => c.def?.custom);
+  return (
+    <section className="card" data-testid="inventor-note">
+      <h2 style={{ marginTop: 0 }}>Inventor run (unranked)</h2>
+      <p className="small muted" style={{ marginTop: 0 }}>This run does not count toward personal bests, the Atlas or unlocks. Its only reward is the badge for seeing a belief of your own become law.</p>
+      {mine.length === 0 ? (
+        <p className="small">You did not write a belief this time.</p>
+      ) : (
+        <ul className="small">
+          {mine.map((c) => {
+            const laws = state.laws.filter((l) => l.claimId === c.id);
+            const woke = laws.find((l) => l.activatedDay !== null);
+            return (
+              <li key={c.id}>
+                <b>{c.def!.short}</b>: “{c.def!.custom!.text}” — {woke ? `became law on day ${woke.activatedDay}` : laws.some((l) => l.progress > 0) ? 'was taking hold but never became law' : 'never took hold'}.
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </section>
+  );
+}
+
 export function Debrief() {
   const state = useStore((s) => s.state);
   const reward = useStore((s) => s.ui.reward);
@@ -379,8 +406,9 @@ export function Debrief() {
   };
   const different = () => {
     sfx('click');
-    if (kind === 'story') store.newRun(storyOptions(state.scenarioId, randomSeed(), state.difficulty));
-    else store.newRun(expeditionOptions(freshExpeditionSeed([...playedExpeditionSeeds(), state.seed]), state.difficulty));
+    const inv = state.flags.inventor ? { inventor: true } : {};
+    if (kind === 'story') store.newRun({ ...storyOptions(state.scenarioId, randomSeed(), state.difficulty), ...inv });
+    else store.newRun({ ...expeditionOptions(freshExpeditionSeed([...playedExpeditionSeeds(), state.seed]), state.difficulty), ...inv });
     store.set({ screen: 'play' });
   };
   return (
@@ -402,6 +430,7 @@ export function Debrief() {
           {kind === 'expedition' && <button className="btn big" data-testid="to-daily" onClick={() => { sfx('click'); store.newRun(dailyOptions(todayUtc())); store.set({ screen: 'play' }); }}>Today’s challenge</button>}
           {alt && <button className="btn big" data-testid="try-other" onClick={again}>Try another approach</button>}
         </div>
+        {state.flags.inventor && <InventorNote state={state} />}
         {reward && <Rewards reward={reward} />}
         <h2>Why it went this way</h2>
         {d.chains.map((c, i) => (

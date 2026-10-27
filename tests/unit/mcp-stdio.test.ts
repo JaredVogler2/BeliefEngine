@@ -48,7 +48,7 @@ async function call(client: Client, name: string, args: Record<string, unknown> 
   return { isError: !!res.isError, data: res.structuredContent ?? {}, text: res.content.map((c) => c.text ?? '').join('\n') };
 }
 
-const REQUIRED = ['list_scenarios', 'create_game', 'get_game_state', 'inspect_map', 'inspect_villager', 'inspect_claim', 'list_actions', 'take_action', 'end_day', 'get_history', 'get_results', 'retry_or_new_game', 'submit_belief'];
+const REQUIRED = ['list_scenarios', 'create_game', 'get_game_state', 'inspect_map', 'inspect_villager', 'inspect_claim', 'list_actions', 'take_action', 'end_day', 'get_history', 'get_results', 'retry_or_new_game', 'submit_belief', 'confirm_belief', 'list_belief_examples'];
 
 describe('MCP over stdio with the official SDK client', () => {
   it('negotiates a protocol version, advertises tools, resources and prompts, and exposes every required tool with a schema and a description', async () => {
@@ -152,6 +152,49 @@ describe('MCP over stdio with the official SDK client', () => {
     }
   }, 60_000);
 
+  it('hostile payloads (prototype keys, oversize ids and keys, wrong types, extra fields, other runs\' ids) are refused or ignored and never change the run', async () => {
+    const { client, close } = await connect();
+    try {
+      const a = (await call(client, 'create_game', { scenarioId: 'redbank', seed: 1 })).data.runId as string;
+      const b = (await call(client, 'create_game', { scenarioId: 'redbank', seed: 2 })).data.runId as string;
+      await call(client, 'take_action', { runId: a, action: { type: 'PICK_STARTER', claim: 'river_fears_fire' } });
+      const snapshot = async (id: string) => JSON.stringify((await call(client, 'get_game_state', { runId: id, detail: 'full' })).data);
+      const before = [await snapshot(a), await snapshot(b)];
+      const attempts: Record<string, unknown>[] = [
+        { runId: a, action: { type: 'SEED', claim: '__proto__', target: 'ivo' } },
+        { runId: a, action: { type: 'SEED', claim: 'river_fears_fire', target: 'constructor' } },
+        { runId: a, action: { type: 'SEED', claim: 'river_fears_fire', target: 'x'.repeat(5000) } },
+        { runId: a, action: { type: 'SEED', claim: ['river_fears_fire'], target: { id: 'ivo' } } },
+        { runId: a, action: { type: 'SEED', claim: 'river_fears_fire', target: 'ivo' }, expectedRevision: -1 },
+        { runId: a, action: { type: 'SEED', claim: 'river_fears_fire', target: 'ivo' }, expectedRevision: 1.5 },
+        { runId: a, action: { type: 'SEED', claim: 'river_fears_fire', target: 'ivo' }, idempotencyKey: 'k'.repeat(5000) },
+        { runId: 'r_' + 'f'.repeat(32), action: { type: 'END_DAY' } },
+        { runId: '__proto__', action: { type: 'END_DAY' } },
+        { runId: a, action: null },
+      ];
+      for (const args of attempts) {
+        const r = await call(client, 'take_action', args);
+        expect(r.isError, JSON.stringify(args).slice(0, 80)).toBe(true);
+      }
+      expect(await snapshot(a)).toBe(before[0]);
+      // fields the schema does not know ("cost", "ap", a prototype key) are dropped, never obeyed: the telling is charged exactly its price
+      const ap0 = (await call(client, 'get_game_state', { runId: a })).data.influence as { remaining: number };
+      const extras = await call(client, 'take_action', { runId: a, action: JSON.parse('{"type":"SEED","claim":"river_fears_fire","target":"ivo","cost":0,"ap":999,"__proto__":{"ap":999}}') });
+      expect(extras.isError).toBe(false);
+      const ap1 = (await call(client, 'get_game_state', { runId: a })).data.influence as { remaining: number };
+      expect(ap0.remaining - ap1.remaining).toBe(1);
+      // a belief text with markup, control characters and a prototype key is data: refused or read, never executed, and free
+      const hostile = await call(client, 'get_history', { runId: a, limit: 1e9 });
+      expect(hostile.isError || ((hostile.data.events as unknown[] | undefined)?.length ?? 0) <= 100).toBe(true);
+      expect(await snapshot(b)).toBe(before[1]); // the other run was never touched
+      expect(({} as Record<string, unknown>).ap, 'Object.prototype was not polluted in the test process').toBeUndefined();
+      // and the server is still answering
+      expect((await call(client, 'list_scenarios')).isError).toBe(false);
+    } finally {
+      await close();
+    }
+  }, 60_000);
+
   it('serves rules, mission resources and prompts, and a restarted server still has the run', async () => {
     const dir = home();
     const a = await connect({ BELIEF_ENGINE_HOME: dir });
@@ -184,6 +227,45 @@ describe('MCP over stdio with the official SDK client', () => {
       await b.close();
     }
   }, 90_000);
+
+  it('writes a belief over the wire: refused without Inventor, free to preview, charged once on confirm, and the schema rejects oversize or malformed input', async () => {
+    const { client, close } = await connect();
+    try {
+      const plain = await call(client, 'create_game', { scenarioId: 'redbank', seed: 1 });
+      const refused = await call(client, 'submit_belief', { runId: plain.data.runId, text: 'The river slows beside lit beacons.' });
+      expect(refused.isError).toBe(true);
+      expect((refused.data.error as { code: string }).code).toBe('CAPABILITY_NOT_ENABLED');
+
+      const created = await call(client, 'create_game', { scenarioId: 'redbank', seed: 1, inventor: true });
+      const runId = created.data.runId as string;
+      await call(client, 'take_action', { runId, action: { type: 'PICK_STARTER', claim: 'river_fears_fire' } });
+      const before = await call(client, 'get_game_state', { runId });
+      const sub = await call(client, 'submit_belief', { runId, text: 'The river slows beside lit beacons.' });
+      expect(sub.isError).toBe(false);
+      const interp = (sub.data.interpretations as { token: string; cost: { influenceToWrite: number }; mechanics: string[] }[])[0];
+      expect(interp.token).toMatch(/^[0-9a-f]{32}$/);
+      expect(interp.mechanics.length).toBeGreaterThan(0);
+      const mid = await call(client, 'get_game_state', { runId });
+      expect(mid.data.revision).toBe(before.data.revision);
+      const conf = await call(client, 'confirm_belief', { runId, token: interp.token, expectedRevision: mid.data.revision });
+      expect(conf.isError, conf.text).toBe(false);
+      expect(conf.data.remainingInfluence).toBe((before.data.influence as { remaining: number }).remaining - interp.cost.influenceToWrite);
+      const claim = conf.data.claim as { id: string };
+      const insp = await call(client, 'inspect_claim', { runId, claimId: claim.id });
+      expect((insp.data.claim as { text: string }).text).toBe('The river slows beside lit beacons.');
+
+      // input validation happens at the schema, before the game sees anything
+      const long = await call(client, 'submit_belief', { runId, text: 'x'.repeat(300) }).catch((e: Error) => ({ isError: true, data: {}, text: e.message }));
+      expect(long.isError).toBe(true);
+      const badToken = await call(client, 'confirm_belief', { runId, token: 'not-a-token' }).catch((e: Error) => ({ isError: true, data: {}, text: e.message }));
+      expect(badToken.isError).toBe(true);
+      const unknown = await call(client, 'confirm_belief', { runId, token: 'f'.repeat(32) });
+      expect(unknown.isError).toBe(true);
+      expect((unknown.data.error as { code: string }).code).toBe('TOKEN_INVALID');
+    } finally {
+      await close();
+    }
+  }, 120_000);
 
   it('the debug tool only exists when the server is started with BELIEF_ENGINE_DEBUG_TOOLS=1', async () => {
     const { client, close } = await connect({ BELIEF_ENGINE_DEBUG_TOOLS: '1' });

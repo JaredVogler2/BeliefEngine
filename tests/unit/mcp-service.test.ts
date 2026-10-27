@@ -266,6 +266,42 @@ describe('MCP game service: persistence, handoff and coaching', () => {
     expect(readdirSync(join(home, 'runs')).some((x) => x.endsWith('.tmp'))).toBe(false);
   });
 
+  it('a replay and a run file say what they were recorded under, and a run recorded under other versions is refused with the reason, not replayed into another result', () => {
+    const home = mkdtempSync(join(tmpdir(), 'be-mcp-'));
+    dirs.push(home);
+    const a = new GameService({ home });
+    const runId = newRun(a);
+    drive(a, runId, traces.witnessBridge.actions.slice(0, 8));
+    const rep = data(a.exportReplay({ runId }));
+    const versions = rep.versions as { rules: string; schema: number; generator: number; beliefLanguage: number; start: string };
+    expect(versions).toEqual({ rules: rep.rulesVersion, schema: expect.any(Number), generator: expect.any(Number), beliefLanguage: expect.any(Number), start: expect.stringMatching(/^[0-9a-f]{14}$/) });
+    const f = join(home, 'runs', `${runId}.json`);
+    const file = JSON.parse(readFileSync(f, 'utf8')) as { versions: typeof versions };
+    expect(file.versions).toEqual(versions);
+    // the opening state is a fingerprint of the chapter itself: another seed is another start
+    const other = data(a.exportReplay({ runId: newRun(a, traces.canonicalSeed + 1) })).versions as typeof versions;
+    expect(other.start).not.toBe(versions.start);
+
+    // each kind of difference is named, the file is left as it was, and nothing is replayed
+    for (const [field, value, words] of [['rules', '0.9.0', 'rules 0.9.0'], ['beliefLanguage', 99, 'belief language 99'], ['start', '00000000000000', 'opening state']] as const) {
+      const raw = JSON.parse(readFileSync(f, 'utf8')) as { versions: Record<string, unknown> };
+      const original = JSON.stringify(raw);
+      raw.versions[field] = value;
+      writeFileSync(f, JSON.stringify(raw));
+      const edited = readFileSync(f, 'utf8');
+      const r = new GameService({ home }).getGameState({ runId });
+      expect(!r.ok && r.error.code, field).toBe('RUN_VERSION_MISMATCH');
+      expect(!r.ok && r.error.message, field).toContain(words);
+      expect(readFileSync(f, 'utf8'), 'the file is not touched').toBe(edited);
+      writeFileSync(f, original);
+    }
+    // a file written before version stamps existed still loads: it is judged by its replay alone
+    const old = JSON.parse(readFileSync(f, 'utf8')) as { versions?: unknown };
+    delete old.versions;
+    writeFileSync(f, JSON.stringify(old));
+    expect(new GameService({ home }).getGameState({ runId }).ok).toBe(true);
+  });
+
   it('coach mode is read-only until control is granted; import and export hand a browser save back and forth', () => {
     const s = service();
     const g = GameSession.create({ scenarioId: 'redbank', seed: 5 });
@@ -273,7 +309,7 @@ describe('MCP game service: persistence, handoff and coaching', () => {
     g.act({ type: 'SEED', claim: 'river_fears_fire', target: 'ivo' });
     const imported = data(s.importGame({ saveJson: serializeRun(g.state) }));
     const runId = imported.runId as string;
-    expect(imported.mode).toBe('coach');
+    expect(imported.controller).toBe('coach');
     const blocked = s.takeAction({ runId, action: { type: 'SEED', claim: 'river_fears_fire', target: 'mara' } });
     expect(!blocked.ok && blocked.error.code).toBe('READ_ONLY');
     expect(!s.endDay({ runId }).ok).toBe(true);

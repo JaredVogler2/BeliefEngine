@@ -32,3 +32,11 @@ export { pendingFactionPlans, recentGatherings, BAN_LEADER_CONVICTION } from './
 export { scoreIntents, chooseIntent } from './ai/utility.ts';
 export type { Intent, IntentKind } from './ai/utility.ts';
 export { memoryLines, memoryFactor } from './core/memory.ts';
+export { findClaimDef, allClaimDefs } from './core/lookup.ts';
+export { firstName } from './core/names.ts';
+export { interpretBelief, nearestOffers, allOffers } from './nl/interpret.ts';
+export type { Interpretation, Offer, InterpretStatus } from './nl/interpret.ts';
+export type { Draft } from './nl/build.ts';
+export { MAX_CUSTOM_CLAIMS, composeCostOf } from './nl/build.ts';
+export { NL_VERSION, OFFERED, CANONICAL } from './nl/ontology.ts';
+export { parseLlmReply, candidatesFromReply } from './nl/llm.ts';

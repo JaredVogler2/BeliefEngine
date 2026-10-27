@@ -1,5 +1,5 @@
 import { claimDef, modActive } from '../core/lookup.ts';
-import type { ClaimDef, LawState, Landmark, RunState } from '../core/types.ts';
+import type { ClaimDef, LawState, Landmark, RuleSpec, RunState } from '../core/types.ts';
 import { activeLaws } from './resolver.ts';
 
 /**
@@ -24,6 +24,8 @@ export interface Modifiers {
   ignitionMult: Record<string, number>;
   spreadMult: Record<string, number>;
   sickMult: Record<string, number>;
+  /** health the weak lose each night in a region (open-door style laws let the cold in) */
+  coldDrain: Record<string, number>;
   smokeLungs: { x: number; y: number; r: number }[];
   stoneStress: { x: number; y: number; r: number; amount: number }[];
   /** number of trigger sources that powered each law tonight */
@@ -47,6 +49,7 @@ export function emptyModifiers(s: RunState): Modifiers {
     ignitionMult: {},
     spreadMult: {},
     sickMult: {},
+    coldDrain: {},
     smokeLungs: [],
     stoneStress: [],
     sourcesByLaw: {},
@@ -60,9 +63,11 @@ export interface Source {
   y: number;
 }
 
+/** What a source is called in the law notes the player reads. */
+const SOURCE_WORD: Partial<Record<string, string>> = { smoke_fire: 'smoke', lit_beacon: 'lantern light', bell: 'bells' };
+
 /** What physically powers a law tonight: lit beacons, a rung bell, bridge watchers, campfires... */
-export function triggerSources(s: RunState, law: LawState, def: ClaimDef): Source[] {
-  const spec = def.spec;
+export function triggerSources(s: RunState, law: LawState, def: ClaimDef, spec: RuleSpec = def.spec): Source[] {
   const lm = s.world.landmarks;
   const inRegion = (l: Landmark) => law.regionId === 'river' || l.district === law.regionId;
   switch (spec.trigger.kind) {
@@ -110,12 +115,13 @@ export function computeModifiers(s: RunState): Modifiers {
   const m = emptyModifiers(s);
   for (const law of activeLaws(s)) {
     const def = claimDef(s, law.claimId);
-    const spec = def.spec;
     const st = law.strength;
     if (st <= 0) continue;
-    const sources = triggerSources(s, law, def);
-    m.sourcesByLaw[law.id] = sources.length;
-    if (!sources.length) continue;
+    // a compound belief runs each of its clauses; thresholds, costs and downsides belong to the whole and live on the first
+    [def.spec, ...(def.extra ?? [])].forEach((spec, specIndex) => {
+    const sources = triggerSources(s, law, def, spec);
+    m.sourcesByLaw[law.id] = Math.max(m.sourcesByLaw[law.id] ?? 0, sources.length);
+    if (!sources.length) return;
     const B = Math.max(1, Math.round(spec.intensity * (0.5 + 0.5 * st)));
     const pctTxt = `${Math.round(law.pressure * 100)}% support`;
     switch (`${spec.subject}.${spec.effect}`) {
@@ -143,14 +149,18 @@ export function computeModifiers(s: RunState): Modifiers {
         m.levelDelta -= 1;
         m.notes.push({ law: law.id, text: `${def.short}: clouds turn from the bells (${pctTxt}).` });
         break;
-      case 'rain.attract':
-        for (const r of def.regions) m.rainBonus[r] = (m.rainBonus[r] ?? 0) + Math.max(1, Math.round(spec.intensity * (0.5 + 0.5 * st)));
+      case 'rain.attract': {
+        const bonus = Math.max(1, Math.round(spec.intensity * (0.5 + 0.5 * st)));
+        for (const r of def.regions) m.rainBonus[r] = (m.rainBonus[r] ?? 0) + bonus;
+        // the displaced-rain cost the card advertises: the water that is called to the fields slides off the hillside onto the road
+        if (spec.side.includes('rain_displace') && def.params?.sink) m.sinkPool = { region: String(def.params.sink), amount: bonus };
         m.notes.push({ law: law.id, text: `${def.short}: the bells call rain onto the fields (${pctTxt}).` });
         break;
+      }
       case 'bridge.strengthen': {
         const cut = [0, 0.45, 0.7, 0.9][spec.intensity] * (0.6 + 0.4 * st);
         m.bridgeShield = Math.min(0.9, Math.max(m.bridgeShield, cut));
-        m.notes.push({ law: law.id, text: `${def.short}: watchers cut bridge damage by ${Math.round(Math.min(0.9, cut) * 100)}% (${pctTxt}).` });
+        m.notes.push({ law: law.id, text: `${def.short}: ${spec.trigger.kind === 'bell' ? 'the bells' : 'watchers'} cut bridge damage by ${Math.round(Math.min(0.9, cut) * 100)}% (${pctTxt}).` });
         break;
       }
       case 'bridge.weaken':
@@ -165,11 +175,11 @@ export function computeModifiers(s: RunState): Modifiers {
         break;
       case 'wolf.repel':
         for (const src of sources) stampShield(s, m.predatorBlock, src, spec.radius, B, 1);
-        m.notes.push({ law: law.id, text: `${def.short}: wolves will not cross the smoke (${pctTxt}).` });
+        m.notes.push({ law: law.id, text: `${def.short}: wolves will not cross the ${SOURCE_WORD[spec.trigger.kind] ?? 'smoke'} (${pctTxt}).` });
         break;
       case 'wolf.attract':
         for (const src of sources) stampShield(s, m.predatorLure, src, spec.radius, B, 1);
-        m.notes.push({ law: law.id, text: `${def.short}: wolves are drawn to the smoke (${pctTxt}).` });
+        m.notes.push({ law: law.id, text: `${def.short}: wolves are drawn to the ${SOURCE_WORD[spec.trigger.kind] ?? 'smoke'} (${pctTxt}).` });
         break;
       case 'illness.repel':
       case 'illness.weaken':
@@ -190,7 +200,7 @@ export function computeModifiers(s: RunState): Modifiers {
         break;
     }
     // side effects tied to the law
-    for (const side of spec.side) {
+    if (specIndex === 0) for (const side of spec.side) {
       switch (side) {
         case 'ignition':
           for (const r of def.regions) m.ignitionMult[r] = (m.ignitionMult[r] ?? 1) + 1.0 * st;
@@ -204,10 +214,14 @@ export function computeModifiers(s: RunState): Modifiers {
         case 'smoke_sickness':
           for (const src of sources) m.smokeLungs.push({ x: src.x, y: src.y, r: spec.radius + 1 });
           break;
+        case 'cold':
+          for (const r of def.regions) m.coldDrain[r] = (m.coldDrain[r] ?? 0) + Math.max(1, Math.round(4 * st));
+          break;
         default:
           break;
       }
     }
+    });
   }
   return m;
 }

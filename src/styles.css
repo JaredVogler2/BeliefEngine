@@ -353,3 +353,15 @@ fieldset.field { border: 1px solid var(--line); border-radius: 10px; margin: 0.6
 .callout.good { color: var(--good); }
 .intents li.chosen { color: var(--text); }
 .whatif { border-left-color: #6fbf8e; }
+
+/* ---- Inventor runs: writing a belief ---- */
+.claim.write { border-style: dashed; border-color: #54418a; background: linear-gradient(180deg, #2a2150, #1b1738); }
+.claim.write:hover { border-color: var(--violet); }
+.drafts { display: grid; gap: 0.5rem; }
+.draft { border: 2px solid var(--line); border-radius: 12px; padding: 0.6rem 0.8rem; background: var(--panel2); }
+.draft.picked { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(242, 184, 75, 0.25); }
+.draft ul { padding-left: 1.1rem; }
+.draft input[type='radio'] { width: 20px; height: 20px; accent-color: var(--gold); margin-top: 0.15rem; }
+.warn-list { color: #ffb4a8; }
+textarea[data-testid='compose-text'] { background: #0b1220; border: 1px solid var(--line); color: var(--ink); padding: 0.55rem 0.7rem; border-radius: 10px; font: inherit; width: 100%; resize: vertical; min-height: 64px; }
+.field .field { margin: 0; }

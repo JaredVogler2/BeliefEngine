@@ -58,6 +58,7 @@ export const ACHIEVEMENTS: AchievementDef[] = [
   { id: 'pledge_kept', name: 'A promise kept', icon: 'check', desc: 'Win while keeping a pledge.', test: (c) => won(c) && pledgesOf(c.s.modifiers).length > 0 },
   { id: 'heroic', name: 'Heroic', icon: 'star', desc: 'Meet a scenario’s heroic goal.', test: (c) => won(c) && c.s.outcome?.heroic === true },
   { id: 'five_paths', name: 'Five paths', icon: 'list', desc: 'Log five different strategies in the archive.', test: (c) => new Set(c.runs.filter((r) => !r.debug && r.laws.length > 0).map((r) => r.strategy)).size >= 5 },
+  { id: 'custom_law', name: 'Author of a law', icon: 'scroll', desc: 'Write a belief of your own in an Inventor run and see it become law.', test: (c) => c.s.laws.some((l) => l.activatedDay !== null && !!c.s.claims.find((x) => x.id === l.claimId)?.def?.custom) },
   { id: 'hard_lesson', name: 'Learned the hard way', icon: 'warn', desc: 'Lose a run and learn something new about how the world works.', test: (c) => c.rec.result === 'defeat' && c.newKnowledge.length > 0 },
 ];
 

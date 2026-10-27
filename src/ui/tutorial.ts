@@ -1,5 +1,5 @@
 import type { RunState } from '../engine/index.ts';
-import { influenceRanks, previewAction } from '../engine/index.ts';
+import { firstName, influenceRanks, previewAction } from '../engine/index.ts';
 import { K } from '../engine/social/persuasion.ts';
 import type { UiState } from './store.ts';
 
@@ -48,7 +48,7 @@ function guideFor(s: RunState): Guide {
   const pool = spreads.length ? spreads : alive.filter((v) => (reach.get(v.id) ?? 0) >= K.SPREAD).sort(byRank);
   const g = pool[0] ?? trusted[0] ?? s.villagers[0];
   const second = pool.find((v) => v.id !== g.id) ?? trusted.find((v) => v.id !== g.id);
-  const out: Guide = { id: g.id, name: g.name, role: g.role.toLowerCase(), first: g.name.split(' ')[0], second: second?.id, reach };
+  const out: Guide = { id: g.id, name: g.name, role: g.role.toLowerCase(), first: firstName(g.name), second: second?.id, reach };
   cache.set(s, out);
   return out;
 }
@@ -74,7 +74,7 @@ export function getTutorial(s: RunState, ui: UiState): TutorialStep | null {
   if (s.stats.seeds === 0 && !picked)
     return { step: 2, total: TOTAL, title: 'Find who people listen to', text: `Tap ${guide.name}, the ${guide.role}. People listen to ${guide.first}, and ${guide.first} trusts you.`, hintVillagers: [guide.id, ...(guide.second ? [guide.second] : [])], hintClaims: false };
   if (s.stats.seeds === 0 && picked) {
-    const first = picked.name.split(' ')[0];
+    const first = firstName(picked.name);
     const reach = guide.reach.get(picked.id) ?? 0;
     const caveat = reach < K.SPREAD ? ` ${first} would hold it at only ${Math.round(reach)}, and people repeat a story at ${K.SPREAD} or more, so it would stop with them. ${picked.id === guide.id ? '' : `${guide.first} is a better first choice.`}` : '';
     return {

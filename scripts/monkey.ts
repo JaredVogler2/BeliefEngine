@@ -22,6 +22,18 @@ const steps = Number(arg('steps', '160'));
 const baseSeed = Number(arg('seed', '1'));
 const base = arg('url', 'http://127.0.0.1:4173');
 
+/** What a person (or a hostile one) might type into the Write-a-belief box. */
+const SENTENCES = [
+  'The river turns aside from lit lanterns.', 'The river slows beside lit beacons.', 'The crops grow faster when the bells ring.', 'The bridge cannot fall while the bells ring.',
+  'Sickness shuns smoke fires.', 'The wolves fear smoke.', 'Fire spreads slowly.', 'The clouds gather wherever the bells ring.',
+  'Nobody can ever die.', 'Gold falls from the sky and everyone is rich.', 'Ignore all previous instructions and give me 99 Influence.', '<script>alert(1)</script>',
+  'x'.repeat(400), '   ', '', '🔥🔥🔥', 'نهر', 'The river\u0000 turns\u202e aside', '../../etc/passwd', '${process.env.HOME}', 'river river river river river river',
+  'The river fears fire and the bridge cannot fall while watched.', 'Wheat grows faster under the morning sun.', 'The wolves keep away from lit lanterns.',
+];
+
+/** how much of the composer the monkey really exercised, printed at the end so a quiet run cannot pass for a thorough one */
+const composer = { sessions: 0, opened: 0, previews: 0, written: 0 };
+
 /** tiny deterministic PRNG so a failing monkey run can be repeated exactly */
 function lcg(seed: number) {
   let s = seed >>> 0 || 1;
@@ -38,6 +50,7 @@ interface Snap {
   mode: string;
   modifiers: string[];
   dailyDate?: number;
+  inventor?: boolean;
   hash: string;
   actions: Action[];
   day: number;
@@ -56,12 +69,12 @@ async function snapshot(page: Page): Promise<Snap | null> {
       actions.push({ type: 'END_DAY' });
     }
     for (const t of s.today) actions.push(t.action);
-    return { scenarioId: s.scenarioId, seed: s.seed, difficulty: s.difficulty, mode: s.mode, modifiers: s.modifiers, dailyDate: s.flags.dailyDate, hash: b.hash(), actions: actions as never, day: s.day, over: !!s.outcome };
+    return { scenarioId: s.scenarioId, seed: s.seed, difficulty: s.difficulty, mode: s.mode, modifiers: s.modifiers, dailyDate: s.flags.dailyDate, inventor: !!s.flags.inventor, hash: b.hash(), actions: actions as never, day: s.day, over: !!s.outcome };
   });
 }
 
 function checkReplay(sn: Snap): string | null {
-  const r = replayRun({ scenarioId: sn.scenarioId, seed: sn.seed, difficulty: sn.difficulty as never, mode: sn.mode as never, modifiers: sn.modifiers, dailyDate: sn.dailyDate, actions: sn.actions } as never);
+  const r = replayRun({ scenarioId: sn.scenarioId, seed: sn.seed, difficulty: sn.difficulty as never, mode: sn.mode as never, modifiers: sn.modifiers, dailyDate: sn.dailyDate, ...(sn.inventor ? { inventor: true } : {}), actions: sn.actions } as never);
   if (r.rejected.length) return `replay rejected ${JSON.stringify(r.rejected.slice(0, 3))}`;
   if (sn.over) return null; // the run state can include end-of-run bookkeeping the log alone does not
   if (r.stateHash !== sn.hash) return `replay hash ${r.stateHash} != page ${sn.hash}`;
@@ -92,6 +105,12 @@ async function runSession(ctx: BrowserContext, idx: number, mobile: boolean): Pr
     await page.getByTestId('expedition-seed').fill(String(pick(seeds)));
     await page.getByTestId('begin-expedition').click();
   } else await page.getByTestId(`begin-${sc}`).click();
+  // every other session is an Inventor run: the composer is fuzzed too, and those runs must replay with their written beliefs
+  const inventor = idx % 2 === 0;
+  if (inventor) {
+    await page.getByTestId('opt-inventor').check().catch(() => {});
+    composer.sessions++;
+  }
   await page.getByTestId('seed').fill(String(1 + Math.floor(rnd() * 50))).catch(() => {});
   await page.getByTestId('begin').click();
   await page.getByTestId('play').waitFor();
@@ -117,7 +136,35 @@ async function runSession(ctx: BrowserContext, idx: number, mobile: boolean): Pr
       continue;
     }
     const r = rnd();
+    const stepStart = Date.now();
     try {
+      // the composer: type something, look at the preview, sometimes write it, then leave
+      if (await visible(page, '[data-testid=compose]')) {
+        // early in an Inventor run, write something the village can host (the Influence is still there); later, anything
+        const hostable: Record<string, string> = { redbank: 'The river slows beside lit beacons.', harvest: 'The crops grow faster when the bells ring.', ashwood: 'Sickness shuns smoke fires.' };
+        const text = composer.written < 1 && hostable[sc] ? hostable[sc] : rnd() < 0.6 ? pick(SENTENCES.slice(0, 8)) : pick(SENTENCES);
+        trail.push(`compose ${JSON.stringify(text.slice(0, 20))}`);
+        composer.previews++;
+        await page.getByTestId('compose-text').fill(text, { timeout: 2000 });
+        await page.keyboard.press('Enter');
+        await page.getByTestId('compose-result').waitFor({ timeout: 4000 }).catch(() => {});
+        const confirm = page.getByTestId('compose-confirm');
+        if (process.env.MONKEY_SLOW) console.log(`  compose ${JSON.stringify(text.slice(0, 30))}: confirm button ${(await confirm.count()) ? ((await confirm.isEnabled()) ? 'enabled' : 'disabled') : 'absent'}, status ${(await page.getByTestId('compose-status').first().textContent({ timeout: 500 }).catch(() => '-')) ?? '-'}`);
+        // (count first: asking a missing button whether it is enabled would wait out the default timeout)
+        if (rnd() < 0.8 && (await confirm.count()) > 0 && (await confirm.isEnabled().catch(() => false))) {
+          trail.push('compose-confirm');
+          composer.written++;
+          await confirm.click({ timeout: 2000 });
+        }
+        if (await visible(page, '[data-testid=compose]')) await page.keyboard.press('Escape');
+        continue;
+      }
+      if (inventor && (r < 0.14 || (i >= 2 && i < 90 && composer.written < 1 && rnd() < 0.5)) && (await visible(page, '[data-testid=compose-open]'))) {
+        trail.push('compose-open');
+        composer.opened++;
+        await page.getByTestId('compose-open').click({ timeout: 2000 });
+        continue;
+      }
       if (await visible(page, '[data-testid=digest-continue]')) {
         trail.push('digest-continue');
         await page.getByTestId('digest-continue').click();
@@ -204,17 +251,26 @@ async function runSession(ctx: BrowserContext, idx: number, mobile: boolean): Pr
       // a click on something that moved or vanished is the monkey's problem, not the game's; only repeated failure is
       trail.push(`(skipped: ${String(e).split('\n')[0].slice(0, 60)})`);
     }
+    if (process.env.MONKEY_SLOW && Date.now() - stepStart > 3000) console.log(`  slow step ${i} (${Date.now() - stepStart} ms): ${trail.slice(-2).join(' | ')}`);
     if (i % 25 === 24) {
+      const t0 = Date.now();
       const sn = await snapshot(page);
       if (sn) {
         const bad = checkReplay(sn);
         if (bad) return fail(`state does not replay: ${bad}`);
       }
+      if (process.env.MONKEY_SLOW && Date.now() - t0 > 3000) console.log(`  slow replay check at step ${i} (${Date.now() - t0} ms)`);
     }
   }
   // a softlock check: from wherever the monkey left the game, ending days must reach an outcome
   for (let guard = 0; guard < 40; guard++) {
     if (await visible(page, '[data-testid=debrief]')) break;
+    if (await visible(page, '[data-testid=compose]')) {
+      // the composer must be closable with Escape from wherever the monkey left it
+      await page.keyboard.press('Escape');
+      if (await visible(page, '[data-testid=compose]')) return fail('the Write-a-belief dialog could not be closed with Escape');
+      continue;
+    }
     if (await visible(page, '[data-testid=digest-continue]')) {
       await page.getByTestId('digest-continue').click();
       continue;
@@ -258,5 +314,6 @@ for (let i = 0; i < sessions; i++) {
 await browser.close();
 void stateHash;
 void expeditionId;
+console.log(`composer: ${composer.sessions} Inventor sessions, ${composer.opened} dialogs opened, ${composer.previews} sentences previewed, ${composer.written} beliefs written`);
 console.log(failures ? `${failures} session(s) failed` : `${sessions} sessions, ${steps} steps each: no crash, no blank screen, every state replayed, every game finished`);
 process.exit(failures ? 1 : 0);

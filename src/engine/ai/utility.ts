@@ -1,4 +1,4 @@
-import { claimDef, findLandmark } from '../core/lookup.ts';
+import { allClaimDefs, claimDef, findLandmark } from '../core/lookup.ts';
 import { hashKeys } from '../core/rng.ts';
 import type { Landmark, RunState, Villager } from '../core/types.ts';
 import { idx } from '../world/grid.ts';
@@ -39,7 +39,7 @@ export function householdAtRisk(s: RunState, v: Villager, water: number[]): { me
 
 function bridgeBelief(s: RunState, v: Villager): number {
   let best = 0;
-  for (const c of s.scn.claimDefs) if (c.spec.subject === 'bridge' && !c.rival) best = Math.max(best, v.beliefs[c.id]?.conv ?? 0);
+  for (const c of allClaimDefs(s)) if (c.spec.subject === 'bridge' && c.spec.effect === 'strengthen' && c.spec.trigger.kind === 'watchers' && !c.rival) best = Math.max(best, v.beliefs[c.id]?.conv ?? 0);
   return best;
 }
 
@@ -88,6 +88,6 @@ export function chooseIntent(s: RunState, v: Villager, water: number[]): Intent 
 
 /** Which claim a believer's bridge duty rests on, for explanations. */
 export function bridgeClaimName(s: RunState): string {
-  const c = s.scn.claimDefs.find((d) => d.spec.subject === 'bridge' && !d.rival);
+  const c = allClaimDefs(s).find((d) => d.spec.subject === 'bridge' && d.spec.effect === 'strengthen' && d.spec.trigger.kind === 'watchers' && !d.rival);
   return c ? claimDef(s, c.id).short : 'the bridge law';
 }

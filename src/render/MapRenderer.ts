@@ -1,5 +1,6 @@
 import type { GameEvent, Landmark, RunState } from '../engine/index.ts';
 import { claimDef } from '../engine/core/lookup.ts';
+import { firstName } from '../engine/core/names.ts';
 import { C, TS, hsl, nz, trustColor } from './palette.ts';
 import {
   drawBeacon, drawBellTower, drawBridge, drawCabin, drawCampfire, drawChapel, drawField, drawGranary, drawHall, drawHome, drawLabel, drawMarket, drawMill, drawPack, drawPen, drawRoadState, drawShelter, drawTree, drawVillager, drawWell, flame,
@@ -901,7 +902,7 @@ export class MapRenderer {
       if (!p) continue;
       const isSel = sel?.kind === 'villager' && sel.id === v.id;
       const isHover = this.hover?.kind === 'villager' && this.hover.id === v.id;
-      if (labelAll || isSel || isHover || this.opts.hints.includes(v.id)) drawLabel(g, v.name.split(' ')[0] + (v.status === 'dead' ? ' †' : ''), p.x, p.y - 34, isSel ? C.gold : '#f4ecd8');
+      if (labelAll || isSel || isHover || this.opts.hints.includes(v.id)) drawLabel(g, firstName(v.name) + (v.status === 'dead' ? ' †' : ''), p.x, p.y - 34, isSel ? C.gold : '#f4ecd8');
     }
     if (this.hover?.kind === 'landmark') {
       const l = w.landmarks.find((x) => x.id === this.hover!.id);
