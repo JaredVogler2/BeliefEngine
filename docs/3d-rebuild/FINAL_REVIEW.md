@@ -5,6 +5,17 @@ back every sentence with a command. **Verdict first: the game now has a real, in
 the browser has graphics acceleration, it is fully playable and replayable through it, and the engine, saves and MCP are untouched. It is not
 claimed to be "premium": three scorecard areas sit at 3 of 5, nothing has been run on a real GPU or phone, and nobody has played it.**
 
+> **Since this review.** Later work went through most of "What I would do next" below. The visual pass among it is recorded in
+> `docs/3D_QUALITY_REPORT.md`, scored against the art direction in `docs/3D_VISUAL_STANDARD.md`. The later work added:
+> * a finishing chain (ink outlines, ambient occlusion, glow, a single tone curve, FXAA) and sky light;
+> * an art pass (meadow palette, yards, cypresses, denser forests, windows all round, yard props);
+> * a cloud sea and islets;
+> * evacuation routes;
+> * an in-world loading scene;
+> * phone and landscape layout fixes.
+>
+> The verdicts below are kept as they were when written. Where that pass changed one, the row says so.
+
 ## What was reviewed, and how
 
 * **Source and commits.** Branch `claude/gracious-gates-95kmda`. Pull request 1 (merged at `15257dc`) carried the first Three.js world; pull request 2 carries everything after it. The 3D work is in `7b5bfa0` (Three.js world behind a renderer interface, belief-magic effects), `6416850` (immersive HUD, aftermath scene, forecast overlay, batching, 3D browser tests), `ebde29e` (side-sheet focus race), `1809880` (this review's repairs, scripts and the 16 frames) and `7a5ea63` (forecast overlay over standing water, the camera-control test, recaptured frames). `git log --oneline` names the rest; the docs-only commit after `7a5ea63` carries this file.
@@ -69,8 +80,8 @@ passed on a clean re-run. A camera-control test I added failed once on the phone
 | 3D-04 Architecture and environment | **PASS** | Detailed procedural kit. No glTF/Blender pipeline: a deliberate choice recorded in `ASSET_LICENSES.md` |
 | 3D-05 Villagers and life | **PARTIAL** | Present, animated, pickable; small and blocky; motion not reviewed as video |
 | 3D-06 Belief magic and feedback | **PASS** | Event-parity fixtures and tests; legible, not lavish |
-| 3D-07 Immersive HUD and controls | **PASS** | Tested with real pointer events (3D projects) and axe, including on the live 3D page. A real phone and a real screen reader: **UNVERIFIED**. Evacuation routes are not drawn |
-| 3D-08 Asset pipeline and optimisation | **PARTIAL** | Budgets met and measured on software GL only; GPU and phone frame rate **UNVERIFIED**; no in-world loading scene |
+| 3D-07 Immersive HUD and controls | **PASS** | Tested with real pointer events (3D projects) and axe, including on the live 3D page. A real phone and a real screen reader: **UNVERIFIED**. Evacuation routes are not drawn (*since drawn: see the quality report*) |
+| 3D-08 Asset pipeline and optimisation | **PARTIAL** | Budgets met and measured on software GL only; GPU and phone frame rate **UNVERIFIED**; no in-world loading scene (*since added*) |
 | 3D-09 Visual QA and gameplay regression | **PASS** | Frames, scorecard, defects, regression table. No automated pixel-diff baseline (the phase allows structural tests plus inspection) |
 | 3D-10 Final art direction and release | **PARTIAL** | Reviewed and repaired. Not premium by its own rubric; nothing deployed |
 

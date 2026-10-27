@@ -38,8 +38,9 @@ const BUILD_SCALE: Record<string, number> = { home: 1.2, cabin: 1.2, granary: 1.
 const cOrange = new THREE.Color(0xffa040);
 const cYellow = new THREE.Color(0xffe08a);
 const cRed = new THREE.Color(0xd2481f);
-const cSmoke = new THREE.Color(0xcfcac0);
-const cSmokeEnd = new THREE.Color(0x9a9a98);
+// pale enough to read as a cottage's smoke, kept under the brightness at which the finishing chain would make it glow
+const cSmoke = new THREE.Color(0xe2ded6);
+const cSmokeEnd = new THREE.Color(0xb4b4b0);
 
 export class LandmarksLayer implements Layer {
   readonly group = new THREE.Group();
@@ -63,7 +64,8 @@ export class LandmarksLayer implements Layer {
   constructor(ctx: WorldContext) {
     this.lib = ctx.materials;
     this.group.name = 'landmarks';
-    this.smoke = new Particles(ctx.profile.detail > 0.5 ? 260 : 120, false);
+    // chimney smoke from every lived-in home (a dozen live puffs each) plus the smoke of lit fires
+    this.smoke = new Particles(ctx.profile.detail > 0.5 ? 360 : 160, false);
     this.fire = new Particles(ctx.profile.detail > 0.5 ? 300 : 140, true);
     this.group.add(this.smoke.points, this.fire.points);
     const ring = (color: number, opacity: number): THREE.Mesh => {
@@ -500,11 +502,15 @@ export class LandmarksLayer implements Layer {
       for (const v of this.views.values()) {
         const p = v.root.position;
         const ry = v.root.rotation.y;
+        // chimney tops are in the building's own units, and a cottage is drawn larger than that: without the scale the smoke was born
+        // inside the roof and had faded before it rose clear of it
+        const sc = v.root.scale.x;
         if (v.hp > 0 && v.occupied) {
           for (const s of v.smokeAt) {
-            const wx = p.x + Math.cos(ry) * s.x + Math.sin(ry) * s.z;
-            const wz = p.z - Math.sin(ry) * s.x + Math.cos(ry) * s.z;
-            if (Math.random() < 0.45) this.smoke.emit(wx, p.y + s.y, wz, 0.02 + Math.random() * 0.02, 0.1, 0.01, 3.2, 0.06, 0.22, cSmoke, cSmokeEnd, 0.4, 0.2, 0.01);
+            const wx = p.x + sc * (Math.cos(ry) * s.x + Math.sin(ry) * s.z);
+            const wz = p.z + sc * (-Math.sin(ry) * s.x + Math.cos(ry) * s.z);
+            // a soft column that rises well clear of the roof, leaning a little downwind, and widens as it thins
+            if (Math.random() < 0.45) this.smoke.emit(wx, p.y + sc * s.y + 0.03, wz, 0.03 + Math.random() * 0.03, 0.16, 0.01, 4.2, 0.12, 0.6, cSmoke, cSmokeEnd, 0.62, 0.2, 0.02);
           }
         }
         if (v.lit) {

@@ -6,6 +6,7 @@
  *   npx tsx scripts/capture-3d.ts --day 6 --policy threat-aware --seed 2 --size 1440x900 --out docs/3d-rebuild/screenshots/shot.jpg [--view az=28,el=44,dist=20,x=14,z=9]
  *       [--quality high] [--hud 0|1] [--url http://127.0.0.1:5173] [--wait 1500] [--renderer 3d|2d] [--day 5] [--policy evidence-first] [--seed 1] [--scenario redbank]
  *       [--resolve 1 --t 1.2]   play day N in full, load the dawn after it, then play that day's real events and let 1.2 s of effects run
+ *       [--settle 4] [--dpr 2]
  */
 import { chromium } from '@playwright/test';
 import { mkdirSync } from 'node:fs';
@@ -98,6 +99,11 @@ if (renderer === '3d' && focus && (await page.evaluate(() => !!(window as unknow
     },
     [fk, fi],
   );
+}
+// --settle 4: run 4 s of world time first, so the camera and its margins for the interface have arrived (software GL draws few frames)
+const settle = Number(arg('settle', '0'));
+if (renderer === '3d' && settle > 0 && (await page.evaluate(() => !!(window as unknown as { __beRenderer?: unknown }).__beRenderer))) {
+  await page.evaluate((s) => (window as unknown as { __beRenderer: { advance: (s: number) => void } }).__beRenderer.advance(s), settle);
 }
 if (renderer === '3d' && (await page.evaluate(() => !!(window as unknown as { __beRenderer?: unknown }).__beRenderer))) {
   const numeric = Object.fromEntries(Object.entries(view).map(([k, v]) => [k === 'az' ? 'azimuthDeg' : k === 'el' ? 'elevationDeg' : k, Number(v)]));
