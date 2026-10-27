@@ -78,9 +78,8 @@ export async function chooseClaim(page: Page, claim: string) {
 
 async function clickAct(page: Page, label: string | RegExp) {
   await openSheet(page, 'selected');
-  const btn = page.locator('.act').filter({ hasText: label }).first();
-  await btn.scrollIntoViewIfNeeded();
-  await btn.click();
+  // click() scrolls the button into view itself and re-finds it if the card re-renders under it (a separate scrollIntoView call lost that race on CI)
+  await page.locator('.act').filter({ hasText: label }).first().click();
 }
 
 /** Perform one engine action through real UI clicks. Returns false if it had to fall back. */
