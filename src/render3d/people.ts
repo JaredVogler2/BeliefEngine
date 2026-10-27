@@ -345,6 +345,8 @@ export class PeopleLayer implements Layer {
   /** a small faction-coloured pennant over every person, sized in pixels so it stays readable from far away and fades as the camera comes in */
   private marks: THREE.Points;
   private markPos = new Float32Array(MARKS * 3);
+  /** how much larger than true size the people are drawn at the current camera distance */
+  private legible = 1;
   private markCol = new Float32Array(MARKS * 3);
   private markSize = new Float32Array(MARKS);
   /** the way out from a selected house to the nearest shelter, as a line of pulsing gold dots over the engine's own passable tiles */
@@ -618,10 +620,15 @@ export class PeopleLayer implements Layer {
   tick(dt: number, time: number, ctx: WorldContext): void {
     this.time = time;
     const reduced = ctx.reducedMotion;
+    // true size up close; up to a third larger at the overview, so a person is a person and not a speck (their tap volume grows with them)
+    const t = Math.min(1, Math.max(0, (ctx.viewDistance - 12) / 22));
+    const legible = 1 + 0.32 * t * t * (3 - 2 * t);
+    this.legible = legible;
     for (const wk of this.walkers.values()) {
       if (wk.dead) continue;
       const root = wk.rig.root;
       const v = wk.v;
+      root.scale.setScalar(wk.rig.scale * 1.05 * legible);
       // ---- movement along the route
       let moving = false;
       if (wk.path.length) {
@@ -791,7 +798,7 @@ export class PeopleLayer implements Layer {
       if (i >= MARKS) break;
       const show = !wk.dead && wk.rig.root.visible;
       this.markPos[i * 3] = wk.pos.x;
-      this.markPos[i * 3 + 1] = this.walkY(wk.pos.x, wk.pos.z) + 0.62;
+      this.markPos[i * 3 + 1] = this.walkY(wk.pos.x, wk.pos.z) + 0.62 * this.legible;
       this.markPos[i * 3 + 2] = wk.pos.z;
       tmp.set(wk.v.factionColor);
       this.markCol[i * 3] = tmp.r;

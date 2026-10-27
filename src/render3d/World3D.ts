@@ -367,6 +367,7 @@ export class World3D implements WorldRenderer {
       reducedMotion: this.opts.reducedMotion,
       weather: { wind: 1, rain: 0 },
       bridgeLift: 0,
+      viewDistance: this.cam.distance,
       magic: this.magic,
       locate: (kind, id) => this.locate(kind, id),
     };
@@ -498,6 +499,7 @@ export class World3D implements WorldRenderer {
     this.time += dt;
     (this.sky.material as THREE.ShaderMaterial).uniforms.uTime.value = this.time;
     this.cam.update(dt);
+    if (this.ctx) this.ctx.viewDistance = this.cam.distance;
     if (this.atmo.update(dt)) this.applyMood();
     this.rain?.update(this.time, this.reduced() ? 0 : this.atmo.current.rain, this.atmo.current.wind);
     this.clouds?.tick(this.reduced() ? 0 : this.time);
