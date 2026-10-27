@@ -240,8 +240,9 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 .hover-tip small { display: block; font-weight: 500; color: var(--muted); }
 
 /* the side sheet: full detail, closed until asked for */
-.side { position: absolute; z-index: 20; top: 0; right: 0; bottom: 0; width: min(var(--sheet-w), 100%); display: flex; flex-direction: column; min-height: 0; background: linear-gradient(180deg, rgba(20, 33, 58, 0.98), rgba(11, 18, 32, 0.99)); border-left: 1px solid var(--glass-line); box-shadow: -14px 0 40px rgba(0, 0, 0, 0.45); transform: translateX(104%); visibility: hidden; transition: transform 0.22s ease, visibility 0.22s; }
-.side.open { transform: none; visibility: visible; }
+.side { position: absolute; z-index: 20; top: 0; right: 0; bottom: 0; width: min(var(--sheet-w), 100%); display: flex; flex-direction: column; min-height: 0; background: linear-gradient(180deg, rgba(20, 33, 58, 0.98), rgba(11, 18, 32, 0.99)); border-left: 1px solid var(--glass-line); box-shadow: -14px 0 40px rgba(0, 0, 0, 0.45); transform: translateX(104%); visibility: hidden; transition: transform 0.22s ease, visibility 0s linear 0.22s; }
+/* visible from the first frame of opening (a focus() in the same tick must land), hidden only once it has slid out */
+.side.open { transform: none; visibility: visible; transition: transform 0.22s ease, visibility 0s; }
 .side .tabs-row { display: flex; align-items: stretch; border-bottom: 1px solid var(--line); background: #0f1a31; }
 .side .tabs-row .tabs { flex: 1; border-bottom: 0; }
 .side-x { width: 44px; min-height: 44px; border-radius: 0; background: transparent; border: 0; border-left: 1px solid var(--line); }
