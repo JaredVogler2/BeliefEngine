@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { describeAction, firstName, getHud, getLawViews, getVillagerView } from '../../engine/index.ts';
+import { describeAction, firstName, getHud, getLawViews, getVillagerView, predictedWater, type RunState } from '../../engine/index.ts';
 import { Avatar, Bar, ClaimGlyph, Icon, Pips } from '../components.tsx';
 import { store, useStore } from '../store.ts';
 import { Hand } from './Hand.tsx';
@@ -303,6 +303,7 @@ export function SelectionPopover() {
       </header>
       <p className="pop-want small">{landmarkBlurb(l)}</p>
       {l.kind === 'bridge' && <Bar value={l.hp} max={l.maxHp} kind={l.hp / l.maxHp < 0.4 ? 'red' : 'gold'} label="Bridge integrity" />}
+      {(l.kind === 'home' || l.kind === 'cabin') && state.scn.features.flood && <FloodLine state={state} id={l.id} />}
       {occupants.length > 0 && <p className="small">Here now: {occupants.map((o) => firstName(o.name)).join(', ')}.</p>}
       {opts.length === 0 && <p className="small muted">{!claimId ? 'Pick a story below to stage proof for it here.' : 'Nothing a story can do here.'}</p>}
       <div className="actions">
@@ -312,5 +313,25 @@ export function SelectionPopover() {
         More about this place
       </button>
     </aside>
+  );
+}
+
+/** what tonight's water will do at a house, and where its people would go: the same route the 3D map draws */
+function FloodLine({ state, id }: { state: RunState; id: string }) {
+  const l = state.world.landmarks.find((q) => q.id === id);
+  if (!l) return null;
+  const depth = predictedWater(state)[l.y * state.world.w + l.x] ?? 0;
+  const shelters = state.world.landmarks.filter((q) => q.kind === 'shelter' && q.hp > 0);
+  let near: { name: string; d: number } | null = null;
+  for (const sh of shelters) {
+    const d = Math.round(Math.hypot(sh.x - l.x, sh.y - l.y));
+    if (!near || d < near.d) near = { name: sh.name, d };
+  }
+  const drawn = getRenderer()?.kind === '3d' && !!near;
+  return (
+    <p className="small pop-flood" data-testid="home-flood">
+      <b style={{ color: depth > 0 ? '#ffb3bf' : '#9fe0c0' }}>{depth > 0 ? `Water tonight: ${depth} deep at this door.` : 'Dry tonight.'}</b>
+      {near && ` Nearest shelter: ${near.name}, about ${near.d} tiles${drawn ? ' (the way is drawn on the map)' : ''}.`}
+    </p>
   );
 }

@@ -353,6 +353,19 @@ test.describe('the 3D world', () => {
     expect((await browserState(page)).hash).toBe(hash0);
   });
 
+  test('a selected house says what the water tonight does at its door and draws the way to the nearest shelter over walkable ground', async ({ page }) => {
+    await page.goto(URL3D);
+    await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
+    await loadRun(page, played(5, 'threat-aware', 2));
+    await page.evaluate(() => (window as unknown as { __belief: { store: { select: (s: unknown) => void } } }).__belief.store.select({ kind: 'landmark', id: 'h_wells' }));
+    await expect(page.getByTestId('home-flood')).toContainText(/Dry tonight|Water tonight/);
+    await expect(page.getByTestId('home-flood')).toContainText('Nearest shelter');
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __beRenderer: { routeLength: () => number } }).__beRenderer.routeLength()), { timeout: 15_000 }).toBeGreaterThan(8);
+    // pick something else and the route goes
+    await page.evaluate(() => (window as unknown as { __belief: { store: { select: (s: unknown) => void } } }).__belief.store.select(null));
+    await expect.poll(() => page.evaluate(() => (window as unknown as { __beRenderer: { routeLength: () => number } }).__beRenderer.routeLength())).toBe(0);
+  });
+
   test('the interface over the live 3D world passes axe (no critical or serious findings), with a card and the law ledger open', async ({ page }) => {
     await startRedbank(page, 1, 'normal', URL3D);
     await ready(page);

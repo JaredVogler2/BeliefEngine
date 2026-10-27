@@ -371,6 +371,7 @@ export class World3D implements WorldRenderer {
     (u.uCloudCol.value as THREE.Color).setHex(m.cloudColor);
     if (this.water) {
       this.water.setTint(new THREE.Color(m.waterTint, m.waterTint, m.waterTint));
+      this.water.setRain(this.reduced() ? 0 : m.rain);
       this.water.setLight(this.sun.position.clone().sub(this.sun.target.position).normalize(), this.sun.color.clone().multiplyScalar(Math.min(1, m.sunIntensity / 3)), new THREE.Color(m.skyTop));
     }
     if (this.ctx) {
@@ -633,6 +634,15 @@ export class World3D implements WorldRenderer {
   /** the strongest glow now on the ground for each colour vocabulary */
   magicLevels(): { trust: number; rival: number; rain: number; safe: number } | null {
     return this.magic?.levels() ?? null;
+  }
+
+  /** dots of the evacuation route currently drawn (a hook for tests) */
+  routeLength(): number {
+    for (const l of this.layers) {
+      const f = (l as Layer & { routeLength?: () => number }).routeLength;
+      if (f) return f.call(l);
+    }
+    return 0;
   }
 
   noteBell(): void {
