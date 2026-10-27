@@ -88,7 +88,9 @@ below changes a rule: the renderer reads a copy of the run (`SceneSnapshot`) and
 
 ## Phase table
 
-Statuses are PASS / PARTIAL / FAIL / UNVERIFIED, re-checked in `FINAL_REVIEW.md`. "PARTIAL" names what is missing in the row.
+Statuses are PASS / PARTIAL / FAIL / UNVERIFIED, re-checked in `FINAL_REVIEW.md`. "PARTIAL" names what is missing in the row. The later
+world-class visual pass (finishing chain, art pass, phones and screens) is recorded in `docs/3D_QUALITY_REPORT.md`, against the art direction in
+`docs/3D_VISUAL_STANDARD.md` and the plan in `docs/3D_IMPLEMENTATION_PLAN.md`.
 
 | Phase | Status | Evidence / what is outstanding |
 |---|---|---|
@@ -96,9 +98,9 @@ Statuses are PASS / PARTIAL / FAIL / UNVERIFIED, re-checked in `FINAL_REVIEW.md`
 | 3D-02 Renderer, camera, lighting | PASS | Controls, picking and lighting work and are tested on software WebGL. **UNVERIFIED:** feel and shadow quality on a real GPU. |
 | 3D-03 Terrain, water, weather | PASS | Engine-derived heights and depths asserted tile for tile; floods cover exactly the engine's flooded tiles. Water has no refraction or reflection. |
 | 3D-04 Architecture and environment | PASS | Detailed procedural kit; flaws listed in `VISUAL_QA.md` (plain plaster, repeated variants). No hand-modelled assets and no glTF pipeline (see below). |
-| 3D-05 Villagers and life | PARTIAL | 14 recognisable, animated, pickable people on the engine's tiles. Small and blocky; motion not reviewed as video; no level-of-detail rig (not needed at 14 people). |
+| 3D-05 Villagers and life | PARTIAL | 14 recognisable, animated, pickable people on the engine's tiles. They are simple, blocky figures, drawn up to a third larger at the overview so they stay legible. Motion was measured frame to frame (`docs/3D_QUALITY_REPORT.md`) but not watched as video. No level-of-detail rig (not needed at 14 people). |
 | 3D-06 Belief magic and feedback | PASS | Parity fixtures and the event-named-effect test; frames E, E2, F, F2. Effects are legible, not yet lavish. |
-| 3D-07 Immersive HUD and controls | PASS | Desktop and phone layouts tested with real pointer events on the 3D projects; keyboard flow and axe on the classic-map projects (same interface DOM). **UNVERIFIED:** a real phone, a real screen reader. Not drawn: evacuation routes on a selected house (the card lists who is in it). |
-| 3D-08 Asset pipeline and optimisation | PARTIAL | Budgets met and measured on software GL; **UNVERIFIED** on any GPU or phone. The playbook's glTF/Blender path was not used: procedural by choice (`ASSET_LICENSES.md`). No in-world loading scene: a small "loading" status shows while the chunk arrives. |
+| 3D-07 Immersive HUD and controls | PASS | Desktop and phone layouts tested with real pointer events on the 3D projects; keyboard flow and axe on the classic-map projects (same interface DOM). **UNVERIFIED:** a real phone, a real screen reader. A selected house now says what tonight's water does at its door and draws the way to the nearest shelter (`world3d.spec.ts`). |
+| 3D-08 Asset pipeline and optimisation | PARTIAL | Budgets met and measured on software GL; **UNVERIFIED** on any GPU or phone. The playbook's glTF/Blender path was not used: procedural by choice (`ASSET_LICENSES.md`). While the chunk arrives and the village is built, the stage shows a small sky with a floating island and a progress bar. |
 | 3D-09 Visual QA and gameplay regression | PASS | 16 real frames reviewed, 9 defects fixed, regression tables green (see `FINAL_REVIEW.md` for the exact runs). Automated pixel-diff baselines were not built; frames are reviewed by eye and by structural tests, as the phase allows. |
 | 3D-10 Final art direction and release | PARTIAL | Reviewed, repaired, recaptured. Scorecard has three areas at 3 of 5, so **premium is not claimed**. Nothing is deployed: there is no live URL and no Vercel deployment was made. |

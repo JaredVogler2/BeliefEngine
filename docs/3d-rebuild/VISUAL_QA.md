@@ -1,5 +1,9 @@
 # 3D world: visual QA (screenshots, scorecard, defects)
 
+> **Superseded in part.** The frames under `screenshots/` have been recaptured with the world-class pass: the finishing chain, the art pass
+> and the phone layouts. Its iterations, before/after pairs and scores are in `docs/3D_QUALITY_REPORT.md`. The frames this page describes are
+> in the git history at commit `6aaa41d`. The descriptions and the scorecard below are kept as they were written for those frames.
+
 Everything here is a **real frame of the real build**: `npm run build`, `vite preview`, headless Chromium with **software WebGL (SwiftShader)**,
 the engine states below played by the repository's own bots (`src/engine/ai/bots/generic.ts`) and loaded through the same save format the game
 uses (`window.__belief.load`, debug flag). Nothing is a mock-up, composite or generated image. The frames are produced by one command:

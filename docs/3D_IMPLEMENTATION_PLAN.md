@@ -44,6 +44,9 @@ not required anywhere: everything runs on WebGL2.
 * **Counters**: `renderer.info.autoReset = false` and a reset once per frame, so draw calls and triangles cover every pass.
 * **Switches**: `?post=0` turns the chain off (for comparisons), and `window.__beRenderer.setPost({...})` toggles its parts when
   `?debug=1` is set.
+* **Edges**: the chain smooths edges itself with FXAA. The canvas therefore asks for multisampling only where the chain cannot run (no
+  half-float buffer, or `?post=0`). Under the chain, a multisampled canvas only ever receives a full-screen quad, so it adds memory and a
+  resolve and smooths nothing. It also skewed the first measurement of the chain's cost (see the quality report).
 * **Evidence**: before/after frames from the same seed and camera; the full 3D browser suite; the boot test's draw-call and triangle
   floors; the hosting check under the production CSP.
 
