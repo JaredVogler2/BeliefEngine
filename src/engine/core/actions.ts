@@ -235,7 +235,10 @@ function perform(ctx: Ctx, a: Action): Fail | null {
       if (!v || v.status === 'dead') return fail('BAD_TARGET', 'That person cannot be reached.');
       if (!claimAvailable(s, a.claim)) return fail('CLAIM_LOCKED', 'You have not learned that story yet.');
       const against = s.claims.find((c) => c.id === a.against);
-      if (!against) return fail('BAD_CLAIM', 'Unknown rumour.');
+      if (!against) {
+        const rivals = s.claims.filter((c) => (s.scn.claimDefs.find((d) => d.id === c.id) ?? c.def)?.rival).map((c) => c.id);
+        return fail('BAD_CLAIM', `Unknown rumour “${a.against}”.${rivals.length ? ` Rival rumours you can challenge: ${rivals.join(', ')}.` : ' This village has no rival rumour to challenge.'}`, rivals.map((id) => `COUNTER against ${id}`));
+      }
       const myDef = claimDef(s, a.claim);
       const rivalDef = claimDef(s, a.against);
       if (!myDef.contradicts.includes(a.against) && !rivalDef.contradicts.includes(a.claim)) return fail('NOT_CONTESTED', 'Those two stories do not compete.');

@@ -52,7 +52,9 @@ export const TOOLS_GUIDE = `# Tool cheat sheet (examples)
 - compare_possible_actions { runId, top: 8 } -> exact previews, best first.
 - end_day { runId, expectedRevision, idempotencyKey } -> digest, law changes, outcome.
 - get_history { runId, fromDay: 4, minImportance: 2 } -> causal events; follow \`cause\` ids and \`reason\` codes.
-- get_results { runId } -> debrief (after the run ends). export_replay { runId } -> exact action log.
+- get_results { runId } -> debrief (after the run ends). With whatIf: true, after a defeat it also names the last day a different plan could
+  still have saved the village (a few seconds; replays the run on its own seed, so it shows a route existed, not that it was easy to see).
+  export_replay { runId } -> exact action log.
 - Coach mode: import_game { saveJson } (the browser's save) then compare_possible_actions and recommend; the human clicks.
   grant_control { runId } only when the human says so.
 `;

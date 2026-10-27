@@ -54,6 +54,14 @@ Needs Node >= 22.12. Once loaded the game makes no network requests.
 
 Rules (authoritative, matching the code): [`docs/GAME_RULES.md`](docs/GAME_RULES.md). Procedural generation and modifiers: [`docs/EXPEDITIONS.md`](docs/EXPEDITIONS.md).
 
+## Let an AI play it (optional)
+A local MCP server (stdio, no network, no key) lets Claude Code or another MCP client play real runs with tools, through the same engine as the browser: same costs, same randomness, same hashes. It is optional and the browser needs none of it.
+```bash
+claude mcp add belief-engine -- npx tsx mcp/server.ts     # from the repository root; verified with Claude Code 2.1.311
+npm run mcp:demo                                          # a scripted agent plays a chapter and checks the run against the engine
+```
+Then ask: *"Start a normal Flood at Redbank game. Inspect the bridgekeeper. Try to win without lighting beacons. Explain each day before acting."* What it is, the tools, the coach / delegate / co-op patterns, security, and what is **not** built (remote HTTP): [`docs/MCP.md`](docs/MCP.md). A real Claude Code session played and lost a chapter this way and its run replays identically in the browser engine: [`docs/data/mcp/`](docs/data/mcp/claude-code-session-redbank-seed11.md).
+
 ## Develop and test
 | Command | What it does |
 |---|---|
@@ -66,6 +74,8 @@ Rules (authoritative, matching the code): [`docs/GAME_RULES.md`](docs/GAME_RULES
 | `npm run build && npm run size` | production build and bundle budget |
 | `npm run verify:hosting` | serve `dist/` with `vercel.json`'s headers and check the Content-Security-Policy in a real browser |
 | `npm run profile` / `npx tsx scripts/capture-states.ts` | cold-start and interaction timings / screenshots of real engine states |
+| `npm run mcp` / `npm run mcp:demo` / `npm run mcp:verify -- <run file>` | the MCP server on stdio / a scripted agent plays a chapter through it / replay a persisted run and compare |
+| `npx tsx scripts/monkey.ts` | random clicking, keys, reloads against the production build, checking that every state replays and every game finishes |
 
 `src/`: `engine/` pure deterministic simulation (core, social, laws, world, content, ai, gen, progress, save), `render/` Canvas2D observer, `ui/` React, `audio/` procedural Web Audio.
 Decisions: [`docs/DECISIONS.md`](docs/DECISIONS.md). Content schema: [`docs/CONTENT_SCHEMA.md`](docs/CONTENT_SCHEMA.md). Balance evidence: [`docs/BALANCE_REPORT.md`](docs/BALANCE_REPORT.md).

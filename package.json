@@ -25,7 +25,9 @@
     "test:sim": "tsx scripts/tournament.ts",
     "test:sim:smoke": "tsx scripts/tournament.ts --smoke",
     "mcp": "tsx mcp/server.ts",
-    "gen:verify": "tsx scripts/verify-expeditions.ts --from 1 --to 1000 --catalog"
+    "gen:verify": "tsx scripts/verify-expeditions.ts --from 1 --to 1000 --catalog",
+    "mcp:demo": "tsx mcp/agent-demo.ts",
+    "mcp:verify": "tsx mcp/verify-run.ts"
   },
   "dependencies": {
     "react": "19.3.1",

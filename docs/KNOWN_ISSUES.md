@@ -17,3 +17,4 @@
 * **Variety limits** (FR-08): one Redbank route wins 998 of 1 000 seeds; verified drought villages are nearly interchangeable (99.5% of random pairs share a winning plan).
 * **A save file lets a human or an agent peek at the night's dice** and take it back (FR-09). Not a balance threat (measured), and not guarded: there is no leaderboard.
 * **A loss by hunger or livestock names nobody** in the debrief (nobody died) and no event is told at household scale (story-lover persona, `docs/FUN_REVIEW.md`).
+* **MCP: local stdio only.** No remote (Streamable HTTP) mode, so no live session shared between the browser and an agent (co-op is a save-file hand-off). Tested with the official SDK client and Claude Code; not with Claude Desktop, ChatGPT or other clients (`docs/MCP.md`).

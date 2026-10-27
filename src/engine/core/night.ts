@@ -50,8 +50,8 @@ export function nightReport(s: RunState, events: GameEvent[], summary: DaySummar
     const reached = list.slice().sort((a, b) => b.to - b.from - (a.to - a.from));
     const shown = reached.slice(0, 3).map((m) => `${name(m.target)} (${Math.round(m.from)}→${Math.round(m.to)})`);
     const more = reached.length - shown.length;
-    const who = carriers.length === 0 ? 'Word' : carriers.length <= 2 ? joinNames(carriers.map(name)) : `${joinNames(carriers.slice(0, 2).map(name))} and ${carriers.length - 2} more`;
-    story.push(`“${claimDef(s, claim).short}” travelled along ties of trust: ${who} passed it to ${shown.join(', ')}${more > 0 ? ` and ${more} more` : ''}.`);
+    const carried = carriers.length === 0 ? '' : ` Carried by ${carriers.length <= 2 ? joinNames(carriers.map(name)) : `${carriers.slice(0, 2).map(name).join(', ')} and ${carriers.length - 2} more`}.`;
+    story.push(`“${claimDef(s, claim).short}” travelled along ties of trust and reached ${shown.join(', ')}${more > 0 ? ` and ${more} more` : ''}.${carried}`);
     const alive = s.villagers.filter((v) => v.status !== 'dead');
     const repeating = alive.filter((v) => (v.beliefs[claim]?.conv ?? 0) >= K.SPREAD).length;
     const heard = alive.filter((v) => (v.beliefs[claim]?.conv ?? 0) > 0 && (v.beliefs[claim]?.conv ?? 0) < K.SPREAD).length;

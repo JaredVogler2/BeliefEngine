@@ -80,6 +80,19 @@ describe('MCP game service: same engine, same results', () => {
     expect(end.whatIf).toBeUndefined(); // the slow replay search only runs when asked for
   });
 
+  it('a challenge aimed at a rumour that does not exist says which rival rumours do', () => {
+    const s = service();
+    const runId = newRun(s, 1);
+    s.takeAction({ runId, action: { type: 'PICK_STARTER', claim: 'bridge_stands_watched' } });
+    const r = s.takeAction({ runId, action: { type: 'COUNTER', claim: 'bridge_stands_watched', against: 'no_such_rumour', target: 'ivo' } });
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.error.code).toBe('BAD_CLAIM');
+      expect(r.error.message).toContain('crowds_break_bridges');
+      expect(JSON.stringify(r.error.alternatives)).toContain('crowds_break_bridges');
+    }
+  });
+
   it('end_day carries the same morning report as the browser: who the story reached, in plain words', () => {
     const s = service();
     const runId = newRun(s, 1);
