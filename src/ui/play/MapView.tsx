@@ -166,7 +166,9 @@ export function MapView({ children }: { children?: React.ReactNode }) {
       const wheel = (e: WheelEvent) => {
         e.preventDefault();
         const p = local(e);
-        r?.zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, p.x, p.y);
+        // follow how far the wheel or trackpad moved (a mouse notch is about 100 px, about 12%), so a trackpad glides instead of jumping
+        const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
+        r?.zoomBy(Math.exp(Math.max(-0.5, Math.min(0.5, -px * 0.00115))), p.x, p.y);
       };
       const leave = () => {
         r?.setHover(null);

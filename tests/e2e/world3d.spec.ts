@@ -320,14 +320,15 @@ test.describe('the 3D world', () => {
       const panned = await view();
       expect(Math.hypot(panned.x - home.x, panned.z - home.z)).toBeGreaterThan(0.3);
       expect(await page.evaluate(() => (window as unknown as { __belief: { store: { ui: { selection: unknown } } } }).__belief.store.ui.selection)).toBeNull();
-      // the wheel zooms, and keeps within the nearest and farthest the camera allows
+      // the wheel zooms by how far it turns, and keeps within the nearest and farthest the camera allows (a few big turns: each wheel
+      // event waits for a page that is busy drawing with a software rasteriser)
       await page.mouse.move(mx, my);
-      for (let i = 0; i < 40; i++) await page.mouse.wheel(0, -300);
+      for (let i = 0; i < 8; i++) await page.mouse.wheel(0, -300);
       await page.waitForTimeout(400);
       const near = await view();
       expect(near.dist).toBeLessThan(home.dist);
       expect(near.dist).toBeGreaterThan(3);
-      for (let i = 0; i < 80; i++) await page.mouse.wheel(0, 300);
+      for (let i = 0; i < 14; i++) await page.mouse.wheel(0, 300);
       await page.waitForTimeout(400);
       const far = await view();
       expect(far.dist).toBeGreaterThan(near.dist);
