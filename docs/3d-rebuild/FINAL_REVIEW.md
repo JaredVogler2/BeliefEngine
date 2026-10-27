@@ -22,7 +22,7 @@ claimed to be "premium": three scorecard areas sit at 3 of 5, nothing has been r
 | Citizens only flat cards or cylinders | **Not true, but weak:** 14 role-costumed, animated, pickable figures; small and blocky (scored 3) |
 | HUD so large the village does not dominate | **Not true.** At least 75% of a desktop screen and 60% of a phone's stays world at rest (asserted). One exception named: the opening story cards cover the lower fifth for a moment (A2) |
 | A fancy screenshot that cannot play, or mock states | **Not true.** Every frame is a bot-played engine state loaded through the save format; the 3D world is played with real clicks and taps in tests |
-| Mechanics, replay, saves or MCP broken by the migration | **Not true.** See the runs below: recorded traces reach identical hashes through the 3D world; `npm test` 364 of 364; the engine and `mcp/**` have no diff in this work |
+| Mechanics, replay, saves or MCP broken by the migration | **Not true.** See the runs below: recorded traces reach identical hashes through the 3D world; `npm test` 364 of 364; `git diff 1077522 HEAD -- src/engine mcp server` is empty (that merge is the last commit before the 3D work) |
 | Mobile graphical path blank or unplayably slow | **Not shown either way.** On an emulated Pixel 7 with software WebGL it draws and plays (slowly: that is a CPU rasteriser). A real phone is **UNVERIFIED** |
 | No visual evidence captured, yet declared complete | **Not true.** 16 real frames, reviewed |
 
@@ -36,7 +36,7 @@ claimed to be "premium": three scorecard areas sit at 3 of 5, nothing has been r
 6. **Full engine, E2E, compatibility and performance suite:** below, with the numbers.
 7. **Production build and browser route:** `npm run build`, `npm run size`, and `npm run verify:hosting` (the shipped Content-Security-Policy and headers served to a real browser, now including the lazily loaded 3D world with zero violations and zero console errors).
 8. **Deployment:** **none.** No Vercel deployment was made and no live URL exists; nothing here claims one. `vercel.json` and `docs/RELEASE_CHECKLIST.md` describe how to deploy.
-9. **Source backup and migration story:** the work is committed and pushed on the branch above; the 2D renderer is kept (fallback and A/B), and the prompts files carry the renderer override so a future agent does not undo this (`prompts/README.md`, `prompts/00_MASTER_GOAL.md`).
+9. **Source backup and migration story:** the work is committed and pushed on the branch above; the 2D renderer is kept (fallback and A/B), and `prompts/00_MASTER_GOAL.md` opens with the renderer override that makes the old 2D prescriptions obsolete, `prompts/3d-rebuild/` is the binding plan, and the top-level `README.md` and `docs/3d-rebuild/STATUS.md` say the 3D world is the default and the 2D map the fallback, so a future agent has no instruction left to undo this. (`prompts/README.md` does not itself carry the override line.)
 10. **Honest PASS / PARTIAL / UNVERIFIED per phase:** `STATUS.md` phase table, repeated here.
 
 ## Full runs on the final build (Linux container, 4 cores, software WebGL, Chromium 153)
