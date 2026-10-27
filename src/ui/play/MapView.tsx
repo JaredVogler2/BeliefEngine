@@ -289,13 +289,13 @@ export function MapView({ children }: { children?: React.ReactNode }) {
       const dockTop = dock && dock.top > sr.top + sr.height * 0.25 ? sr.bottom - dock.top : 0;
       // while the opening choice is up the card docks under the rail instead (the cards need the bottom)
       const dockHigh = dock && dock.top <= sr.top + sr.height * 0.25 ? dock.bottom - sr.top : 0;
-      // a phone's folded view controls sit up by the top bar, above the village: only a column of them down the side moves it over
-      const toolCol = tools && (wide || tools.bottom - sr.top > sr.height * 0.3) ? tools : null;
+      // on a phone the lens rail and the view controls float over the village's edges, as the rail always has: counting the controls
+      // pushed the village off-centre at rest, and opening them would re-frame it. A wide screen frames the village clear of both
       r.setInsets({
         top: Math.max(top ? top.bottom - sr.top + 8 : 0, dockHigh + 8),
         bottom: Math.max(tray ? sr.bottom - tray.top + 8 : 0, dockTop + 8, sheetH + 8),
         left: wide && modes ? Math.max(0, modes.right - sr.left + 8) : 0,
-        right: Math.max(wide && side ? sr.right - side.left : 0, toolCol ? sr.right - toolCol.left + 6 : 0),
+        right: Math.max(wide && side ? sr.right - side.left : 0, wide && tools ? sr.right - tools.left + 6 : 0),
       });
     };
     apply();
