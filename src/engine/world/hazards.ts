@@ -3,6 +3,7 @@ import { claimDef, findLandmark } from '../core/lookup.ts';
 import type { Landmark, RunState, Villager } from '../core/types.ts';
 import type { Modifiers } from '../laws/effects.ts';
 import { ensureBelief, evidenceGain, round1 } from '../social/persuasion.ts';
+import { remember } from '../core/memory.ts';
 import { computeWater } from './flood.ts';
 import { runCrops } from './crops.ts';
 import { runSickness } from './sickness.ts';
@@ -88,6 +89,10 @@ export function runNight(ctx: Ctx, mods: Modifiers): void {
     } else if (dmg > 0) {
       emit(ctx, { step: 'hazard', code: 'BRIDGE_DAMAGED', importance: bridge.hp < 40 ? 2 : 1, delta: { bridge: [before, bridge.hp] }, text: `The flood batters the bridge: ${before} → ${bridge.hp} integrity.` });
     }
+    const bridgeLaw = lawsFor(s, ['bridge'])[0];
+    if (bridgeLaw && dmg >= 12 && (bridge.data.watchers ?? 0) < (claimDef(s, s.laws.find((q) => q.id === bridgeLaw)!.claimId).spec.trigger.min ?? 3)) {
+      discredit(ctx, bridgeLaw, null, 8, `the bridge took ${dmg} damage with only ${bridge.data.watchers ?? 0} on watch.`);
+    }
     if (saved >= 8 && watched > 0) {
       const bl = lawsFor(s, ['bridge'])[0];
       emit(ctx, {
@@ -115,6 +120,7 @@ export function runNight(ctx: Ctx, mods: Modifiers): void {
 
   // ---- homes
   let spared = 0;
+  const failedHomes: Landmark[] = [];
   for (const l of w.landmarks) {
     if (l.kind !== 'home' && l.kind !== 'cabin') continue;
     if (l.hp <= 0) continue;
@@ -135,6 +141,7 @@ export function runNight(ctx: Ctx, mods: Modifiers): void {
       }
       continue;
     }
+    if (d >= 2 && floodLaws.length && (mods.sourcesByLaw[floodLaws[0]] ?? 0) > 0) failedHomes.push(l);
     const before = l.hp;
     l.hp = Math.max(0, l.hp - dmg);
     const cause = w.fire[i] >= 1 ? 'fire' : 'floodwater';
@@ -150,6 +157,12 @@ export function runNight(ctx: Ctx, mods: Modifiers): void {
     }
   }
   if (spared) witnessLaw(ctx, floodLaws[0], 'flood');
+  // a law that was powered tonight and still let the water into homes is seen to fail: those who watched trust it less
+  if (failedHomes.length) {
+    const cx = Math.round(failedHomes.reduce((a, l) => a + l.x, 0) / failedHomes.length);
+    const cy = Math.round(failedHomes.reduce((a, l) => a + l.y, 0) / failedHomes.length);
+    discredit(ctx, floodLaws[0], { x: cx, y: cy }, 6 + Math.min(6, 2 * (failedHomes.length - 1)), `${failedHomes.length} home${failedHomes.length === 1 ? '' : 's'} flooded despite it.`);
+  }
 
   // ---- fields
   for (const l of w.landmarks) {
@@ -239,7 +252,39 @@ function witnessLaw(ctx: Ctx, lawId: string | undefined, _kind: string): void {
     b.conv = round1(b.conv + gain);
     b.evidence = Math.min(60, b.evidence + 10);
     b.lastDay = s.day;
+    remember(v, { kind: 'law_worked', day: s.day, claim: law.claimId, text: `watched “${def.short}” hold` });
   }
+}
+
+/**
+ * Credibility damage: people in the law's electorate who could see it fail lose some conviction (less if they are stubborn or have
+ * seen it work before), and remember. Bounded per night and per person, so one bad night is a setback, not a spiral.
+ */
+function discredit(ctx: Ctx, lawId: string | undefined, at: { x: number; y: number } | null, amount: number, why: string): void {
+  if (!lawId) return;
+  const s = ctx.s;
+  const law = s.laws.find((l) => l.id === lawId);
+  if (!law) return;
+  const def = claimDef(s, law.claimId);
+  const districts = new Set(def.electorate?.[law.regionId] ?? [law.regionId]);
+  let n = 0;
+  for (const v of s.villagers) {
+    if (v.status === 'dead' || !districts.has(v.district)) continue;
+    const b = v.beliefs[law.claimId];
+    if (!b || b.conv < 15) continue;
+    if (at && Math.hypot(v.x - at.x, v.y - at.y) > 10) continue;
+    const drop = Math.min(b.conv - 5, amount * (1 - v.traits.stubbornness / 200) * (1 - b.evidence / 200));
+    if (drop <= 0) continue;
+    b.conv = round1(b.conv - drop);
+    b.lastDay = s.day;
+    remember(v, { kind: 'law_failed', day: s.day, claim: law.claimId, text: `saw “${def.short}” fail: ${why.replace(/\.$/, '')}` });
+    n++;
+  }
+  if (n)
+    emit(ctx, {
+      step: 'hazard', code: 'LAW_DISCREDITED', importance: 2, law: lawId, claim: law.claimId,
+      text: `“${def.short}” failed where people could see: ${why} ${n} lose faith in it.`,
+    });
 }
 
 export { landmarkAtTile };

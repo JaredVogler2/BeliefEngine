@@ -2,6 +2,7 @@ import { emit, type Ctx } from './events.ts';
 import { cloneState } from './clone.ts';
 import { claimDef, findLandmark, findVillager, trustOf, neighborsOf, edgeBetween, allClaimDefs, evidenceMult, modActive, repeatMult } from './lookup.ts';
 import { pledgeKey } from '../progress/options.ts';
+import { memoryFactor, remember } from './memory.ts';
 import type { Action, ActionError, ActionResult, ClaimDef, GameEvent, Landmark, RitualDef, RunState, Villager } from './types.ts';
 import { K, ensureBelief, evidenceGain, gossipDelta, REASON_TEXT, relevance, round1, seedGain } from '../social/persuasion.ts';
 import { bfsDist, components, connected, passableMask } from '../world/nav.ts';
@@ -164,7 +165,7 @@ function perform(ctx: Ctx, a: Action): Fail | null {
       const b = ensureBelief(v, a.claim);
       if (b.conv >= 88) return fail('ALREADY_CONVINCED', `${v.name} already believes it.`);
       if (v.keeperTrust < 8) return fail('NO_TRUST', `${v.name} will not hear you.`);
-      const gain = seedGain(v, b) * repeatMult(s);
+      const gain = seedGain(v, b) * repeatMult(s) * memoryFactor(v, a.claim);
       const before = b.conv;
       b.conv = round1(b.conv + gain);
       b.heard += 1;
@@ -204,7 +205,7 @@ function perform(ctx: Ctx, a: Action): Fail | null {
         speakerConv: fb.conv, speakerEvidence: fb.evidence, speakerInfluence: from.traits.influence + 15, speakerId: from.id, trust: t, edge,
         listener: to, listenerConv: tb.conv, listenerEvidence: tb.evidence, heard: tb.heard, lastSource: tb.lastSource, lastDay: tb.lastDay, day: s.day, relevance: relevance(def, to),
       });
-      const gain = g.delta * K.MESSENGER * repeatMult(s);
+      const gain = g.delta * K.MESSENGER * repeatMult(s) * (g.delta > 0 ? memoryFactor(to, a.claim) : 1);
       const before = tb.conv;
       tb.conv = round1(tb.conv + Math.max(-30, Math.min(40, gain)));
       tb.heard += 1;
@@ -369,7 +370,10 @@ function doRitual(ctx: Ctx, a: Extract<Action, { type: 'RITUAL' }>): Fail | null
     b.stale = 0;
     b.lastSource = 'keeper';
     if (E > 0) b.evidence = Math.min(100, b.evidence + E * 0.9);
-    else v.keeperTrust = Math.max(0, v.keeperTrust - 6);
+    else {
+      v.keeperTrust = Math.max(0, v.keeperTrust - 6);
+      remember(v, { kind: 'proof_failed', day: s.day, claim: a.claim, text: `watched a demonstration of “${def.short}” go wrong` });
+    }
     if (E > 0) v.keeperTrust = Math.min(100, v.keeperTrust + 2);
     b.cause = rid;
     lines.push(`${v.name} ${Math.round(before)}→${Math.round(b.conv)}`);
@@ -430,7 +434,7 @@ function doGather(ctx: Ctx, a: Extract<Action, { type: 'GATHER' }>): Fail | null
   for (const v of attendees) {
     const b = ensureBelief(v, a.claim);
     const before = b.conv;
-    const gain = seedGain(v, b) * K.GATHER * crowd * repeatMult(s) * (modActive(s, 'busy_harvest') ? 0.55 : 1);
+    const gain = seedGain(v, b) * K.GATHER * crowd * repeatMult(s) * (modActive(s, 'busy_harvest') ? 0.55 : 1) * memoryFactor(v, a.claim);
     b.conv = round1(b.conv + gain);
     b.heard += 1;
     b.lastDay = s.day;
@@ -527,6 +531,13 @@ export function getAvailableActions(s: RunState, sel: Selection = {}, opts: { in
   }
   const claims = s.claims.filter((c) => c.available);
   const living = s.villagers.filter((v) => v.status !== 'dead');
+  // a rival's announced campaign can be challenged before their rumour has even started to spread
+  for (const r of s.rivals) {
+    const t = r.plan?.target;
+    if (!t || !r.plan || claims.some((c) => c.id === r.claim)) continue;
+    if (sel.villager && sel.villager !== t) continue;
+    for (const mine of claims) if (!claimDef(s, mine.id).rival) push({ type: 'COUNTER', claim: mine.id, against: r.claim, target: t });
+  }
   const match = (id: string) => !sel.villager || sel.villager === id;
   for (const c of claims) {
     if (sel.claim && sel.claim !== c.id) continue;

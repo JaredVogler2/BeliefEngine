@@ -11,8 +11,8 @@
   "lawsActivated": [
    "wolves_fear_smoke"
   ],
-  "stateHash": "1b2845d2c21026",
-  "eventHash": "1f358b1ba32cb2",
+  "stateHash": "1a11f396dded81",
+  "eventHash": "1d39909f299175",
   "actions": [
    {
     "type": "PICK_STARTER",
@@ -296,8 +296,8 @@
   "policy": "smokeRing",
   "result": "defeat",
   "alive": 13,
-  "stateHash": "02827d95095688",
-  "eventHash": "100683e800e2c8",
+  "stateHash": "19217bc34eb01f",
+  "eventHash": "1571fbb4da0a61",
   "actions": [
    {
     "type": "PICK_STARTER",

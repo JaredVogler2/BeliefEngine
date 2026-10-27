@@ -6,6 +6,7 @@ import { computeModifiers } from '../laws/effects.ts';
 import { computeWater } from '../world/flood.ts';
 import { idx } from '../world/grid.ts';
 import { bfsDist, passableMask } from '../world/nav.ts';
+import { bridgeClaimName, scoreIntents } from './utility.ts';
 
 /** A stable standing spot inside/near a landmark so people do not stack on one pixel. */
 export function spotAt(lm: Landmark, key: string, slot = 0): [number, number] {
@@ -194,7 +195,29 @@ export function assignWatchers(ctx: Ctx): void {
   }
   cands.sort((a, b) => b.c - a.c || (a.v.id < b.v.id ? -1 : 1));
   const cap = lawLive ? 4 : 3;
-  const chosen = cands.slice(0, cap);
+  // Each willing believer weighs the post against their own household (utility model): a parent whose child faces the water
+  // stays home. The player sees who defected and why, and the watch they lose.
+  const water = predictedWater(s);
+  const defected: { v: Villager; why: string }[] = [];
+  const staying: { v: Villager; c: number }[] = [];
+  for (const c of cands) {
+    const intents = scoreIntents(s, c.v, water);
+    const top = intents[0];
+    if (top.kind === 'family' || top.kind === 'safety') defected.push({ v: c.v, why: top.why });
+    else staying.push(c);
+  }
+  const chosen = staying.slice(0, cap);
+  for (const d of defected) {
+    d.v.dutyNote = `Skips the bridge watch. ${d.why}.`;
+    d.v.duty = 'rest';
+  }
+  if (defected.length) {
+    const need = bridgeClaims[0]?.spec.trigger.min ?? 3;
+    emit(ctx, {
+      step: 'hazard', code: 'WATCHER_DEFECTS', importance: 2,
+      text: `${defected.map((d) => `${d.v.name} stays home (${d.why.toLowerCase()})`).join('; ')}. ${chosen.length} keep${chosen.length === 1 ? 's' : ''} watch${lawLive ? `; “${bridgeClaimName(s)}” needs ${need}` : ''}.`,
+    });
+  }
   for (let i = 0; i < chosen.length; i++) {
     const v = chosen[i].v;
     const tile = br.tiles[i % br.tiles.length];

@@ -30,3 +30,15 @@ Conviction −100..100; speaker signal saturates at |conv| 50; negative trust re
 
 ## D8. The Keeper has a location
 Direct persuasion requires a walking path from the Keeper's anchor (scenario landmark). When the Redbank bridge falls, the east bank can no longer be spoken to directly, which gives the bridge real strategic weight (and makes messengers already on the far bank valuable).
+
+## D9. Procedural villages are verified by witnesses, not promised
+The generator (docs/EXPEDITIONS.md) checks structure and that doing nothing loses, then scripted planners that use only the public action API try to win each village offline. A village a planner wins is "verified"; the verified catalog feeds the daily village and "another village". Typed-in seeds still work and are labelled unverified. Guaranteed solvability is never claimed. Rejected alternative: a runtime solver on the player's device (too slow on a phone, and it would still not be a proof).
+
+## D10. Modifiers are data plus a few engine hooks
+Static modifier effects rewrite a private copy of the scenario when a run is created; dynamic ones are read through `modActive`. Pledges, drafts and optional starting stories use the same mechanism (`progress/options.ts`) and are enforced by the engine, so a pledge cannot be broken by accident and the score multiplier is always honest.
+
+## D11. Unlocks expand options, never raw power
+Every unlock opens a choice that changes a rule of the run (an extra opening story with a real cost, a draft, a pledge, twists on story chapters). Nothing multiplies Influence; every scenario is beatable with none of them. Debug-loader runs are archived but earn nothing.
+
+## D12. Agents are utility scores you can read
+Villager decisions are small integer utility scores with authored reasons and seeded bounded tie-breaks, evaluated at discrete moments (dusk, dawn), not per frame. Every faction move is announced a day ahead with its reason, costs budget, has a cooldown and has a counter. Memory is capped at six items per villager and only scales persuasion within 0.55-1.15.

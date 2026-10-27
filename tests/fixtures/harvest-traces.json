@@ -11,8 +11,8 @@
   "lawsActivated": [
    "moonlight_ripens_grain"
   ],
-  "stateHash": "0f57720943e764",
-  "eventHash": "08e1f579dcd260",
+  "stateHash": "01da9958b05854",
+  "eventHash": "1fa7673d8752f5",
   "actions": [
    {
     "type": "PICK_STARTER",
@@ -287,8 +287,8 @@
   "policy": "moonlight",
   "result": "defeat",
   "alive": 14,
-  "stateHash": "19181c5651a4b0",
-  "eventHash": "05c5515da5788f",
+  "stateHash": "096b659292d537",
+  "eventHash": "13d77ce62c9378",
   "actions": [
    {
     "type": "PICK_STARTER",

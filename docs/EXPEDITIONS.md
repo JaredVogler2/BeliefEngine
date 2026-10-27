@@ -35,7 +35,7 @@ rebuild the same village. Unknown versions, malformed ids and out-of-range seeds
 6. **Modifiers**: 1-3 drawn from the ones that apply to the village (below).
 7. **Validation** (`expedition.ts`): scenario schema, population, connected social graph, every home/civic/field reachable by the Keeper,
    no overlapping landmarks, every playable claim available with at least two days left, flood/pen/field sanity, and a **do-nothing run
-   must lose** (no free wins). A failed draw is replaced by a derived seed (up to eight tries; the attempt is recorded).
+   must lose** (no free wins). A failed draw is replaced by a derived seed (up to 24 tries; the attempt is recorded).
 8. **Blueprint**: seed, versions, biome, population, bottleneck, starters, rival and modifiers (`Blueprint`), used for the briefing
    and for the variety signature.
 

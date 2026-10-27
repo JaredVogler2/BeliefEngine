@@ -1,4 +1,6 @@
 import { getModifier } from '../gen/modifiers.ts';
+import { BAN_LEADER_CONVICTION, pendingFactionPlans } from '../ai/factions.ts';
+import { scoreIntents } from '../ai/utility.ts';
 import { commitEvacuations, moveToNight, predictedWater } from '../ai/routines.ts';
 import { ARCHETYPES } from '../content/types.ts';
 import { computePressure } from '../laws/resolver.ts';
@@ -492,4 +494,83 @@ export function getModifierViews(s: RunState): ModifierView[] {
     if (m) out.push({ id: m.id, name: m.name, icon: m.icon, blurb: m.blurb, tradeoff: m.tradeoff });
   }
   return out;
+}
+
+// ------------------------------------------------------------------ why people do what they do
+
+export interface IntentView {
+  kind: string;
+  label: string;
+  score: number;
+  why: string;
+  chosen: boolean;
+}
+
+/** What a villager is weighing tonight, best first, with the sentence behind each score. */
+export function getIntents(s: RunState, id: string): IntentView[] {
+  const v = findVillager(s, id);
+  if (!v || v.status === 'dead') return [];
+  return scoreIntents(s, v, predictedWater(s)).slice(0, 3).map((i, n) => ({ kind: i.kind, label: i.label, score: i.score, why: i.why, chosen: n === 0 }));
+}
+
+export interface Callout {
+  kind: 'warn' | 'info' | 'good';
+  text: string;
+}
+
+/** Short authored lines tied to the actual state (who doubts, what the factions are about to do, who left their post). */
+export function getCallouts(s: RunState): Callout[] {
+  const out: Callout[] = [];
+  for (const r of s.rivals) {
+    if (!r.plan) continue;
+    const def = s.scn.rivals.find((d) => d.factionId === r.factionId && d.claim === r.claim);
+    const leader = findVillager(s, def?.leader ?? '');
+    const target = r.plan.target ? findVillager(s, r.plan.target) : null;
+    out.push({ kind: 'warn', text: r.plan.kind === 'rebuttal' ? `${leader?.name ?? 'The rival'} will expose your failed demonstration tomorrow.` : r.plan.kind === 'sabotage' ? `${leader?.name ?? 'The rival'} will try to talk ${target?.name ?? 'the broker'} out of the grain deal tomorrow.` : `${leader?.name ?? 'The rival'} will campaign against your story${target ? `, starting with ${target.name}` : ''} tomorrow.` });
+  }
+  for (const p of pendingFactionPlans(s)) {
+    out.push({ kind: 'warn', text: `The ${p.faction.name} will bar public gatherings unless ${p.leaderName} is won over (conviction ${p.conviction} of ${BAN_LEADER_CONVICTION}).` });
+  }
+  const todayDefect = s.log.filter((e) => e.code === 'WATCHER_DEFECTS' && e.day === s.day - 1).pop();
+  if (todayDefect) out.push({ kind: 'warn', text: todayDefect.text });
+  // the Keeper's main story: who hears it, who doubts it
+  const claim = s.starter ?? s.scn.starters[0];
+  if (claim && s.claims.find((c) => c.id === claim)?.available) {
+    const def = claimDef(s, claim);
+    const byDistrict = new Map<string, number[]>();
+    for (const v of s.villagers) {
+      if (v.status === 'dead') continue;
+      const arr = byDistrict.get(v.district) ?? [];
+      arr.push(v.beliefs[claim]?.conv ?? 0);
+      byDistrict.set(v.district, arr);
+    }
+    const avg = [...byDistrict.entries()].map(([d, xs]) => ({ d, a: xs.reduce((p, q) => p + q, 0) / xs.length })).filter((x) => x.d);
+    const high = avg.filter((x) => x.a >= 35).sort((p, q) => q.a - p.a)[0];
+    const low = avg.filter((x) => x.a <= 12 && x.d !== high?.d).sort((p, q) => p.a - q.a)[0];
+    const name = (id: string) => s.world.regions.find((r) => r.id === id)?.name ?? id;
+    if (high && low) out.push({ kind: 'info', text: `${name(high.d)} hears “${def.short}”; ${name(low.d)} still doubts.` });
+    // someone who trusts the Keeper but not the believer who carries the word
+    for (const v of s.villagers) {
+      if (v.status === 'dead' || v.keeperTrust < 50 || (v.beliefs[claim]?.conv ?? 0) >= 20) continue;
+      const bad = neighborsOf(s, v.id).find((n) => n.trust < 15 && n.id !== v.id && (findVillager(s, n.id)?.beliefs[claim]?.conv ?? 0) >= 50);
+      if (bad) {
+        out.push({ kind: 'info', text: `${v.name.split(' ')[0]} trusts you, but not ${findVillager(s, bad.id)!.name.split(' ')[0]}, who is carrying your story.` });
+        break;
+      }
+    }
+  }
+  // contradictory laws held in different places
+  const live = s.laws.filter((l) => l.status === 'active' || l.status === 'wavering');
+  for (const a of live)
+    for (const b of live) {
+      if (a.id >= b.id || a.regionId === b.regionId) continue;
+      if (claimDef(s, a.claimId).contradicts.includes(b.claimId) || claimDef(s, b.claimId).contradicts.includes(a.claimId)) {
+        out.push({ kind: 'warn', text: `Two places believe opposite things (“${claimDef(s, a.claimId).short}” and “${claimDef(s, b.claimId).short}”). Both pull on the world.` });
+      }
+    }
+  const worked = s.log.filter((e) => (e.code === 'BRIDGE_HELD' || e.code === 'HOME_SPARED') && e.day === s.day - 1).pop();
+  if (worked) out.push({ kind: 'good', text: `Last night: ${worked.text}` });
+  const failed = s.log.filter((e) => e.code === 'LAW_DISCREDITED' && e.day === s.day - 1).pop();
+  if (failed) out.push({ kind: 'warn', text: failed.text });
+  return out.slice(0, 5);
 }

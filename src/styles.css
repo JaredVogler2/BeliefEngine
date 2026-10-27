@@ -320,3 +320,9 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 .good-text { color: var(--good); }
 fieldset.field { border: 1px solid var(--line); border-radius: 10px; margin: 0.6rem 0; }
 .toggle-row { display: flex; gap: 0.8rem; justify-content: space-between; align-items: flex-start; padding: 0.35rem 0; }
+
+.callouts { margin: 0.2rem 0 0.6rem 1rem; padding: 0; }
+.callout { margin: 0.25rem 0; }
+.callout.warn { color: var(--gold); }
+.callout.good { color: var(--good); }
+.intents li.chosen { color: var(--text); }

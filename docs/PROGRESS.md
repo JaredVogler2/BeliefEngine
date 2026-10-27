@@ -14,8 +14,8 @@ implemented unless it was run.
 | 06 | Interface + onboarding | verified: HUD, panels, tutorial, social lens, debrief, phone layout; axe scan clean |
 | 07 | Content + scenarios | 3 of 5 shipped and verified (Redbank, Harvest, Ashwood); scenarios D and E not built (see KNOWN_ISSUES) |
 | 08 | Procedural runs | verified: 3 biomes, 14 modifiers, daily/share/replay flows, 1 000-seed offline run (docs/EXPEDITIONS.md) |
-| 09 | Progress + rewards | not started |
-| 10 | Agent AI + reactions | partial (rival faction campaign/rebuttal, evacuation) |
+| 09 | Progress + rewards | verified: Atlas, 20 achievements each with a proof test, 6 unlocks that add options, pledges/drafts, readable score, export/import/reset |
+| 10 | Agent AI + reactions | verified: utility intents with reasons, law credibility + capped memory, faction bans/endorsements, callouts; 19 tests |
 | 11 | Balance bots + telemetry | partial (bot framework, baseline policies) |
 | 12 | Audio + art + juice | not started |
 | 13 | Mobile / a11y / perf | not started |
@@ -65,3 +65,13 @@ implemented unless it was run.
   signatures. Full table in docs/BALANCE_REPORT.md. The 95% aspiration is **not** met, so the catalog is used for daily and
   "another village" and typed-in seeds are labelled unverified.
 * Evidence (executed): `npx vitest run` 117 passed; `npx playwright test` 49 passed, 19 project-specific skips.
+
+### Session 2, later (phases 09-10)
+* Phase 09: Atlas of Belief (laws, lore, postcards, badges, unlocks, stats, archive export/import/reset), 20 achievements, each earned in a test by a named planner and seed;
+  six unlocks that add choices rather than power (an extra Redbank opening story with a real cost, the Oath pledge, three more pledges, story twists, a hostile-council preset, draft mode);
+  rewritten score (categories disclosed, efficiency only on victory, multipliers for difficulty/pledges/draft/twists). Debug-loader runs are archived but earn nothing; archive import is defensive (v1 migration, unknown fields dropped, size caps).
+  Fixtures re-recorded after the score change.
+* Phase 10: villager intents as small utility scores with reasons (the bridge watch versus a threatened child), law credibility damage and capped memory, Council gathering bans (announced a day ahead, answerable, budgeted), faction endorsements, "what is going on" callouts, COUNTER offered against announced campaigns before the rumour exists.
+  A new unit test found a real bug in my own endorsement code (it crossed a fallen bridge); fixed.
+  Finding: laws almost never wavered in 300+ bot runs, so the planned "phoenix" achievement was replaced by "Unshaken" (win after a law visibly failed before the last night and still stood). See KNOWN_ISSUES.
+* Evidence (executed): `npx vitest run` 179 passed; `npx playwright test` 59 passed, 23 project-specific skips; `npm run gen:verify` refreshed: 853 of 1000 villages verified, 0 crashes, 0 do-nothing wins.

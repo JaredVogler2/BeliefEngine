@@ -11,8 +11,8 @@
   "lawsActivated": [
    "river_fears_fire"
   ],
-  "stateHash": "034a46aec08e5c",
-  "eventHash": "04e467f5fb0328",
+  "stateHash": "1d45243a9436d2",
+  "eventHash": "1786c582e48ec0",
   "actions": [
    {
     "type": "PICK_STARTER",
@@ -126,8 +126,8 @@
   "lawsActivated": [
    "bridge_stands_watched"
   ],
-  "stateHash": "1a88f574459398",
-  "eventHash": "1b1bbda2c403fa",
+  "stateHash": "0e49a0ea765b38",
+  "eventHash": "09dfd85f19df42",
   "actions": [
    {
     "type": "PICK_STARTER",
@@ -256,8 +256,8 @@
   "policy": "fireWall",
   "result": "defeat",
   "alive": 14,
-  "stateHash": "0457c5c8486b06",
-  "eventHash": "064c47d3808381",
+  "stateHash": "1594ca566779d8",
+  "eventHash": "093260344e1500",
   "actions": [
    {
     "type": "PICK_STARTER",

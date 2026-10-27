@@ -1,5 +1,4 @@
-import { useMemo } from 'react';
-import { councilBanDays, getAvailableActions, getForecast, getLawViews, getModifierViews, getVillagerView, previewAction, describeAction, omenFor } from '../../engine/index.ts';
+import { councilBanDays, getAvailableActions, getCallouts, getForecast, getIntents, getLawViews, getModifierViews, getVillagerView, memoryLines, previewAction, describeAction, omenFor } from '../../engine/index.ts';
 import type { Action, ClaimDef, Landmark, Preview, RunState } from '../../engine/index.ts';
 import { neighborsOf } from '../../engine/core/lookup.ts';
 import { Avatar, Bar, ClaimGlyph, Icon, evIcon } from '../components.tsx';
@@ -92,6 +91,21 @@ function EmptySelection() {
   );
 }
 
+/** Short lines about what is happening between people and factions right now. */
+function Callouts() {
+  const state = useStore((s) => s.state)!;
+  const lines = getCallouts(state);
+  if (!lines.length) return null;
+  return (
+    <section data-testid="callouts" aria-label="What is going on">
+      <h3>What is going on</h3>
+      <ul className="small callouts">
+        {lines.map((c, i) => <li key={i} className={`callout ${c.kind}`}>{c.text}</li>)}
+      </ul>
+    </section>
+  );
+}
+
 /** The run modifiers in play, each with its effect and its price. */
 function Twists() {
   const state = useStore((s) => s.state)!;
@@ -114,10 +128,12 @@ function VillagerCard({ id }: { id: string }) {
   const ui = useStore((s) => s.ui);
   const view = getVillagerView(state, id);
   const v = state.villagers.find((x) => x.id === id)!;
+  const intents = getIntents(state, id);
+  const memories = memoryLines(v);
   const claimId = ui.activeClaim;
   const claimShort = claimId ? state.scn.claimDefs.find((c) => c.id === claimId)?.short ?? claimId : null;
 
-  const opts = useMemo(() => {
+  const opts = ((): Opt[] => {
     const out: Opt[] = [];
     if (v.status === 'dead') return out;
     if (claimId && state.claims.find((c) => c.id === claimId)?.available && playable(state, claimId)) {
@@ -137,7 +153,7 @@ function VillagerCard({ id }: { id: string }) {
     for (const d of state.scn.deals ?? []) if (d.broker === id) out.push(mk(state, { type: 'TRADE', deal: d.id, target: id }));
     out.push(mk(state, { type: 'SCOUT', target: id }));
     return out;
-  }, [state, id, claimId, v]);
+  })();
 
   const seed = opts.filter((o) => o.action.type === 'SEED');
   const msgFrom = opts.filter((o) => o.action.type === 'MESSENGER' && (o.action as { from: string }).from === id && o.preview.ok).sort((a, b) => b.preview.deltas.reduce((m, d) => m + d.after - d.before, 0) - a.preview.deltas.reduce((m, d) => m + d.after - d.before, 0)).slice(0, 6);
@@ -177,6 +193,19 @@ function VillagerCard({ id }: { id: string }) {
         {trade.map((o, i) => <ActionRow key={'d' + i} o={o} />)}
         {scout.map((o, i) => <ActionRow key={'k' + i} o={o} />)}
       </div>
+
+      <h3>What they are weighing</h3>
+      {intents.length === 0 ? <p className="small muted">Nothing: they are gone.</p> : (
+        <ul className="small intents" data-testid="intents">
+          {intents.map((i) => <li key={i.kind} className={i.chosen ? 'chosen' : ''}><b>{i.label}</b> {i.score}{i.chosen ? ' ← what they will do' : ''}<span className="muted"> — {i.why}.</span></li>)}
+        </ul>
+      )}
+      {memories.length > 0 && (
+        <>
+          <h3>What they remember</h3>
+          <ul className="small" data-testid="memories">{memories.map((m, i) => <li key={i}>{m}</li>)}</ul>
+        </>
+      )}
 
       <h3>What they believe</h3>
       {view.beliefs.length === 0 && <p className="small muted">They have not heard any of your stories yet.</p>}
@@ -248,7 +277,7 @@ function LandmarkCard({ id }: { id: string }) {
   const ui = useStore((s) => s.ui);
   const l = state.world.landmarks.find((x) => x.id === id);
   const claimId = ui.activeClaim;
-  const opts = useMemo(() => {
+  const opts = ((): Opt[] => {
     const out: Opt[] = [];
     if (!l) return out;
     for (const r of state.scn.rituals.filter((q) => q.landmark === l.kind)) {
@@ -265,7 +294,7 @@ function LandmarkCard({ id }: { id: string }) {
     }
     if (claimId && ['chapel', 'market', 'hall', 'shelter', 'well'].includes(l.kind) && playable(state, claimId)) out.push(mk(state, { type: 'GATHER', claim: claimId, site: l.id }));
     return out;
-  }, [state, l, claimId]);
+  })();
   if (!l) return null;
   const def: ClaimDef | undefined = claimId ? state.scn.claimDefs.find((c) => c.id === claimId) : undefined;
   const ritual = def?.ritual ? state.scn.rituals.find((r) => r.id === def.ritual) : undefined;
@@ -347,6 +376,7 @@ export function VillagePanel() {
   const people = state.villagers.slice().sort((a, b) => (a.status === 'dead' ? 1 : 0) - (b.status === 'dead' ? 1 : 0) || b.traits.influence - a.traits.influence);
   return (
     <div data-testid="village-panel">
+      <Callouts />
       <h3>The village</h3>
       <p className="small muted">{claim ? 'Showing belief in the active story.' : 'Choose a story to see who believes it.'} Select anyone to inspect them.</p>
       {people.map((v) => {
@@ -398,6 +428,7 @@ export function ForecastPanel() {
   const flood = state.scn.features.flood;
   return (
     <div data-testid="forecast-panel">
+      <Callouts />
       <h3>Tonight</h3>
       <div className="card" style={{ padding: '0.7rem' }}>
         <b>{f.tonight.label}</b>

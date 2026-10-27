@@ -101,6 +101,10 @@ describe('achievements: at least sixteen, each provably attainable', () => {
   });
 
   const proofs: Record<string, () => string[]> = {
+    unshaken: () => {
+      const x = generateExpedition(149);
+      return ids(fold(emptyProgress(), play(witnessPolicies(x.bp, x.def).find((q) => q.name === 'fire-wall')!, { scenarioId: x.id, seed: 149, mode: 'expedition' })));
+    },
     first_law: () => ids(fold(emptyProgress(), play(S.fireWall, { scenarioId: 'redbank', seed: 1 }))),
     counter_wave: () => ids(fold(emptyProgress(), play(S.fireWall, { scenarioId: 'redbank', seed: 1 }))),
     no_beacons: () => ids(fold(emptyProgress(), play(S.witnessBridge, { scenarioId: 'redbank', seed: 1 }))),
@@ -168,10 +172,7 @@ describe('achievements: at least sixteen, each provably attainable', () => {
     },
   };
 
-  // phoenix: needs a law to collapse; proven in tests/unit/factions.test.ts once rivals can break laws (phase 10)
-  const needLater = new Set(['phoenix']);
   for (const a of ACHIEVEMENTS) {
-    if (needLater.has(a.id)) continue;
     it(`${a.id} can be earned: ${a.name}`, () => {
       const f = proofs[a.id];
       expect(f, `a proof exists for ${a.id}`).toBeTruthy();

@@ -26,7 +26,7 @@ out.push('| --- | --- |');
 out.push(`| Hard crashes | ${s.crashed} |`);
 out.push(`| Villages that passed every structural invariant | ${s.structurallyValid} of ${s.total} |`);
 out.push(`| Needed a derived seed (first draw rejected) | ${s.retried} of ${s.total} (${pct(s.retried, s.total)}) |`);
-out.push(`| Still failed after eight derived seeds | ${s.fallbackUsed} (reported, not hidden) |`);
+out.push(`| Still failed after 24 derived seeds | ${s.fallbackUsed} (reported, not hidden) |`);
 out.push(`| "Do nothing" wins the village | ${s.idleWins} |`);
 out.push(`| Won by at least one planner (verified) | ${s.verified} (${pct(s.verified, s.total)}) |`);
 out.push(`| Won by two or more different planners | ${s.twoDistinctWins} (${pct(s.twoDistinctWins, s.total)}) |`);

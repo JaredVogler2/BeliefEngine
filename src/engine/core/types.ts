@@ -316,6 +316,14 @@ export interface Belief {
 
 export type Duty = 'work' | 'rest' | 'evacuate' | 'shelter' | 'watch' | 'messenger' | 'trapped' | 'hide' | 'guard';
 
+/** A bounded record of something a villager saw: a law failing or working, a proof backfiring. */
+export interface MemoryItem {
+  kind: 'law_failed' | 'law_worked' | 'proof_failed';
+  day: number;
+  claim?: Id;
+  text: string;
+}
+
 export interface Villager {
   id: Id;
   name: string;
@@ -346,6 +354,8 @@ export interface Villager {
   busyUntil: number;
   deathDay: number | null;
   deathCause: string | null;
+  /** capped list of what they have witnessed; absent until something is remembered */
+  memory?: MemoryItem[];
 }
 
 export interface Edge {

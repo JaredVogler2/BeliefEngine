@@ -1,5 +1,6 @@
 import { assignDay, assignWatchers, commitEvacuations, moveToNight } from '../ai/routines.ts';
 import { runRivalExecute, runRivalPlan } from '../ai/rivals.ts';
+import { runFactionExecute, runFactionPlan } from '../ai/factions.ts';
 import { computeModifiers } from '../laws/effects.ts';
 import { runLawStep } from '../laws/resolver.ts';
 import { runSocialStep } from '../social/propagation.ts';
@@ -41,6 +42,7 @@ export function resolveDay(state: RunState, opts: ResolveOptions = {}): ResolveR
 
   if (s.scn.features.smoke) updateSmoke(s);
   runRivalExecute(ctx); // A  queued / announced moves land
+  runFactionExecute(ctx); // A' faction moves announced yesterday land unless answered
   commitEvacuations(ctx); // people react to what is coming tonight
   runSocialStep(ctx); // B-D exposure, propagation, evidence, decay
   runLawStep(ctx); // E-F pressure, contradictions, activation / decay
@@ -53,6 +55,7 @@ export function resolveDay(state: RunState, opts: ResolveOptions = {}): ResolveR
   for (const law of s.laws) if (law.status === 'active' || law.status === 'wavering') law.activeNights += 1;
   runNight(ctx, mods); // G  hazards and resources
   runRivalPlan(ctx); // H  rivals decide (announced a day ahead)
+  runFactionPlan(ctx); // H' factions endorse or announce
   runDawnNeeds(ctx);
 
   const ev = evaluate(s); // I  threat and win/loss

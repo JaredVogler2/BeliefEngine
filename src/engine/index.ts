@@ -8,8 +8,8 @@ export { replayRun, stateHash, eventHash } from './core/replay.ts';
 export type { ReplayLog, ReplayResult } from './core/replay.ts';
 export { serializeRun, deserializeRun } from './save/serialize.ts';
 export { getScenarioDef, listScenarios } from './content/registry.ts';
-export { getVillagerView, getLawViews, getHand, getForecast, getHud, getModifierViews, beliefLabel, influenceRanks } from './core/selectors.ts';
-export type { VillagerView, LawView, ClaimCard, ForecastView, HudView, BeliefView, ModifierView } from './core/selectors.ts';
+export { getVillagerView, getLawViews, getHand, getForecast, getHud, getModifierViews, getIntents, getCallouts, beliefLabel, influenceRanks } from './core/selectors.ts';
+export type { VillagerView, LawView, ClaimCard, ForecastView, HudView, BeliefView, ModifierView, IntentView, Callout } from './core/selectors.ts';
 export { buildDebrief } from './core/debrief.ts';
 export type { Debrief, Chain } from './core/debrief.ts';
 export { objectiveStatuses } from './core/objectives.ts';
@@ -24,3 +24,7 @@ export { catalogEntries, catalogInfo, isVerifiedSeed, dailySeed, pickVerified } 
 export { encodeShare, parseShare, dateToNumber, numberToDate, utcDateNumber } from './gen/share.ts';
 export type { ShareDescriptor, ShareMode, ParseResult } from './gen/share.ts';
 export * from './progress/index.ts';
+export { pendingFactionPlans, recentGatherings, BAN_LEADER_CONVICTION } from './ai/factions.ts';
+export { scoreIntents, chooseIntent } from './ai/utility.ts';
+export type { Intent, IntentKind } from './ai/utility.ts';
+export { memoryLines, memoryFactor } from './core/memory.ts';

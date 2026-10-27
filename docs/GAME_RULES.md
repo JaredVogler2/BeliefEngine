@@ -19,13 +19,13 @@ overnight resolution and is keyed by `(seed, domain, day, ids)` (see DECISIONS D
 | Free scout | first Scout of each day is free, later ones cost 1 |
 
 ### Resolution order (`src/engine/core/resolve.ts`)
-1. Announced rival moves land (`ai/rivals.ts`)
+1. Announced rival moves land (`ai/rivals.ts`); announced faction moves land unless the Keeper answered them (`ai/factions.ts`)
 2. Villagers react: evacuations (`ai/routines.ts`)
 3. Social step: contacts, exposure, propagation, decay, contradictions, attention cap (`social/propagation.ts`)
 4. Law step: pressure, hysteresis, contradictions, activation (`laws/resolver.ts`)
-5. Dusk: watchers take posts; daytime harvest; people go home
+5. Dusk: believers weigh the bridge watch against their household and take their posts or stay home (`ai/utility.ts`); daytime harvest; woodcutters who worked bring fuel; people go home
 6. Night: effect modifiers computed from active laws (`laws/effects.ts`) then hazards: rain shift, flood fill, bridge strain, fire, home / field / people damage (`world/hazards.ts`)
-7. Rivals decide and announce tomorrow's move
+7. Rivals decide and announce tomorrow's move; factions endorse what deserves it or announce a move (`ai/factions.ts`)
 8. Dawn needs: eating, fear, recovery
 9. Win/loss evaluation, story beats, summary; next day: Influence refill, new claims unlock, positions reset
 
@@ -92,11 +92,20 @@ Map 28x18, river at x=12..14, west bank high (elevation 4..10), east plain low (
 * **Win** at the end of day 7: >= 12 of 14 alive, >= 6 homes standing, >= 4 food.
 * **Instant defeat**: fewer than 9 alive.
 * **Heroic**: 13+ alive and the bridge standing.
-* Score (see `core/score.ts`): survivors 600 x alive/total, homes 150 x standing/total, food 8 x min(12, food), trust 1.2 x mean trust, law style up to 160, heroic 120; multiplier Story 0.8 / Normal 1.0 / Hard 1.25. No bonus for unspent Influence; nothing rewards inaction.
+* Score (see `core/score.ts`): survivors 500 x alive/total (dominant), households 100 x homes standing/total, essentials up to 100 (food, plus livestock or fed villagers where the scenario has them), infrastructure up to 50 (bridge, fields), harmony 0.7 x mean trust, efficiency up to 60 (**victory only**, shrinks by 3 per Influence beyond 2 a day), laws 40 per distinct law (max 2), heroic 100. Then multiplied by difficulty (Story 0.8 / Normal 1.0 / Hard 1.25), pledges kept, a draft (+15%) and chosen twists (+10% each, max +30%). No bonus for unspent Influence, nothing rewards inaction, and a defeat earns no efficiency, heroic or medal.
 
 ## Difficulty
 * Story: +1 Influence per day and at the start, +6 trust.
 * Hard: -4 trust, -2 fuel, rival has +1 budget.
+
+## Other scenarios and systems (phases 07-10)
+* **The Harvest That Refused to Grow** (9 days): crops with growth and soil moisture, hunger and labour, a grain trader who sells only to someone she firmly believes (trade deal, one caravan at a time, blocked while the Hillside Road is buried), moonlight and bell laws with real costs (night labour; mud).
+* **The Wolves of Ashwood** (8 days): packs that walk three tiles a night toward the nearest pen or a believed decoy fire; smoke fires protect, sicken and thicken fog; woodcutters who work bring fuel at dusk; a hunter's theory (wolves follow smoke) the Keeper may adopt.
+* **Run modifiers, pledges, drafts, expeditions, daily village, share links**: see `docs/EXPEDITIONS.md`.
+* **Villager intents** (`ai/utility.ts`): each evening a believer with a post scores *work, rest, stay with family, seek safety, keep watch* from visible needs (danger at home, children in the household, fear, fatigue, belief in the law) plus a seeded bounded tie-break; the best intent wins. A parent whose child would face the water stays home instead of standing watch, the event `WATCHER_DEFECTS` says who and why, and the law's protection needs its minimum watchers on the deck. The villager card shows the top three intents with their scores.
+* **Law credibility and memory**: a law that was powered tonight and still lets water into homes (or a bridge that takes >= 12 damage under fewer than the needed watchers) is seen to fail: believers who could see it lose up to 6-12 conviction (less if stubborn or firsthand-convinced) and remember (`LAW_DISCREDITED`). Each villager keeps at most six memories; they scale persuasion about that claim by 0.55-1.15. Laws seen working add a little firsthand evidence (capped).
+* **Factions**: the Council bars public gatherings (`FACTION_BAN`, announced a day earlier by `FACTION_TELEGRAPH`) when the Keeper has called two or more crowds in three days while the Council's leader has not been persuaded (conviction under 40) and trusts the Keeper under 55; budget two moves, cooldown three days; winning the leader over stands it down. A faction whose leader firmly believes a law (>= 65) and trusts the Keeper (>= 40) endorses it once to members the leader can walk to (+6 conviction each). The rival faction's campaign, rebuttal and sabotage moves (phase 05/07) are forecast a day ahead and can be challenged.
+* **What is going on** (callouts): short authored lines derived from the same state (rival and faction plans, a bank that doubts, someone who trusts you but not your witness, opposite laws in two places, last night's success or failure).
 
 ## Verified strategy lines (see `tests/fixtures/redbank-traces.json`)
 Seed 1: **Fire Wall** (belief in Eastbank, beacons lit by coverage on day 5) wins with 13 alive, 11 homes; **Witness Bridge**
