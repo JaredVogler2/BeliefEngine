@@ -27,6 +27,20 @@ Re-run the commands to reproduce; nothing here is estimated. Numbers change as t
 | `npm audit` / `npm audit --omit=dev` | 0 vulnerabilities / 0 vulnerabilities |
 | `npx tsx scripts/licenses.ts --prod` | 3 production packages (react, react-dom, scheduler), all MIT; 266 installed in total, none copyleft-strong (4 MPL-2.0 and 1 CC-BY-4.0 build-time data, none shipped) |
 
+## Phase 15 regression run (working tree after the review fixes)
+
+| Command | Result |
+| --- | --- |
+| `npm run lint` / `npm run typecheck` | exit 0 / exit 0 |
+| `npm test` | **16 files, 248 tests passed** (13 new in `review-fixes.test.ts`, 2 new MCP tests) |
+| `npm run build` / `npm run size` | exit 0; JS 204 KB gzip (budget 260), CSS 5.8 KB gzip (budget 12) |
+| `npm run test:e2e` (desktop and phone, Chromium 153) | **119 passed, 0 failed, 51 skipped** (project-specific skips), 4.1 min; includes `review.spec.ts` (coach and cards, first-night report, Harvest warning, what-if card, `T` key, phone top bar) |
+| `npm run test:sim:smoke` | 256/256 runs in 59 s, **SMOKE OK**: 0 crashes, 0 timeouts, 0 engine violations, 32 repeated runs identical |
+| `npx tsx scripts/monkey.ts` (random clicks, keys, tabs, reloads, undo; state replayed from its own record; every game finished) | before the fixes 8 sessions ok; after 12 sessions x 160 steps ok (`docs/data/fun-review/monkey.txt`) |
+| `npx tsx scripts/fun-review-probes.ts --seeds 40`, `scripts/fun-review-rescue.ts --seeds 40` | numbers quoted in `docs/FUN_REVIEW.md`: `docs/data/fun-review/probes.json`, `rescue.json` |
+
+The engine's states and hashes are unchanged by the review fixes (the morning report is derived, the threshold constant has the old value), which is why the saved traces and the 25 tournament traces still replay to the same hashes.
+
 ## Requirement to test map (the brief's matrix)
 
 | Requirement | Where it is tested |

@@ -77,6 +77,34 @@ describe('MCP game service: same engine, same results', () => {
     const end = data(s.getResults({ runId }));
     expect(end.result).toBe('defeat');
     expect((end.causalChains as unknown[]).length + (end.missed as unknown[]).length).toBeGreaterThan(0);
+    expect(end.whatIf).toBeUndefined(); // the slow replay search only runs when asked for
+  });
+
+  it('end_day carries the same morning report as the browser: who the story reached, in plain words', () => {
+    const s = service();
+    const runId = newRun(s, 1);
+    s.takeAction({ runId, action: { type: 'PICK_STARTER', claim: 'river_fears_fire' } });
+    s.takeAction({ runId, action: { type: 'SEED', claim: 'river_fears_fire', target: 'ivo' } });
+    const day = data(s.endDay({ runId }));
+    expect(day.headline).toBe('Your story is spreading.');
+    const story = day.story as string[];
+    expect(story[0]).toContain('River fears fire');
+    expect(story[0]).toContain('Ivo');
+  });
+
+  it('get_results with whatIf names the last day a lost run could still have been saved, and the replay it gives is accepted by the engine', () => {
+    const s = service();
+    const runId = newRun(s, 1);
+    s.takeAction({ runId, action: { type: 'PICK_STARTER', claim: 'bridge_stands_watched' } });
+    for (let i = 0; i < 7; i++) s.endDay({ runId });
+    const end = data(s.getResults({ runId, whatIf: true }));
+    expect(end.result).toBe('defeat');
+    const w = end.whatIf as { lastDayItCouldStillBeSaved: { day: number; youDid: string[]; insteadDo: string[]; survivedWith: { alive: number } } | null; plansTried: string[]; note: string };
+    expect(w.plansTried.length).toBeGreaterThan(0);
+    expect(w.note).toMatch(/not that it was easy to see/);
+    expect(w.lastDayItCouldStillBeSaved).not.toBeNull();
+    expect(w.lastDayItCouldStillBeSaved!.insteadDo.length).toBeGreaterThan(0);
+    expect(w.lastDayItCouldStillBeSaved!.survivedWith.alive).toBeGreaterThanOrEqual(12);
   });
 });
 

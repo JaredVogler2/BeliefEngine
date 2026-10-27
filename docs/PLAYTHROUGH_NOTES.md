@@ -9,7 +9,7 @@
 * The expedition briefing is clear: the surge chart, twists with their trade-offs ("Proof is king. Mass-telling is weak."), a "Verified winnable" chip.
 * The end-of-run scene tells the truth at a glance (lit and fallen houses, the bridge, a dot per villager).
 
-## Where it is confusing, thin or slow (observed, not yet fixed)
+## Where it is confusing, thin or slow (observed; the first three were fixed in phase 15, see `docs/FUN_REVIEW.md`)
 * **Opening-story cards look inconsistent in a generated village.** On `x1.1` day 1 the card "River fears fire [1]" is dimmed (it unlocks later) while the two cards the player can use have the pulsing gold tutorial outline, and the digit shortcut `1` still labels the dimmed one. A new player will read dimmed as "broken" or as "worse".
 * **The first-day tip card sits over the left of the map** and covers a villager and the start of the story hand on a 1366x768 window; "Skip tips" removes it but the default is to cover content.
 * **Hints are generic.** A generated village shows the same four hint lines as Redbank, including one about "the east bank walking out" that is only true where there is a bridge and an east bank.

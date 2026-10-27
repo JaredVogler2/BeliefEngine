@@ -28,7 +28,7 @@ The audit found one real defect in new code (an interactive button inside an ima
 
 ## Built in
 
-* **Keyboard:** every control is a real button, link, input or select; a whole turn (choose a story, select a villager, act, end the day) is tested without a pointer;
+* **Keyboard:** every control is a real button, link, input or select; a whole turn (choose a story, select a villager, act, end the day) is tested without a pointer; `T` tells the selected villager the chosen story; the tutorial coach is an in-flow `role=note` banner and never covers a control;
   dialogs trap focus, close on Escape and return focus; arrows/WASD pan, +/- zoom, 0 fits, 1-9 choose stories, U undoes, L toggles the social lens, Enter asks to end the day. The legend is in "How it works".
 * **Canvas alternative:** everything on the map is also a list: villagers and places in the Village tab (with trust, beliefs, needs, duties), laws in the Laws tab, tonight's forecast
   in words, the full log; the End Day dialog summarises what is at risk. A test with the canvas disabled plays a whole day from the lists.

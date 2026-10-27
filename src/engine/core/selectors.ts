@@ -5,7 +5,7 @@ import { commitEvacuations, moveToNight, predictedWater } from '../ai/routines.t
 import { ARCHETYPES } from '../content/types.ts';
 import { computePressure } from '../laws/resolver.ts';
 import { SIDE_EFFECT_INFO } from '../laws/rules.ts';
-import { REASON_TEXT } from '../social/persuasion.ts';
+import { K, REASON_TEXT } from '../social/persuasion.ts';
 import { dailyConsumption, homesStanding, projectedProduction } from '../world/economy.ts';
 import { fieldSummary, projectedGrowth } from '../world/crops.ts';
 import { activePacks, packForecast } from '../world/wolves.ts';
@@ -19,8 +19,9 @@ import type { ClaimDef, LawState, RunState, ScenarioRuntime, Villager } from './
 
 export function beliefLabel(conv: number): string {
   if (conv <= -40) return 'rejects';
-  if (conv <= -12) return 'doubts';
-  if (conv < 10) return 'unconvinced';
+  if (conv <= -K.SPREAD) return 'doubts';
+  // 'curious' is exactly the point at which they start repeating it to friends
+  if (conv < K.SPREAD) return 'unconvinced';
   if (conv < 30) return 'curious';
   if (conv < 50) return 'leaning';
   if (conv < 75) return 'believes';

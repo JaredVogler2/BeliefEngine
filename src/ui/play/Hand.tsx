@@ -11,7 +11,7 @@ export function Hand() {
   const tut = getTutorial(state, ui);
   const pickingStarter = state.starter === null;
   return (
-    <div className="hand" role="group" aria-label="Your stories">
+    <div className={`hand ${pickingStarter ? 'choosing' : ''}`} role="group" aria-label="Your stories">
       {hand.map((c, i) => {
         const main = c.laws[0];
         const on = state.scn.claimDefs.find((d) => d.id === c.id)?.spec.thresholds.on ?? 0.6;
@@ -52,7 +52,8 @@ export function Hand() {
               </>
             )}
             {isStarter && <span className="c-line">{c.benefit}</span>}
-            {locked && <span className="c-line">Unlocks on day {c.unlockDay}</span>}
+            {isStarter && <span className="c-line">{c.risk}</span>}
+            {locked && <span className="chip lock">{c.unlockDay ? `Unlocks on day ${c.unlockDay}` : 'Not available yet'}</span>}
             {!locked && !isStarter && <span className="c-line">{c.risk}</span>}
             {c.rival && <span className="chip violet">Rival rumour — challenge it</span>}
             {main && false}

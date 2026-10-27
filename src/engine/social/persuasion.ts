@@ -20,6 +20,8 @@ export const K = {
   MESSENGER: 2.0,
   /** fraction of a positive shift pushed against each contradicting claim */
   CONTRADICT: 0.4,
+  /** conviction (either sign) at which a villager starts repeating a story to their friends overnight */
+  SPREAD: 12,
 };
 
 export function emptyBelief(): Belief {

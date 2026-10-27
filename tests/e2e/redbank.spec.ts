@@ -74,6 +74,7 @@ test.describe('Flood at Redbank (desktop)', () => {
     await expect(page.getByTestId('debrief')).toBeVisible();
     await expect(page.getByTestId('verdict')).toHaveText('Victory');
     await expect(page.getByTestId('debrief')).toContainText('River fears fire');
+    await expect(page.getByTestId('whatif')).toHaveCount(0); // the what-if search is a defeat feature
     const st = await browserState(page);
     expect(st.hash).toBe(traces.fireWall.stateHash);
     expect(st.eventHash).toBe(traces.fireWall.eventHash);

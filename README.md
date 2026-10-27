@@ -9,7 +9,7 @@ stay in your browser. The simulation is a pure, deterministic engine: the same s
 makes replays, the bot tournaments and an AI-agent interface possible.
 
 **Status, honestly:** playable and tested (see [`docs/TEST_RESULTS.md`](docs/TEST_RESULTS.md)); **not deployed anywhere**, so there is no live URL; difficulty and fun
-have been measured on bots only and **no human playtest has been run** ([`docs/PLAYTEST_PROTOCOL.md`](docs/PLAYTEST_PROTOCOL.md) is the script). Known limits:
+have been measured on bots only and **no human playtest has been run** ([`docs/PLAYTEST_PROTOCOL.md`](docs/PLAYTEST_PROTOCOL.md) is the script). A self-run adversarial review found and fixed five problems and lists five more: [`docs/FUN_REVIEW.md`](docs/FUN_REVIEW.md). Known limits:
 [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md). Build log: [`docs/PROGRESS.md`](docs/PROGRESS.md).
 
 ## Play it
@@ -36,6 +36,7 @@ Needs Node >= 22.12. Once loaded the game makes no network requests.
 | Select a villager or place | click / tap | Village tab list (Tab, Enter) |
 | Pan / zoom the map | drag / wheel, pinch, +/- buttons | arrows or WASD / `+` `-`, `0` fits |
 | Choose a story | click a card | `1`-`9` |
+| Tell the selected villager the chosen story | the Tell button | `T` |
 | Undo the last action | Undo button | `U` or Ctrl+Z |
 | Social lens (trust ties) | lens button | `L` |
 | End the day | End Day (asks to confirm) | `Enter` (asks to confirm) |
@@ -45,6 +46,7 @@ Needs Node >= 22.12. Once loaded the game makes no network requests.
 * **Three hand-made chapters**, each won in more than one way: *Flood at Redbank* (7 days: fire wall, witnessed bridge, bells), *The Harvest That Refused to Grow* (9 days: moonlight work, or a grain caravan that needs a trader's trust) and *The Wolves of Ashwood* (8 days: smoke fires around the pens, or a decoy fire deep in the wood).
 * **Expeditions:** a generated village from any seed (river, drought or wolves), with 1-3 run modifiers (e.g. *Stubborn elders*, *Silent bells*, *Restless wolves*). The catalog behind "another village" and the **Daily village** holds only villages that a scripted planner has verified winnable; typed-in seeds still work and are labelled unverified.
 * **Share links** carry only the mode, seed and versions (never state or code) and are validated on open.
+* **A morning report that says what your story did** (who carried it, who it reached, or why it stalled) and, after a defeat, **what would have changed it**: the run is replayed from each day with other plans and the last day it could still have been saved is named.
 * **Rivals and factions** that announce their moves a day ahead and can be answered; villagers who weigh a post on the bridge against their own children; laws that lose credibility when they visibly fail.
 * **The Atlas of Belief:** laws you have seen take hold, lore, postcards, 20 badges, unlocks that add *choices* (pledges, a draft, twists), your stats, and an export/import of the archive. Nothing in it is needed to win a scenario.
 * **Save files:** Settings > Download this game / Load a game file.

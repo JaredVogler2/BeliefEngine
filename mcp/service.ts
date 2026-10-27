@@ -11,7 +11,7 @@ import { existsSync, mkdirSync, readdirSync, readFileSync, renameSync, writeFile
 import { join } from 'node:path';
 import { z } from 'zod';
 import {
-  GEN_VERSION, GameSession, MAX_SEED, RULES_VERSION, buildDebrief, deserializeRun, describeAction, eventHash, expeditionId, getAvailableActions, getForecast, getHud, getLawViews, getScenarioDef,
+  GEN_VERSION, GameSession, MAX_SEED, RULES_VERSION, buildDebrief, nightReport, findCounterfactual, deserializeRun, describeAction, eventHash, expeditionId, getAvailableActions, getForecast, getHud, getLawViews, getScenarioDef,
   getVillagerView, listScenarios, parseExpeditionId, previewAction, serializeRun, stateHash, influenceRanks, getHand, objectiveStatuses,
 } from '../src/engine/index.ts';
 import type { Action, CreateRunOptions, Difficulty, GameEvent, RunState } from '../src/engine/index.ts';
@@ -519,8 +519,10 @@ export class GameService {
     r.updatedAt = this.clock();
     const s = res.state;
     const important = res.events.filter((e) => e.importance >= 2).slice(0, 30).map(brief);
-    const result = ok(res.summary.headline || 'A quiet night.', {
-      runId: r.id, revision: r.revision, day: s0.day, headline: res.summary.headline, lines: res.summary.lines,
+    // the same morning report the browser shows: who the Keeper's stories reached, or why they stayed put
+    const report = nightReport(s, res.events, res.summary);
+    const result = ok(report.headline || 'A quiet night.', {
+      runId: r.id, revision: r.revision, day: s0.day, headline: report.headline, story: report.story, lines: res.summary.lines,
       lawChanges: res.events.filter((e) => e.code.startsWith('LAW_')).map(brief), importantEvents: important,
       finished: !!s.outcome, ...(s.outcome ? { outcome: { result: s.outcome.result, reason: s.outcome.reason, score: s.outcome.score, medal: s.outcome.medal } } : {}),
       next: this.stateView(r), nextSteps: this.nextSteps(r),
@@ -543,13 +545,17 @@ export class GameService {
     });
   }
 
-  getResults(a: { runId: string }): ToolResult {
+  getResults(a: { runId: string; whatIf?: boolean }): ToolResult {
     const r = this.get(a.runId);
     if (!('id' in r)) return r;
     const s = r.session.state;
     if (!s.outcome) return fail('NOT_FINISHED', 'Results exist only after the run ends (day resolution decides victory or defeat).', { alternatives: ['get_game_state', 'end_day'] });
     const d = buildDebrief(s);
+    // optional and slow (a few seconds): replay a lost run from each day with other plans, as the browser's debrief does
+    const cf = a.whatIf && d.result === 'defeat' ? findCounterfactual(s) : null;
+    const alt = (x: NonNullable<typeof cf>['latest']) => (x ? { day: x.day, youDid: x.yours, insteadDo: x.instead, thenFollow: x.plan, survivedWith: { alive: x.alive, homes: x.homes } } : null);
     return ok(`${d.result === 'victory' ? 'Victory' : 'Defeat'}: ${d.headline}`, {
+      ...(cf ? { whatIf: { lastDayItCouldStillBeSaved: alt(cf.latest), earliestDifferentOpening: alt(cf.earliest), plansTried: cf.plans, note: 'Replays on this seed with the real dice, played by a simple program: it shows a route existed, not that it was easy to see. Finding none does not prove the run was unwinnable.' } } : {}),
       runId: r.id, revision: r.revision, result: d.result, headline: d.headline, story: d.story, score: d.score, breakdown: d.breakdown, medal: d.medal, saved: d.saved, lost: d.lost,
       causalChains: d.chains.map((c) => ({ title: c.title, kind: c.kind, steps: c.steps })), missed: d.missed, tips: d.tips, seedInfo: d.seedInfo,
       verification: { stateHash: stateHash(s), eventHash: eventHash(s), rulesVersion: RULES_VERSION, actions: r.actions.length },

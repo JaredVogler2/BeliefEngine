@@ -112,7 +112,7 @@ export function buildServer(service: GameService): McpServer {
 
   server.registerTool('get_results', {
     title: 'Results and debrief', description: 'Available only after the run ends: verdict, story, score breakdown, causal chains, what was missed, and the hashes that verify the run against the browser engine.',
-    inputSchema: { runId: runIdSchema }, annotations: RO,
+    inputSchema: { runId: runIdSchema, whatIf: z.boolean().optional().describe('After a defeat only: replay the run from each day with other plans and report the last day it could still have been saved. Takes a few seconds.') }, annotations: RO,
   }, async (a) => run(() => service.getResults(a)));
 
   server.registerTool('retry_or_new_game', {

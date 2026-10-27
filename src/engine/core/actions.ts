@@ -610,6 +610,15 @@ export function previewAction(s: RunState, action: Action): Preview {
     if (r?.physical === 'light') warnings.push('Lit flames can ignite adjacent fields, trees and cottages.');
   }
   if (action.type === 'GATHER' && s.stats.gatherings >= 1) warnings.push('Repeated gatherings draw the Council’s attention.');
+  // a story only travels overnight from people who hold it at K.SPREAD or more: say so before the Influence is spent
+  const told = action.type === 'SEED' || action.type === 'MESSENGER' || action.type === 'GATHER' || action.type === 'RITUAL' ? action.claim : undefined;
+  if (told) {
+    const moved = deltas.filter((d) => d.claim === told && d.after > d.before);
+    const alreadyCarried = s.villagers.some((v) => v.status !== 'dead' && (v.beliefs[told]?.conv ?? 0) >= K.SPREAD);
+    if (moved.length && !alreadyCarried && !moved.some((d) => d.after >= K.SPREAD)) {
+      warnings.push(`${moved[0].name.split(' ')[0]} would hold it at ${moved[0].after}: below ${K.SPREAD}, nobody repeats a story yet, so it will not spread tonight.`);
+    }
+  }
   return { ok: true, cost: res.cost, lines: res.events.filter((e) => e.step === 'action').map((e) => e.text), deltas, warnings };
 }
 

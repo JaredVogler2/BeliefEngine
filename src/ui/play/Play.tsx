@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { getForecast, getHud, getLawViews, describeAction } from '../../engine/index.ts';
+import { getForecast, getHud, getLawViews, describeAction, nightReport } from '../../engine/index.ts';
 import { setAmbience, setSceneAudio, setThreatIntensity, unlockAudio } from '../../audio/audio.ts';
 import { Icon, Modal, Pips, evIcon } from '../components.tsx';
 import { store, useStore } from '../store.ts';
@@ -48,7 +48,7 @@ function TopBar() {
       <button className="btn icon-btn hide-sm" aria-label="How to play" onClick={() => store.set({ screen: 'howto' })}>
         <Icon name="help" />
       </button>
-      <button className="btn icon-btn" aria-label={ui.settings.sfx || ui.settings.music ? 'Mute all sound' : 'Unmute'} onClick={() => store.setSettings({ sfx: !(ui.settings.sfx || ui.settings.music), music: !(ui.settings.sfx || ui.settings.music) })}>
+      <button className="btn icon-btn mute-btn" aria-label={ui.settings.sfx || ui.settings.music ? 'Mute all sound' : 'Unmute'} onClick={() => store.setSettings({ sfx: !(ui.settings.sfx || ui.settings.music), music: !(ui.settings.sfx || ui.settings.music) })}>
         <Icon name={ui.settings.sfx || ui.settings.music ? 'sound' : 'mute'} />
       </button>
     </header>
@@ -65,6 +65,7 @@ function PlanBar() {
       <div className="ap" data-testid="ap" aria-label={`Influence ${state.ap} of ${state.apMax}`}>
         <Icon name="star" />
         <Pips ap={state.ap} max={state.apMax} />
+        <span className="lbl-wide small">Influence</span>
         <b>{state.ap}</b>
         <span className="muted small lbl">+{state.apPerDay}/day</span>
       </div>
@@ -115,17 +116,20 @@ function Digest() {
   const state = useStore((s) => s.state)!;
   const d = ui.digest;
   if (!d) return null;
-  const lines = d.events.filter((e) => e.importance >= 2).slice(0, 14);
+  const report = nightReport(state, d.events, d.summary);
   const over = !!state.outcome;
   return (
     <section className="digest" role="region" aria-label={`Night of day ${d.day}`} data-testid="digest">
       <h2>Night of Day {d.day}</h2>
-      <div className="head">{d.summary.headline}</div>
+      <div className="head">{report.headline}</div>
       <ul style={{ padding: 0, margin: 0 }}>
-        {lines.map((e) => (
+        {report.story.map((t, i) => (
+          <li key={`story-${i}`} data-ic="✦" data-testid="digest-story">{t}</li>
+        ))}
+        {report.lines.map((e) => (
           <li key={e.id} data-ic={evIcon(e.code)}>{e.text}</li>
         ))}
-        {lines.length === 0 && <li data-ic="·">Nothing remarkable happened.</li>}
+        {report.story.length === 0 && report.lines.length === 0 && <li data-ic="·">Nothing remarkable happened.</li>}
       </ul>
       <div className="row spread" style={{ marginTop: '0.7rem' }}>
         <button className="btn small" onClick={() => store.set({ tab: 'log', sheetOpen: true })}>All events</button>
@@ -142,10 +146,13 @@ function Coach() {
   const ui = useStore((s) => s.ui);
   const t = getTutorial(state, ui);
   if (!t || ui.digest) return null;
+  // a banner between the top bar and the map, never on top of the map or the story cards
   return (
     <aside className="coach" role="note" data-testid="coach">
-      <b>{t.title}</b>
-      <div className="small" style={{ marginTop: 2 }}>{t.text}</div>
+      <div className="c-body">
+        <b>{t.title}</b>
+        <span>{t.text}</span>
+      </div>
       <div className="c-actions">
         <span className="step">Step {t.step} of {t.total}</span>
         <button className="btn small" onClick={() => store.set({ tutorialDone: true })}>Skip tips</button>
@@ -199,6 +206,13 @@ export function Play() {
         }
       }
       if (e.key === 'u' || (e.key === 'z' && (e.ctrlKey || e.metaKey))) store.undo();
+      if ((e.key === 't' || e.key === 'T') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+        // tell the selected villager the chosen story: the most repeated move in the game, one key instead of three clicks
+        const sel = store.ui.selection;
+        const claim = store.ui.activeClaim;
+        if (sel?.kind === 'villager' && claim) store.act({ type: 'SEED', claim, target: sel.id });
+        else store.toast('Choose a story card and select a villager first, then press T to tell them.', 'error');
+      }
       if (e.key === 'l') store.set({ lens: store.ui.lens === 'social' ? 'none' : 'social' });
     };
     window.addEventListener('keydown', onKey);
@@ -239,9 +253,9 @@ export function Play() {
   return (
     <div className="play" data-testid="play">
       <TopBar />
+      <Coach />
       <MapView>
         <Hand />
-        <Coach />
         {ui.digest && <Digest />}
       </MapView>
       <aside className={`side ${ui.sheetOpen ? 'open' : ''}`} aria-label="Details">

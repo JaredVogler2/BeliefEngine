@@ -16,12 +16,12 @@ implemented unless it was run.
 | 08 | Procedural runs | verified: 3 biomes, 14 modifiers, daily/share/replay flows, 1 000-seed offline run (docs/EXPEDITIONS.md) |
 | 09 | Progress + rewards | verified: Atlas, 20 achievements each with a proof test, 6 unlocks that add options, pledges/drafts, readable score, export/import/reset |
 | 10 | Agent AI + reactions | verified: utility intents with reasons, law credibility + capped memory, faction bans/endorsements, callouts; 19 tests |
-| 11 | Balance bots + telemetry | partial (bot framework, baseline policies) |
-| 12 | Audio + art + juice | not started |
-| 13 | Mobile / a11y / perf | not started |
-| 14 | Testing, security, release | not started |
-| 15 | Adversarial fun review | not started |
-| 16 | MCP agent play | not started |
+| 11 | Balance bots + telemetry | verified: paired 1 000-seed tournaments, exact tests, one evidence-based rule change with a paired re-run (docs/BALANCE_REPORT.md) |
+| 12 | Audio + art + juice | verified in code and tests (procedural Web Audio with leak tests, event-derived effects, reduced-motion parity); never heard or seen by a second person |
+| 13 | Mobile / a11y / perf | verified in Chromium, Firefox and WebKit builds (smoke), 320 px, large text, axe; no real device |
+| 14 | Testing, security, release | verified: CSP checked in a real browser, audit and licences clean, fresh-clone gates, CI workflow; **not deployed** |
+| 15 | Adversarial fun review | done: ten problems ranked, five fixed with regression tests, one earlier claim corrected (docs/FUN_REVIEW.md) |
+| 16 | MCP agent play | partial: local stdio server and real-SDK stdio tests exist; docs, demo agent and client verification pending |
 | 17 | Natural-language beliefs | not started |
 | 18 | Final cross-interface acceptance | not started |
 
@@ -83,3 +83,18 @@ implemented unless it was run.
 * Integrating the rival exposed a real bug (a rival bridge rumour sent its own believer to stand on the bridge and cost the food that route needs); fixed in `ai/routines.ts`, `ai/utility.ts`, `world/hazards.ts`.
 * Evidence (executed): `npx vitest run` 233 passed (this includes tests for work that lands in later commits of the same session: audio, performance and MCP), `npx playwright test` 89 passed / 47 project-specific skips, `npm run lint` and `npm run typecheck` clean.
 * Not done / honest limits: no human playtest (protocol in `docs/PLAYTEST_PROTOCOL.md`); bots are proxies; scenarios D and E still unbuilt.
+
+### Session 3 (phases 12-14)
+* **12 Audio, art, juice.** Effects are derived from engine events only (no effect without an event), with caps and reduced-motion parity; procedural Web Audio (wind, creek, creaks, a panned bell) with a voice cap and leak tests against a fake `AudioContext`; an end-of-run scene that tells the truth at a glance; an asset ledger (`docs/ASSETS.md`: nothing third-party). Heard by nobody.
+* **13 Mobile, accessibility, performance.** Settings, cold-start and interaction timings (`docs/PERFORMANCE.md`), 320 px and large-text layouts, a Chromium/Firefox/WebKit/iPhone smoke project (`npm run test:e2e:browsers`), resilience paths (storage full, corrupt save, render crash) with a visible "Not saved" indicator.
+* **14 Testing, security, release.** `vercel.json` with a strict Content-Security-Policy verified by a real browser against `dist/` (`npm run verify:hosting`, with a negative control), licence inventory, `npm audit` clean, release checklist, CI workflow, rewritten README. **Not deployed; no URL is claimed.**
+
+### Session 3 (phase 15, adversarial fun review)
+* Seven reviewers (newcomer, strategist, speedrunner, bored player, story lover, mobile player, QA) run with the real build, headless probes, the tournament data and a monkey tester. Ten problems ranked in `docs/FUN_REVIEW.md`; **five fixed** with regression tests: a morning report that says who the story reached (the old digest said "A quiet night" on 160 of 160 first nights, and the tutorial's own first Tell in Harvest could not spread), a coach that names the villager you picked and no longer covers the map, an informed opening choice with explained locked cards, a replay-verified "what would have changed it" after a defeat (also in MCP `get_results`), and the phone top bar; plus a `T` key for the most repeated move.
+* **A claim in this repository's own balance report was wrong** and is corrected: phase 11 said no lost Harvest run was recoverable with three days left; with the scripted caravan planner 34% are (the generic bots cannot find that route).
+* Four problems are open with a stated next change (belief changes the world late, the last days are decided, route variety, peeking via a save file).
+* New tools: `scripts/fun-review-browser.ts`, `scripts/fun-review-probes.ts`, `scripts/fun-review-rescue.ts`, `scripts/monkey.ts`.
+* Evidence: see `docs/TEST_RESULTS.md` (phase 15 section).
+
+### Session 3 (phase 16, in progress)
+* `mcp/service.ts`, `mcp/server.ts` (official SDK `McpServer` over stdio): the same `GameSession` as the browser, revision checks, idempotency keys, coach and delegate modes, replay-verified persistence, no network or process modules. 25 tests including a real SDK client over stdio. Still to do: `docs/MCP.md`, the demo agent, verifying `claude mcp add` with the real CLI.

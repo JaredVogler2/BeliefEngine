@@ -1,5 +1,6 @@
 import { DebriefScene } from './scene.tsx';
 import { useEffect, useRef, useState } from 'react';
+import type { RunState } from '../engine/index.ts';
 import { MAX_SEED, optionsFromState, buildDebrief, catalogInfo, isVerifiedSeed, createRun, getModifier, getModifierViews, getScenarioDef, listScenarios, numberToDate } from '../engine/index.ts';
 import type { Difficulty } from '../engine/index.ts';
 import { MapRenderer } from '../render/MapRenderer.ts';
@@ -9,6 +10,7 @@ import { dailyBest, loadProgress, playedExpeditionSeeds } from './progress.ts';
 import { OptionsCard, Rewards } from './extras.tsx';
 import { BIOME_LABEL, dailyLabel, dailyOptions, expeditionOptions, freshExpeditionSeed, previewVillage, randomEntropy, runKind, shareLink, storyOptions, todayUtc, type VillagePreview } from './modes.ts';
 import { downloadText } from './files.ts';
+import { useWhatIf } from './whatif.ts';
 import { store, useStore } from './store.ts';
 
 // ------------------------------------------------------------------ title
@@ -319,6 +321,48 @@ export function Briefing() {
 
 // ------------------------------------------------------------------ debrief
 
+/** After a defeat: replay the run from each day with other plans and say, plainly, when it could still have been saved. */
+function WhatIfCard({ state }: { state: RunState }) {
+  const w = useWhatIf(state);
+  const last = state.history.length;
+  return (
+    <section className="chain whatif" data-testid="whatif" aria-live="polite">
+      <b>What would have changed it</b>
+      {w.status === 'searching' && (
+        <p className="muted small" role="status" data-testid="whatif-searching">
+          Replaying your run from each day with other plans ({Math.min(99, Math.round((100 * w.done) / w.planned))}%)…
+        </p>
+      )}
+      {w.status === 'done' && w.result.latest && (
+        <>
+          <p data-testid="whatif-latest">
+            {w.result.latest.day >= last
+              ? `Even on the last day a different plan survived.`
+              : `The last day a different plan could still have saved it was day ${w.result.latest.day}; after that none of the plans we tried could.`}
+          </p>
+          <ul style={{ padding: 0, margin: '0.3rem 0 0 1.2rem' }}>
+            <li>
+              <span className="muted small">Day {w.result.latest.day}</span> You: {w.result.latest.yours.join('; ') || 'nothing'}.
+            </li>
+            <li>
+              <span className="muted small">Instead</span> {w.result.latest.instead.join('; ') || 'nothing'}, then {w.result.latest.plan}: {w.result.latest.alive} of {state.villagers.length} survived and {w.result.latest.homes} homes stood.
+            </li>
+            {w.result.earliest && w.result.earliest.day < w.result.latest.day && (
+              <li>
+                <span className="muted small">Day {w.result.earliest.day}</span> An opening of {w.result.earliest.instead.join('; ') || 'nothing'} (then {w.result.earliest.plan}) also survived, instead of your {w.result.earliest.yours.join('; ') || 'nothing'}.
+              </li>
+            )}
+          </ul>
+          <p className="small muted">Played by a simple program on your seed with the real dice. It shows a route existed, not that it was easy to see. Retry this seed to try it.</p>
+        </>
+      )}
+      {w.status === 'done' && !w.result.latest && (
+        <p data-testid="whatif-none" className="muted">Three simple plans, started from every day of this run, all lost it as well. This village may be hard, or may need something they do not try; the notes below are the best hints.</p>
+      )}
+    </section>
+  );
+}
+
 export function Debrief() {
   const state = useStore((s) => s.state);
   const reward = useStore((s) => s.ui.reward);
@@ -369,6 +413,7 @@ export function Debrief() {
           </div>
         ))}
         {d.chains.length === 0 && <p className="muted">No law took hold, so nothing in the world changed because of belief.</p>}
+        {!win && <WhatIfCard state={state} />}
         <h2>What you may have missed</h2>
         <ul>{d.missed.map((m, i) => <li key={i}>{m}</li>)}</ul>
         <h2>The village</h2>
@@ -415,6 +460,7 @@ export function HowTo() {
           <tr><td>Pan the map</td><td>Drag, or <span className="kbd">arrows</span> / <span className="kbd">WASD</span></td></tr>
           <tr><td>Zoom</td><td>Wheel, pinch, <span className="kbd">+</span> <span className="kbd">-</span> buttons, <span className="kbd">0</span> to fit</td></tr>
           <tr><td>Choose a story</td><td>Click a card, or <span className="kbd">1</span>–<span className="kbd">9</span></td></tr>
+          <tr><td>Tell the selected villager the chosen story</td><td><span className="kbd">T</span></td></tr>
           <tr><td>Undo last action</td><td><span className="kbd">U</span> or the Undo button</td></tr>
           <tr><td>Social lens (trust ties)</td><td><span className="kbd">L</span> or the lens button</td></tr>
           <tr><td>End the day</td><td><span className="kbd">Enter</span> (asks to confirm)</td></tr>

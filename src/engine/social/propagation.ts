@@ -75,7 +75,7 @@ export function runSocialStep(ctx: Ctx): void {
       for (const cid of keys) {
         const st = sm.get(cid)!;
         const score = Math.abs(st.conv) * (1 + st.ev / 100);
-        if (Math.abs(st.conv) >= 12 && score > topScore) {
+        if (Math.abs(st.conv) >= K.SPREAD && score > topScore) {
           topScore = score;
           topic = cid;
         }
