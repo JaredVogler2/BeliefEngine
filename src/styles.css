@@ -307,3 +307,16 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 .village-card h4 { margin: 0.7rem 0 0.2rem; font-size: 0.95rem; }
 .chip.warn { border-color: var(--gold); color: var(--gold); }
 .error-text { color: #ffb3bf; }
+
+/* ------------------------------------------------------------ atlas, rewards, options */
+.atlas .tabs { flex-wrap: wrap; }
+.atlas-law { margin: 0.6rem 0; }
+.atlas-law h2 { margin-top: 0; }
+.atlas-law.locked, .badge.locked { opacity: 0.62; }
+.badge.got { border-color: var(--gold); }
+.postcard { font-family: var(--serif); font-style: italic; border-left: 3px solid var(--gold); padding-left: 0.8rem; margin: 0.6rem 0; }
+.reward { display: flex; gap: 0.7rem; align-items: center; margin: 0.5rem 0; padding: 0.5rem 0.7rem; border: 1px solid var(--line); border-radius: 10px; }
+.reward.gold { border-color: var(--gold); background: rgba(242, 184, 75, 0.08); }
+.good-text { color: var(--good); }
+fieldset.field { border: 1px solid var(--line); border-radius: 10px; margin: 0.6rem 0; }
+.toggle-row { display: flex; gap: 0.8rem; justify-content: space-between; align-items: flex-start; padding: 0.35rem 0; }

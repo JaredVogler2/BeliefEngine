@@ -7,11 +7,11 @@
   "alive": 13,
   "homes": 11,
   "food": 12,
-  "score": 997,
+  "score": 812,
   "lawsActivated": [
    "wolves_fear_smoke"
   ],
-  "stateHash": "13a7e3ee6a7183",
+  "stateHash": "1b2845d2c21026",
   "eventHash": "1f358b1ba32cb2",
   "actions": [
    {
@@ -131,11 +131,11 @@
   "alive": 13,
   "homes": 11,
   "food": 12,
-  "score": 997,
+  "score": 813,
   "lawsActivated": [
    "wolves_follow_smoke"
   ],
-  "stateHash": "1289cece156c39",
+  "stateHash": "03101d19861028",
   "eventHash": "1494e8e2036ede",
   "actions": [
    {
@@ -258,7 +258,7 @@
   "alive": 13,
   "homes": 11,
   "food": 12,
-  "stateHash": "0b9fc2f5146de2",
+  "stateHash": "140fe84787a725",
   "eventHash": "15fbce84aaeeb6",
   "actions": [
    {
@@ -296,7 +296,7 @@
   "policy": "smokeRing",
   "result": "defeat",
   "alive": 13,
-  "stateHash": "1ba6fc49f6b229",
+  "stateHash": "02827d95095688",
   "eventHash": "100683e800e2c8",
   "actions": [
    {

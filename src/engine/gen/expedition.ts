@@ -153,7 +153,7 @@ export function generateExpedition(seed: number, modifiers: readonly Id[] | null
   if (hit) return hit;
   const biome = biomeForSeed(seed);
   let last: Expedition | null = null;
-  for (let attempt = 0; attempt < 8; attempt++) {
+  for (let attempt = 0; attempt < 24; attempt++) {
     const s2 = attempt === 0 ? seed : hashKeys(seed, 'regen', attempt) & MAX_SEED;
     const { def, bp } = build(s2, biome, id);
     const mods = modifiers === null ? drawModifiers(seed, def) : sanitizeModifiers(def, modifiers);

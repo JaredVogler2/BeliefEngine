@@ -21,6 +21,8 @@ export interface LawPusherConfig {
   then?: string[];
   /** veto a candidate action (e.g. do not burn scarce fuel on proof that will not also protect anything) */
   allow?: (s: RunState, a: Action) => boolean;
+  /** answer announced rival campaigns with a challenge (default true) */
+  counter?: boolean;
 }
 
 /** Support objective for a claim across regions: pressure dominates, conviction mass breaks ties. */
@@ -55,7 +57,7 @@ export function lawPusher(cfg: LawPusherConfig): Policy {
       }
       const claims = [cfg.claim, ...(cfg.then ?? [])];
       // answer announced rival campaigns first
-      for (const r of g.state.rivals) {
+      for (const r of cfg.counter === false ? [] : g.state.rivals) {
         const tgt = r.plan?.target;
         if (!tgt || g.state.ap < 1) continue;
         const mine = g.state.claims.find((c) => c.id === cfg.claim && c.available);

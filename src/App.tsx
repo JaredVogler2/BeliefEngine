@@ -1,5 +1,6 @@
 import { Component, useEffect, type ErrorInfo, type ReactNode } from 'react';
 import { configureAudio } from './audio/audio.ts';
+import { Atlas } from './ui/atlas.tsx';
 import { Briefing, Credits, Debrief, HowTo, Scenarios, SettingsScreen, Title } from './ui/screens.tsx';
 import { Play } from './ui/play/Play.tsx';
 import { GameSession, deserializeRun, eventHash, parseShare, stateHash } from './engine/index.ts';
@@ -80,6 +81,7 @@ export function App() {
     case 'settings': screen = <SettingsScreen />; break;
     case 'credits': screen = <Credits />; break;
     case 'debrief': screen = <Debrief />; break;
+    case 'atlas': screen = <Atlas />; break;
     case 'play': screen = <Play />; break;
     default: screen = <Title />;
   }

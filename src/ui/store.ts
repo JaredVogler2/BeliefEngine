@@ -1,6 +1,6 @@
 import { useSyncExternalStore } from 'react';
 import { GameSession, deserializeRun, serializeRun } from '../engine/index.ts';
-import type { Action, ActionResult, CreateRunOptions, GameEvent, DaySummary, RunState } from '../engine/index.ts';
+import type { Action, ActionResult, CreateRunOptions, GameEvent, DaySummary, RunReward, RunState } from '../engine/index.ts';
 import { DEFAULT_SETTINGS, KEYS, loadSettings, readKey, removeKey, saveSettings, writeKey, type Settings } from './persist.ts';
 import { sfx } from '../audio/audio.ts';
 import { recordRun } from './progress.ts';
@@ -43,6 +43,8 @@ export interface UiState {
   scenarioId: string;
   /** plain-language notes about how the current run was opened (e.g. an older link) */
   notes: string[];
+  /** what the run that just ended earned (achievements, unlocks, knowledge) */
+  reward: RunReward | null;
 }
 
 type Listener = () => void;
@@ -63,7 +65,7 @@ export class GameStore {
     this.ui = {
       screen: 'title', selection: null, activeClaim: null, lens: 'none', tab: 'selected', sheetOpen: false, digest: null, confirmEnd: false,
       settings, toasts: [], loadError: null, tutorialDone: !settings.tutorial, debug: params.get('debug') === '1', announce: '', showFlood: settings.showFlood,
-      scenarioId: 'redbank', notes: [],
+      scenarioId: 'redbank', notes: [], reward: null,
     };
   }
 
@@ -118,7 +120,7 @@ export class GameStore {
   newRun(opts: CreateRunOptions): void {
     this.session = GameSession.create(opts);
     this.prevState = null;
-    this.ui = { ...this.ui, screen: 'briefing', selection: null, activeClaim: null, digest: null, confirmEnd: false, lens: 'none', tab: 'selected', sheetOpen: false, announce: '', loadError: null, scenarioId: opts.scenarioId, notes: [], tutorialDone: !this.ui.settings.tutorial };
+    this.ui = { ...this.ui, screen: 'briefing', selection: null, activeClaim: null, digest: null, confirmEnd: false, lens: 'none', tab: 'selected', sheetOpen: false, announce: '', loadError: null, scenarioId: opts.scenarioId, notes: [], reward: null, tutorialDone: !this.ui.settings.tutorial };
     this.persist();
     this.emit();
   }
@@ -193,15 +195,17 @@ export class GameStore {
     const important = r.events.filter((e) => e.importance >= 2);
     sfx(important.some((e) => e.code === 'LAW_ACTIVATED') ? 'law' : important.some((e) => e.code === 'DEATH') ? 'loss' : 'night');
     const over = !!r.state.outcome;
+    let reward: RunReward | null = null;
     if (over) {
       try {
-        recordRun(r.state, !!this.ui.debug);
+        reward = recordRun(r.state, !!this.ui.debug);
       } catch {
         /* progress is best-effort */
       }
     }
     this.ui = {
       ...this.ui,
+      reward,
       digest: { day, events: r.events, summary: r.summary, at: this.version },
       confirmEnd: false,
       activeClaim: this.ui.activeClaim,

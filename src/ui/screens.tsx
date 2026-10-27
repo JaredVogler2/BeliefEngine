@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { MAX_SEED, buildDebrief, catalogInfo, isVerifiedSeed, createRun, getModifier, getModifierViews, getScenarioDef, listScenarios, numberToDate } from '../engine/index.ts';
+import { MAX_SEED, optionsFromState, buildDebrief, catalogInfo, isVerifiedSeed, createRun, getModifier, getModifierViews, getScenarioDef, listScenarios, numberToDate } from '../engine/index.ts';
 import type { Difficulty } from '../engine/index.ts';
 import { MapRenderer } from '../render/MapRenderer.ts';
 import { unlockAudio, sfx } from '../audio/audio.ts';
 import { Icon } from './components.tsx';
 import { dailyBest, loadProgress, playedExpeditionSeeds } from './progress.ts';
+import { OptionsCard, Rewards } from './extras.tsx';
 import { BIOME_LABEL, dailyLabel, dailyOptions, expeditionOptions, freshExpeditionSeed, previewVillage, randomEntropy, runKind, shareLink, storyOptions, todayUtc, type VillagePreview } from './modes.ts';
 import { store, useStore } from './store.ts';
 
@@ -68,6 +69,7 @@ export function Title() {
   const ui = useStore((s) => s.ui);
   const info = store.savedInfo();
   const seen = loadProgress().runs.length;
+  const atlasCount = Object.keys(loadProgress().achievements).length;
   return (
     <main className="screen title-screen" data-testid="title">
       <TitleBackdrop />
@@ -86,6 +88,7 @@ export function Title() {
           <button className={`btn ${info ? '' : 'primary'} big`} data-testid="play" onClick={() => { unlockAudio(); sfx('click'); store.set({ screen: 'scenarios' }); }}>
             {info ? 'New game' : 'Play'}
           </button>
+          <button className="btn" data-testid="atlas-open" onClick={() => store.set({ screen: 'atlas' })}>Atlas of Belief{atlasCount > 0 ? ` (${atlasCount} badge${atlasCount === 1 ? '' : 's'})` : ''}</button>
           <button className="btn" onClick={() => store.set({ screen: 'howto' })}>How it works</button>
           <button className="btn" onClick={() => store.set({ screen: 'settings' })}>Settings</button>
           <button className="btn ghost" onClick={() => store.set({ screen: 'credits' })}>Credits</button>
@@ -248,8 +251,8 @@ export function Briefing() {
     sfx('click');
     const n = Number.parseInt(seed, 10);
     const sd = Number.isFinite(n) && n >= 0 && n <= MAX_SEED ? n : 1;
-    if (kind === 'expedition' && (sd !== state.seed || diff !== state.difficulty)) store.newRun(expeditionOptions(sd, diff));
-    else if (kind === 'story' && (sd !== state.seed || diff !== state.difficulty)) store.newRun(storyOptions(state.scenarioId, sd, diff));
+    if (kind === 'expedition' && (sd !== state.seed || diff !== state.difficulty)) store.newRun({ ...optionsFromState(state), ...expeditionOptions(sd, diff) });
+    else if (kind === 'story' && (sd !== state.seed || diff !== state.difficulty)) store.newRun({ ...optionsFromState(state), seed: sd, difficulty: diff });
     store.set({ screen: 'play', activeClaim: null });
   };
   return (
@@ -302,6 +305,7 @@ export function Briefing() {
             </label>
           </div>
         </div>
+        <OptionsCard state={state} />
         <div className="row spread wrap sticky-cta">
           <button className="btn" onClick={begin}>Skip briefing</button>
           <button className="btn primary big" onClick={begin} data-testid="begin">Begin the first day</button>
@@ -315,6 +319,7 @@ export function Briefing() {
 
 export function Debrief() {
   const state = useStore((s) => s.state);
+  const reward = useStore((s) => s.ui.reward);
   if (!state || !state.outcome) return null;
   const d = buildDebrief(state);
   const win = d.result === 'victory';
@@ -323,7 +328,7 @@ export function Debrief() {
   const alt = kind === 'story' ? state.scn.starters.find((c) => c !== (state.stats.usedClaims[0] ?? state.starter)) : undefined;
   const again = () => {
     sfx('click');
-    store.newRun(kind === 'daily' ? dailyOptions(state.flags.dailyDate ?? todayUtc()) : kind === 'expedition' ? expeditionOptions(state.seed, state.difficulty) : storyOptions(state.scenarioId, state.seed, state.difficulty));
+    store.newRun(optionsFromState(state));
     store.set({ screen: 'play' });
   };
   const different = () => {
@@ -350,6 +355,7 @@ export function Debrief() {
           {kind === 'expedition' && <button className="btn big" data-testid="to-daily" onClick={() => { sfx('click'); store.newRun(dailyOptions(todayUtc())); store.set({ screen: 'play' }); }}>Today’s challenge</button>}
           {alt && <button className="btn big" data-testid="try-other" onClick={again}>Try another approach</button>}
         </div>
+        {reward && <Rewards reward={reward} />}
         <h2>Why it went this way</h2>
         {d.chains.map((c, i) => (
           <div key={i} className={`chain ${c.kind === 'loss' ? 'loss' : c.kind === 'rival' ? 'rival' : ''}`}>

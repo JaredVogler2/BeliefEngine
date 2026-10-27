@@ -1,6 +1,7 @@
 import { emit, type Ctx } from './events.ts';
 import { cloneState } from './clone.ts';
 import { claimDef, findLandmark, findVillager, trustOf, neighborsOf, edgeBetween, allClaimDefs, evidenceMult, modActive, repeatMult } from './lookup.ts';
+import { pledgeKey } from '../progress/options.ts';
 import type { Action, ActionError, ActionResult, ClaimDef, GameEvent, Landmark, RitualDef, RunState, Villager } from './types.ts';
 import { K, ensureBelief, evidenceGain, gossipDelta, REASON_TEXT, relevance, round1, seedGain } from '../social/persuasion.ts';
 import { bfsDist, components, connected, passableMask } from '../world/nav.ts';
@@ -311,6 +312,7 @@ function doRitual(ctx: Ctx, a: Extract<Action, { type: 'RITUAL' }>): Fail | null
   const lm = findLandmark(s, a.landmark);
   if (!lm || lm.kind !== ritual.landmark) return fail('BAD_SITE', `${ritual.label} must be done at a ${ritual.landmark}.`);
   if (!keeperCanReach(s, lm.x, lm.y)) return fail('NO_PATH', `You cannot reach ${lm.name} today.`);
+  if ((ritual.physical === 'light' || ritual.physical === 'smoke') && modActive(s, pledgeKey('no_fire'))) return fail('PLEDGE', 'You swore to light no fire. The oath holds.');
   if (ritual.physical === 'light' || ritual.physical === 'smoke') {
     if (lm.hp <= 0) return fail('DESTROYED', `${lm.name} is gone.`);
     if (lm.lit && lm.fuelNights >= 3) return fail('ALREADY_LIT', `${lm.name} is already burning well.`);
@@ -403,6 +405,7 @@ function doGather(ctx: Ctx, a: Extract<Action, { type: 'GATHER' }>): Fail | null
   if (!claimAvailable(s, a.claim)) return fail('CLAIM_LOCKED', 'You have not learned that story yet.');
   const def = claimDef(s, a.claim);
   if (def.rival && !def.adoptable) return fail('RIVAL_CLAIM', 'That is a rival rumour.');
+  if (modActive(s, pledgeKey('no_gathering'))) return fail('PLEDGE', 'You swore to hold no public gatherings. The pledge holds.');
   if ((s.flags.gatherBanUntil ?? -1) >= s.day) return fail('COUNCIL_BAN', 'The Council has forbidden public gatherings today. Speak to people one at a time.');
   if (!keeperCanReach(s, site.x, site.y)) return fail('NO_PATH', `You cannot reach ${site.name} today.`);
   const { comp } = reachableTargets(s);

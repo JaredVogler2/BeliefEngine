@@ -7,11 +7,11 @@
   "alive": 13,
   "homes": 11,
   "food": 6,
-  "score": 873,
+  "score": 722,
   "lawsActivated": [
    "river_fears_fire"
   ],
-  "stateHash": "09e5c13bec2def",
+  "stateHash": "034a46aec08e5c",
   "eventHash": "04e467f5fb0328",
   "actions": [
    {
@@ -122,11 +122,11 @@
   "alive": 14,
   "homes": 6,
   "food": 4,
-  "score": 969,
+  "score": 830,
   "lawsActivated": [
    "bridge_stands_watched"
   ],
-  "stateHash": "1611dad08b1f35",
+  "stateHash": "1a88f574459398",
   "eventHash": "1b1bbda2c403fa",
   "actions": [
    {
@@ -221,7 +221,7 @@
   "alive": 10,
   "homes": 6,
   "food": 7,
-  "stateHash": "05a692d0c45c6f",
+  "stateHash": "0d9fecf1cd586e",
   "eventHash": "19202cc7e371cb",
   "actions": [
    {
@@ -256,7 +256,7 @@
   "policy": "fireWall",
   "result": "defeat",
   "alive": 14,
-  "stateHash": "089ff729e6e8bd",
+  "stateHash": "0457c5c8486b06",
   "eventHash": "064c47d3808381",
   "actions": [
    {

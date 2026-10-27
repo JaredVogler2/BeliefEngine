@@ -81,8 +81,9 @@ export function evaluate(s: RunState): Evaluation {
   return { over: true, result: 'defeat', reason: `Day ${s.maxDay} ended with unmet goals: ${labels.join('; ')}.`, failed, heroic: false };
 }
 
-export function medalFor(result: 'victory' | 'defeat', heroic: boolean, score: number): Outcome['medal'] {
+/** `raw` is the base-point total before multipliers, so medals mean the same on every difficulty. */
+export function medalFor(result: 'victory' | 'defeat', heroic: boolean, raw: number): Outcome['medal'] {
   if (result !== 'victory') return 'none';
   if (heroic) return 'gold';
-  return score >= 1100 ? 'silver' : 'bronze';
+  return raw >= 800 ? 'silver' : 'bronze';
 }

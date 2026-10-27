@@ -50,6 +50,7 @@ export const KEYS = {
   save: 'be:save:v1',
   settings: 'be:settings:v1',
   progress: 'be:progress:v1',
+  progress2: 'be:progress:v2',
   seen: 'be:seen:v1',
 };
 

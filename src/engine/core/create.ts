@@ -1,6 +1,8 @@
 import { ARCHETYPES, type ScenarioDef, type VillagerDef } from '../content/types.ts';
 import { getScenarioDef } from '../content/registry.ts';
 import { applyModifiers, sanitizeModifiers } from '../gen/modifiers.ts';
+import { applyDraft, applyExtraClaims, pledgeKey, sanitizePledges } from '../progress/options.ts';
+import { clone } from '../gen/blueprint.ts';
 import { buildWorld } from '../world/build.ts';
 import { assignDay } from '../ai/routines.ts';
 import { emit, type Ctx } from './events.ts';
@@ -59,11 +61,19 @@ export function createRun(opts: CreateRunOptions): RunState {
 
 /** Build a run from an explicit scenario definition (used by the generator to verify a village before it is registered). */
 export function createRunFromDef(base: ScenarioDef, opts: CreateRunOptions): RunState {
-  const modifiers = sanitizeModifiers(base, opts.modifiers ?? base.modifiers ?? []);
-  const def = applyModifiers(base, modifiers, opts.seed | 0);
+  const staged = applyDraft(applyExtraClaims(base, opts.extraClaims ?? []), opts.draft);
+  const voluntary = opts.modifiers !== undefined && opts.modifiers.length > 0 && !base.modifiers;
+  const modifiers = sanitizeModifiers(staged, opts.modifiers ?? staged.modifiers ?? []);
+  const pledges = sanitizePledges(staged, opts.pledges ?? []);
+  let def = applyModifiers(staged, modifiers, opts.seed | 0);
+  if (pledges.includes('all_alive')) {
+    if (def === base) def = clone(base);
+    def.runtime.objectives = [...def.runtime.objectives, { id: 'pledge_all_alive', label: 'Pledge: not one villager lost', metric: 'alive', op: '>=', value: def.villagers.length, required: false, instantLoss: true }];
+  }
+  const thin = pledges.includes('thin_voice') ? 1 : 0;
   const difficulty = opts.difficulty ?? 'normal';
   const world = buildWorld(def.map);
-  const apPerDay = def.ap.perDay + (difficulty === 'story' ? 1 : 0);
+  const apPerDay = Math.max(1, def.ap.perDay + (difficulty === 'story' ? 1 : 0) - thin);
   const villagers = def.villagers.map((vd) => {
     const home = world.landmarks.find((l) => l.id === vd.home);
     return makeVillager(vd, { district: home?.district ?? '' }, difficulty);
@@ -95,12 +105,12 @@ export function createRunFromDef(base: ScenarioDef, opts: CreateRunOptions): Run
     seed: opts.seed | 0,
     difficulty,
     mode: opts.mode ?? 'story',
-    modifiers,
+    modifiers: [...modifiers, ...pledges.map(pledgeKey)],
     day: 1,
     maxDay: def.runtime.durationDays,
     phase: 'planning',
     outcome: null,
-    ap: def.ap.start + (difficulty === 'story' ? 1 : 0),
+    ap: Math.max(1, def.ap.start + (difficulty === 'story' ? 1 : 0) - thin),
     apMax: def.ap.max,
     apPerDay,
     freeScoutUsed: false,
@@ -118,7 +128,7 @@ export function createRunFromDef(base: ScenarioDef, opts: CreateRunOptions): Run
     today: [],
     history: [],
     stats: emptyStats(),
-    flags: opts.dailyDate ? { dailyDate: opts.dailyDate } : {},
+    flags: { ...(opts.dailyDate ? { dailyDate: opts.dailyDate } : {}), ...(opts.draft && staged !== base && staged.runtime.claimDefs.length < base.runtime.claimDefs.length ? { drafted: 1 } : {}), ...(voluntary ? { twisted: modifiers.length } : {}) },
     beatsSeen: [],
     scn: def.runtime,
   };

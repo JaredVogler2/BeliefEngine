@@ -509,6 +509,8 @@ export interface Outcome {
   heroic: boolean;
   score: number;
   breakdown: Record<string, number>;
+  /** product of difficulty, pledges, draft and twists applied to the breakdown total */
+  multiplier: number;
   medal: 'none' | 'bronze' | 'silver' | 'gold';
   failedObjectives: Id[];
 }
@@ -577,4 +579,10 @@ export interface CreateRunOptions {
   modifiers?: Id[];
   /** Daily Village: the UTC date (YYYYMMDD) the run was made for; stored in the run so it never changes mid-run */
   dailyDate?: number;
+  /** self-imposed restrictions (unlockable); each is enforced by the engine and raises the score multiplier */
+  pledges?: Id[];
+  /** keep only these player-side stories (unlockable draft) */
+  draft?: Id[];
+  /** unlocked optional starting stories to add to the opening choice */
+  extraClaims?: Id[];
 }

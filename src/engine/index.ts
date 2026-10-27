@@ -23,3 +23,4 @@ export type { ModifierDef } from './gen/modifiers.ts';
 export { catalogEntries, catalogInfo, isVerifiedSeed, dailySeed, pickVerified } from './gen/catalog.ts';
 export { encodeShare, parseShare, dateToNumber, numberToDate, utcDateNumber } from './gen/share.ts';
 export type { ShareDescriptor, ShareMode, ParseResult } from './gen/share.ts';
+export * from './progress/index.ts';

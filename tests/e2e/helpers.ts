@@ -147,8 +147,9 @@ export async function replayTraceViaUi(page: Page, seed: number, actions: Action
     const r = g.act(a);
     if (!r.ok) throw new Error(`engine rejected recorded action ${JSON.stringify(a)}: ${r.error.message}`);
     if (a.type !== 'END_DAY') {
-      const ap = await page.evaluate(() => (window as unknown as { __belief: { state: { ap: number } } }).__belief.state.ap);
-      expect(ap).toBe(g.state.ap);
+      // the debug API only exists with ?debug=1; without it the replay is checked by its outcome instead
+      const ap = await page.evaluate(() => (window as unknown as { __belief?: { state: { ap: number } } }).__belief?.state.ap ?? null);
+      if (ap !== null) expect(ap).toBe(g.state.ap);
     }
   }
   return g;
