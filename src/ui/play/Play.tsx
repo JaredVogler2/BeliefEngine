@@ -1,6 +1,6 @@
 import { useEffect } from 'react';
 import { getForecast, getHud, getLawViews, describeAction } from '../../engine/index.ts';
-import { setAmbience, setThreatIntensity, unlockAudio } from '../../audio/audio.ts';
+import { setAmbience, setSceneAudio, setThreatIntensity, unlockAudio } from '../../audio/audio.ts';
 import { Icon, Modal, Pips, evIcon } from '../components.tsx';
 import { store, useStore } from '../store.ts';
 import { getTutorial } from '../tutorial.ts';
@@ -204,6 +204,8 @@ export function Play() {
   useEffect(() => {
     const first = () => {
       unlockAudio();
+      const s = store.state;
+      setSceneAudio({ water: !!s && (s.scn.features.flood || s.world.landmarks.some((l) => l.kind === 'bridge')) });
       setAmbience(true);
     };
     window.addEventListener('pointerdown', first, { once: true });

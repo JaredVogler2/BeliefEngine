@@ -45,6 +45,8 @@ export interface UiState {
   notes: string[];
   /** what the run that just ended earned (achievements, unlocks, knowledge) */
   reward: RunReward | null;
+  /** events of the Keeper's latest accepted action, for immediate map feedback (never persisted) */
+  lastAction: { events: GameEvent[] } | null;
 }
 
 type Listener = () => void;
@@ -65,7 +67,7 @@ export class GameStore {
     this.ui = {
       screen: 'title', selection: null, activeClaim: null, lens: 'none', tab: 'selected', sheetOpen: false, digest: null, confirmEnd: false,
       settings, toasts: [], loadError: null, tutorialDone: !settings.tutorial, debug: params.get('debug') === '1', announce: '', showFlood: settings.showFlood,
-      scenarioId: 'redbank', notes: [], reward: null,
+      scenarioId: 'redbank', notes: [], reward: null, lastAction: null,
     };
   }
 
@@ -163,11 +165,17 @@ export class GameStore {
     if (res.ok) {
       this.persist();
       if (action.type === 'SEED' || action.type === 'MESSENGER') sfx('seed');
-      else if (action.type === 'RITUAL') sfx(action.ritual === 'ring_bells' ? 'bell' : 'ritual');
+      else if (action.type === 'RITUAL') {
+        // the bell is heard from the side of the map the tower stands on
+        const tower = this.state?.world.landmarks.find((l) => l.id === action.landmark);
+        const w = this.state?.world.w ?? 1;
+        if (action.ritual === 'ring_bells') sfx('bell', tower ? ((tower.x + 0.5) / w - 0.5) * 1.8 : 0);
+        else sfx('ritual');
+      }
       else if (action.type === 'GATHER') sfx('gather');
       else if (action.type === 'COUNTER') sfx('counter');
       else sfx('click');
-      this.ui = { ...this.ui, announce: res.summary || 'Action done.' };
+      this.ui = { ...this.ui, announce: res.summary || 'Action done.', lastAction: { events: res.events } };
     } else {
       sfx('deny');
       this.toast(res.error.message, 'error');
@@ -194,6 +202,7 @@ export class GameStore {
     this.persist();
     const important = r.events.filter((e) => e.importance >= 2);
     sfx(important.some((e) => e.code === 'LAW_ACTIVATED') ? 'law' : important.some((e) => e.code === 'DEATH') ? 'loss' : 'night');
+    if (r.events.some((e) => e.code === 'BRIDGE_DAMAGED' || e.code === 'BRIDGE_COLLAPSED')) window.setTimeout(() => sfx('creak'), 500);
     const over = !!r.state.outcome;
     let reward: RunReward | null = null;
     if (over) {
@@ -208,6 +217,8 @@ export class GameStore {
       reward,
       digest: { day, events: r.events, summary: r.summary, at: this.version },
       confirmEnd: false,
+      // the morning digest owns the screen: a details sheet left open on a phone would sit on top of its button
+      sheetOpen: false,
       activeClaim: this.ui.activeClaim,
       announce: `Day ${day} resolved. ${r.summary.headline}`,
     };

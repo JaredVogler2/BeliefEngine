@@ -1,3 +1,4 @@
+import { DebriefScene } from './scene.tsx';
 import { useEffect, useRef, useState } from 'react';
 import { MAX_SEED, optionsFromState, buildDebrief, catalogInfo, isVerifiedSeed, createRun, getModifier, getModifierViews, getScenarioDef, listScenarios, numberToDate } from '../engine/index.ts';
 import type { Difficulty } from '../engine/index.ts';
@@ -340,6 +341,7 @@ export function Debrief() {
   return (
     <main className="screen" data-testid="debrief">
       <div className="page">
+        <DebriefScene state={state} win={win} />
         <div className="row" style={{ gap: '1rem' }}>
           <div className="medal" aria-hidden="true">{win ? (d.medal === 'gold' ? '🥇' : d.medal === 'silver' ? '🥈' : '🥉') : '†'}</div>
           <div>

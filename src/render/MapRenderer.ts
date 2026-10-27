@@ -32,7 +32,10 @@ interface VV {
   ty: number;
 }
 
-type EffectKind = 'pulse' | 'ring' | 'float' | 'spark' | 'flash';
+type EffectKind = 'pulse' | 'rough' | 'ring' | 'float' | 'spark' | 'flash' | 'spiral' | 'eyes' | 'glyph' | 'warp' | 'puffs' | 'contest';
+
+/** Hard cap on live effects per quality profile: a burst of events can never pile up into a slideshow on a low-end phone. */
+const MAX_EFFECTS = { high: 80, low: 36 } as const;
 interface Effect {
   kind: EffectKind;
   x: number;
@@ -44,6 +47,8 @@ interface Effect {
   color: string;
   text?: string;
   r?: number;
+  /** second colour (contest rings alternate between two) */
+  color2?: string;
 }
 
 const DEFAULT_OPTS: RenderOpts = {
@@ -285,24 +290,116 @@ export class MapRenderer {
   }
 
   // ------------------------------------------------------------ animation hooks
+  private addEffect(e: Effect): void {
+    if (this.effects.length >= MAX_EFFECTS[this.opts.quality]) return;
+    this.effects.push(e);
+  }
+
+  /** Screen-independent position above a villager, or null if they are not on the map. */
+  private villagerPos(id?: string): { x: number; y: number } | null {
+    if (!id) return null;
+    const p = this.vv.get(id);
+    return p ? { x: p.tx, y: p.ty - 10 } : null;
+  }
+
+  private tilePos(e: GameEvent): { x: number; y: number } | null {
+    return e.tile ? { x: (e.tile[0] + 0.5) * TS, y: (e.tile[1] + 0.5) * TS } : null;
+  }
+
+  /** Villagers whose belief in `claim` was last moved by the event with this id: the witnesses or attendees it reached. */
+  private reachedBy(eventId: number, claim?: string): string[] {
+    const s = this.state;
+    if (!s) return [];
+    return s.villagers.filter((v) => v.status !== 'dead' && Object.entries(v.beliefs).some(([c, b]) => b.cause === eventId && (!claim || c === claim))).map((v) => v.id);
+  }
+
+  /**
+   * Immediate feedback for something the Keeper just did. Every effect is derived from an event the engine logged, so nothing
+   * celebrates a result that did not happen; a muted or reduced-motion player still gets the same facts in the log and the digest.
+   */
+  playAction(events: GameEvent[]): void {
+    const s = this.state;
+    if (!s) return;
+    const now = performance.now();
+    const reduced = this.opts.reducedMotion;
+    const at = (ef: Omit<Effect, 't0'>, delay = 0) => this.addEffect({ ...ef, t0: now + delay });
+    for (const e of events) {
+      switch (e.code) {
+        case 'RUMOR_SEEDED': {
+          // a claim introduced: a warm ink spiral unwinds at the listener
+          const p = this.villagerPos(e.target);
+          if (p) at({ kind: 'spiral', x: p.x, y: p.y, dur: reduced ? 250 : 1000, color: '#f0a850' });
+          break;
+        }
+        case 'MESSENGER_SENT': {
+          const a = this.villagerPos(e.actor);
+          const b = this.villagerPos(e.target);
+          const bad = e.reason === 'DISTRUST_REVERSAL';
+          if (a && b) at({ kind: bad ? 'rough' : 'pulse', x: a.x, y: a.y, x2: b.x, y2: b.y, dur: reduced ? 250 : 1100, color: bad ? '#9fb2cc' : C.gold });
+          break;
+        }
+        case 'RUMOR_CHALLENGED': {
+          // counter-propaganda: two colours contest the listener, then the measured drop floats up
+          const p = this.villagerPos(e.target);
+          const d = e.delta?.rival;
+          if (p) {
+            at({ kind: 'contest', x: p.x, y: p.y + 8, dur: reduced ? 300 : 1300, color: C.violet, color2: C.gold, r: 44 });
+            if (d) at({ kind: 'float', x: p.x, y: p.y - 18, dur: 1400, color: C.violet, text: `rumour ${d[0]} → ${d[1]}` }, reduced ? 0 : 600);
+          }
+          break;
+        }
+        case 'EVIDENCE_STAGED':
+        case 'EVIDENCE_BACKFIRED': {
+          const p = this.tilePos(e);
+          const good = e.code === 'EVIDENCE_STAGED';
+          if (p) at({ kind: 'ring', x: p.x, y: p.y, dur: reduced ? 300 : 1100, color: good ? C.gold : C.danger, r: 84 });
+          // witnesses are highlighted with an eye (or a wince when the proof fails)
+          let k = 0;
+          for (const id of this.reachedBy(e.id, e.claim)) {
+            const w = this.villagerPos(id);
+            if (w && k++ < 8) at({ kind: 'eyes', x: w.x, y: w.y - 14, dur: reduced ? 400 : 1500, color: good ? C.gold : C.danger }, reduced ? 0 : 150 + k * 60);
+          }
+          break;
+        }
+        case 'RITUAL': {
+          const p = this.tilePos(e);
+          if (p && !e.claim) at({ kind: 'ring', x: p.x, y: p.y, dur: reduced ? 300 : 900, color: C.ember, r: 54 });
+          break;
+        }
+        case 'GATHERING': {
+          const p = this.tilePos(e);
+          if (p) at({ kind: 'ring', x: p.x, y: p.y, dur: reduced ? 300 : 1200, color: '#e6c97a', r: 150 });
+          let k = 0;
+          for (const id of this.reachedBy(e.id, e.claim)) {
+            const w = this.villagerPos(id);
+            if (w && k++ < 8) at({ kind: 'pulse', x: p ? p.x : w.x, y: p ? p.y : w.y, x2: w.x, y2: w.y, dur: reduced ? 250 : 900, color: C.gold }, reduced ? 0 : k * 50);
+          }
+          break;
+        }
+        case 'SCOUT': {
+          const p = this.villagerPos(e.target);
+          if (p) at({ kind: 'eyes', x: p.x, y: p.y - 14, dur: reduced ? 300 : 1100, color: '#9fd3ff' });
+          break;
+        }
+      }
+    }
+    this.dirty = true;
+  }
+
   playResolution(events: GameEvent[], prev: RunState | null): void {
     const s = this.state;
     if (!s) return;
     const now = performance.now();
     this.floodAnim = { t0: now, water: s.world.water.slice() };
     const reduced = this.opts.reducedMotion;
-    const pos = (id?: string): { x: number; y: number } | null => {
-      if (!id) return null;
-      const p = this.vv.get(id);
-      return p ? { x: p.tx, y: p.ty - 10 } : null;
-    };
-    const tilePos = (e: GameEvent): { x: number; y: number } | null => (e.tile ? { x: (e.tile[0] + 0.5) * TS, y: (e.tile[1] + 0.5) * TS } : null);
+    const pos = (id?: string) => this.villagerPos(id);
+    const tilePos = (e: GameEvent) => this.tilePos(e);
     let delay = 200;
     let n = 0;
     let focus: { x: number; y: number } | null = null;
     const add = (ef: Omit<Effect, 't0'> & { delay?: number }) => {
       const { delay: dl, ...rest } = ef;
-      this.effects.push({ ...rest, t0: now + (dl ?? delay) });
+      this.addEffect({ ...rest, t0: now + (dl ?? delay) });
     };
     for (const e of events) {
       if (n > 40) break;
@@ -313,8 +410,9 @@ export class MapRenderer {
           const a = pos(e.actor);
           const b = pos(e.target);
           if (a && b && a !== b && n < 26) {
+            // trusted gossip travels as a dotted gold line along the real tie; a backfire is a rough cool stroke
             const bad = e.code === 'BELIEVER_LOST' || e.reason === 'DISTRUST_REVERSAL';
-            add({ kind: 'pulse', x: a.x, y: a.y, x2: b.x, y2: b.y, dur: reduced ? 200 : 900, color: bad ? '#9fb2cc' : e.code === 'BELIEVER_GAINED' ? C.gold : '#e6c97a' });
+            add({ kind: bad ? 'rough' : 'pulse', x: a.x, y: a.y, x2: b.x, y2: b.y, dur: reduced ? 200 : 900, color: bad ? '#9fb2cc' : e.code === 'BELIEVER_GAINED' ? C.gold : '#e6c97a' });
             if (e.code === 'BELIEVER_GAINED') add({ kind: 'float', x: b.x, y: b.y - 18, dur: 1200, color: C.gold, text: '✦ believes', delay: delay + 700 });
             delay += reduced ? 20 : 90;
             n++;
@@ -325,8 +423,8 @@ export class MapRenderer {
         case 'RIVAL_REBUTTAL': {
           const a = pos(e.actor);
           const b = pos(e.target);
-          if (a && b) add({ kind: 'pulse', x: a.x, y: a.y, x2: b.x, y2: b.y, dur: 1000, color: C.violet });
-          else if (a) add({ kind: 'ring', x: a.x, y: a.y, dur: 1000, color: C.violet, r: 60 });
+          if (a && b) add({ kind: 'rough', x: a.x, y: a.y, x2: b.x, y2: b.y, dur: 1000, color: C.violet });
+          else if (a) add({ kind: 'contest', x: a.x, y: a.y + 8, dur: 1200, color: C.violet, color2: C.gold, r: 60 });
           break;
         }
         case 'EVIDENCE_STAGED':
@@ -335,15 +433,31 @@ export class MapRenderer {
           if (p) add({ kind: 'ring', x: p.x, y: p.y, dur: 1100, color: C.gold, r: 80 });
           break;
         }
+        case 'LAW_AWAKENING': {
+          // belief crossing the threshold: a rune expands around the ground it will govern
+          const law = s.laws.find((l) => l.id === e.law);
+          const p = law ? this.lawCenter(law.claimId, law.regionId) : null;
+          if (p) add({ kind: 'glyph', x: p.x, y: p.y, dur: reduced ? 400 : 1500, color: '#e6c97a', r: 70, delay: delay + 100 });
+          break;
+        }
         case 'LAW_ACTIVATED': {
           const law = s.laws.find((l) => l.id === e.law);
           const p = law ? this.lawCenter(law.claimId, law.regionId) : null;
           if (p) {
+            add({ kind: 'glyph', x: p.x, y: p.y, dur: reduced ? 500 : 1900, color: C.gold, r: 150, delay: delay + 150 });
             add({ kind: 'ring', x: p.x, y: p.y, dur: 1600, color: C.gold, r: 150, delay: delay + 200 });
             add({ kind: 'ring', x: p.x, y: p.y, dur: 1900, color: '#fff3d1', r: 110, delay: delay + 450 });
+            add({ kind: 'warp', x: p.x, y: p.y, dur: reduced ? 1 : 900, color: C.gold, delay: delay + 200 });
             add({ kind: 'flash', x: 0, y: 0, dur: 900, color: 'rgba(242,184,75,0.35)', delay: delay + 200 });
             focus = p;
           }
+          break;
+        }
+        case 'LAW_COLLAPSED':
+        case 'LAW_SUPPRESSED': {
+          const law = s.laws.find((l) => l.id === e.law);
+          const p = law ? this.lawCenter(law.claimId, law.regionId) : null;
+          if (p) add({ kind: 'contest', x: p.x, y: p.y, dur: 1400, color: C.danger, color2: '#9fb2cc', r: 90, delay: delay + 100 });
           break;
         }
         case 'HOME_SPARED':
@@ -367,6 +481,11 @@ export class MapRenderer {
         case 'FIELD_BURNED': {
           const p = tilePos(e);
           if (p) add({ kind: 'spark', x: p.x, y: p.y, dur: 1400, color: C.ember, delay: delay + 300 });
+          break;
+        }
+        case 'SMOKE_SICKNESS': {
+          const p = pos(e.target);
+          if (p) add({ kind: 'puffs', x: p.x, y: p.y - 6, dur: 1500, color: '#c9c9c2', delay: delay + 300 });
           break;
         }
         case 'BRIDGE_COLLAPSED': {
@@ -572,6 +691,19 @@ export class MapRenderer {
     g.translate(this.W / 2, this.H / 2);
     g.scale(this.cam.zoom, this.cam.zoom);
     g.translate(-this.cam.cx, -this.cam.cy);
+    // a newly activated law briefly bends the world around it (a scale swell that follows the event, skipped for reduced motion)
+    if (!reduced) {
+      for (const e of this.effects) {
+        if (e.kind !== 'warp') continue;
+        const q = (now - e.t0) / e.dur;
+        if (q <= 0 || q >= 1) continue;
+        const k = 1 + 0.02 * Math.sin(q * Math.PI);
+        g.translate(e.x, e.y);
+        g.scale(k, k);
+        g.translate(-e.x, -e.y);
+        break;
+      }
+    }
     this.ensureTerrain();
     g.imageSmoothingEnabled = true;
     g.drawImage(this.terrain!, 0, 0, w.w * TS, w.h * TS);
@@ -973,30 +1105,164 @@ export class MapRenderer {
       if (p < 0 || p > 1) continue;
       switch (e.kind) {
         case 'pulse': {
+          // trusted word: a dotted gold trail along the very tie (the same curve the social lens draws), with a glowing head
           const q = ease(p);
-          const x = e.x + (e.x2! - e.x) * q;
-          const y = e.y + (e.y2! - e.y) * q - Math.sin(q * Math.PI) * 14;
-          g.strokeStyle = e.color;
-          g.globalAlpha = 0.5 * (1 - p);
-          g.lineWidth = 2;
-          g.setLineDash([2, 5]);
-          g.beginPath();
-          g.moveTo(e.x, e.y);
-          g.lineTo(x, y);
-          g.stroke();
-          g.setLineDash([]);
+          g.fillStyle = e.color;
+          for (let k = 0; k <= 1.0001; k += 0.07) {
+            if (k > q) break;
+            const c = this.edgeAt(e, k);
+            g.globalAlpha = 0.65 * (1 - p) * (0.4 + 0.6 * (k / Math.max(q, 0.01)));
+            g.beginPath();
+            g.arc(c.x, c.y, 2.1, 0, Math.PI * 2);
+            g.fill();
+          }
           g.globalAlpha = 1;
-          const glow = g.createRadialGradient(x, y, 0, x, y, 12);
+          const head = this.edgeAt(e, q);
+          const glow = g.createRadialGradient(head.x, head.y, 0, head.x, head.y, 12);
           glow.addColorStop(0, e.color);
           glow.addColorStop(1, 'rgba(255,255,255,0)');
           g.fillStyle = glow;
           g.beginPath();
-          g.arc(x, y, 12, 0, Math.PI * 2);
+          g.arc(head.x, head.y, 12, 0, Math.PI * 2);
           g.fill();
           g.fillStyle = '#fff';
           g.beginPath();
-          g.arc(x, y, 2.4, 0, Math.PI * 2);
+          g.arc(head.x, head.y, 2.4, 0, Math.PI * 2);
           g.fill();
+          break;
+        }
+        case 'rough': {
+          // hostile word or denial: a cool, jagged, unbroken stroke, nothing like the warm dotted line
+          const q = ease(p);
+          g.strokeStyle = e.color;
+          g.globalAlpha = 0.85 * (1 - p * p);
+          g.lineWidth = 2.2;
+          g.lineJoin = 'bevel';
+          g.beginPath();
+          let k = 0;
+          for (let i = 0; k <= q + 1e-6; i++, k += 0.05) {
+            const c = this.edgeAt(e, Math.min(k, q));
+            const jx = (nz(i, 11, 5) - 0.5) * 6;
+            const jy = (nz(i, 12, 5) - 0.5) * 6;
+            if (i === 0) g.moveTo(c.x, c.y);
+            else g.lineTo(c.x + jx, c.y + jy);
+          }
+          g.stroke();
+          g.globalAlpha = 1;
+          const hd = this.edgeAt(e, q);
+          g.strokeStyle = e.color;
+          g.lineWidth = 2;
+          g.beginPath();
+          g.moveTo(hd.x - 4, hd.y - 4);
+          g.lineTo(hd.x + 4, hd.y + 4);
+          g.moveTo(hd.x + 4, hd.y - 4);
+          g.lineTo(hd.x - 4, hd.y + 4);
+          g.stroke();
+          break;
+        }
+        case 'spiral': {
+          // a claim introduced: warm ink unwinds outward from the person it was told to (two interleaved arms, like a manuscript flourish)
+          const R = 30 * ease(Math.min(1, p * 1.6));
+          g.strokeStyle = e.color;
+          g.lineWidth = 2.8;
+          g.lineCap = 'round';
+          g.globalAlpha = Math.min(1, 1.6 * (1 - p * p));
+          for (let arm = 0; arm < 2; arm++) {
+            g.beginPath();
+            const N = 54;
+            for (let k = 0; k <= N; k++) {
+              const a = k * 0.4 + arm * Math.PI;
+              const rr = (k / N) * R;
+              const px = e.x + Math.cos(a) * rr;
+              const py = e.y + Math.sin(a) * rr * 0.7;
+              if (k === 0) g.moveTo(px, py);
+              else g.lineTo(px, py);
+            }
+            g.stroke();
+          }
+          g.globalAlpha = 1;
+          break;
+        }
+        case 'eyes': {
+          // a witness: an eye opens above their head
+          const open = Math.min(1, p * 5) * (1 - Math.max(0, (p - 0.7) / 0.3));
+          const y = e.y - p * 6;
+          g.globalAlpha = Math.max(0, open);
+          g.strokeStyle = e.color;
+          g.fillStyle = 'rgba(14,22,38,0.7)';
+          g.lineWidth = 1.8;
+          g.beginPath();
+          g.ellipse(e.x, y, 8, 4.5 * open + 0.5, 0, 0, Math.PI * 2);
+          g.fill();
+          g.stroke();
+          g.fillStyle = e.color;
+          g.beginPath();
+          g.arc(e.x, y, 2.2, 0, Math.PI * 2);
+          g.fill();
+          g.globalAlpha = 1;
+          break;
+        }
+        case 'glyph': {
+          // belief crossing a threshold: a rune expands over the ground it will govern, with a translucent ground wash
+          const r = (e.r ?? 80) * ease(Math.min(1, p * 1.3));
+          const fade = 1 - p * p;
+          const gr = g.createRadialGradient(e.x, e.y, 2, e.x, e.y, Math.max(4, r));
+          gr.addColorStop(0, 'rgba(242,184,75,0)');
+          gr.addColorStop(0.8, `rgba(242,184,75,${0.2 * fade})`);
+          gr.addColorStop(1, 'rgba(242,184,75,0)');
+          g.fillStyle = gr;
+          g.beginPath();
+          g.ellipse(e.x, e.y, r, r * 0.62, 0, 0, Math.PI * 2);
+          g.fill();
+          g.strokeStyle = e.color;
+          g.lineWidth = 2;
+          g.globalAlpha = 0.85 * fade;
+          g.beginPath();
+          g.ellipse(e.x, e.y, r, r * 0.62, 0, 0, Math.PI * 2);
+          g.stroke();
+          const spin = reduced ? 0 : p * 1.6;
+          for (let k = 0; k < 8; k++) {
+            const a = spin + (k * Math.PI) / 4;
+            const x1 = e.x + Math.cos(a) * r * 0.86;
+            const y1 = e.y + Math.sin(a) * r * 0.86 * 0.62;
+            const x2 = e.x + Math.cos(a) * r * 1.0;
+            const y2 = e.y + Math.sin(a) * r * 1.0 * 0.62;
+            g.beginPath();
+            g.moveTo(x1, y1);
+            g.lineTo(x2, y2);
+            g.stroke();
+          }
+          g.globalAlpha = 1;
+          break;
+        }
+        case 'contest': {
+          // counter-propaganda: two colours fight over the same ground, each ring swelling as the other recedes
+          const R = e.r ?? 50;
+          for (let k = 0; k < 2; k++) {
+            const phase = p * Math.PI * 3 + k * Math.PI;
+            const rr = R * (0.55 + 0.45 * Math.abs(Math.sin(phase / 2)));
+            g.strokeStyle = k === 0 ? e.color : e.color2 ?? e.color;
+            g.globalAlpha = 0.85 * (1 - p);
+            g.lineWidth = 2.6 * (1 - p) + 1;
+            g.beginPath();
+            g.ellipse(e.x, e.y, rr, rr * 0.62, 0, 0, Math.PI * 2);
+            g.stroke();
+          }
+          g.globalAlpha = 1;
+          break;
+        }
+        case 'puffs': {
+          // coughing: a few grey puffs drift up from the villager
+          if (reduced) break;
+          for (let k = 0; k < 3; k++) {
+            const q = Math.min(1, Math.max(0, p * 1.3 - k * 0.18));
+            g.fillStyle = e.color;
+            g.globalAlpha = 0.5 * (1 - q);
+            g.beginPath();
+            g.arc(e.x + (k - 1) * 6 + Math.sin(q * 5 + k) * 2, e.y - q * 22, 3 + q * 4, 0, Math.PI * 2);
+            g.fill();
+          }
+          g.globalAlpha = 1;
           break;
         }
         case 'ring': {
@@ -1037,6 +1303,16 @@ export class MapRenderer {
           break;
       }
     }
+  }
+
+  /** A point q (0..1) along the curved path a tie is drawn with (same control point as the social lens). */
+  private edgeAt(e: Effect, q: number): { x: number; y: number } {
+    const x2 = e.x2 ?? e.x;
+    const y2 = e.y2 ?? e.y;
+    const mx = (e.x + x2) / 2;
+    const my = (e.y + y2) / 2 - 18 - Math.abs(e.x - x2) * 0.06;
+    const u = 1 - q;
+    return { x: u * u * e.x + 2 * u * q * mx + q * q * x2, y: u * u * e.y + 2 * u * q * my + q * q * y2 };
   }
 
   /** Sound-effect hook so the bell animates when the Keeper rings it. */

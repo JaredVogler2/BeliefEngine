@@ -318,7 +318,15 @@ function LandmarkCard({ id }: { id: string }) {
       {!claimId && opts.length > 0 && <p className="small muted">Pick a story first to stage proof for it.</p>}
       <div className="actions">
         {opts.map((o, i) => <ActionRow key={i} o={o} />)}
-        {opts.length === 0 && <p className="small muted">Nothing to do here right now.</p>}
+        {opts.length === 0 && (
+          <p className="small muted" data-testid="empty-landmark">
+            {state.ap <= 0
+              ? 'You are out of Influence today. End the day to recover it.'
+              : !claimId
+                ? 'Pick a story card first; places only offer what a story can use.'
+                : `Nothing is done at a ${l.kind}. Rituals belong to beacons, bells, bridges and fields; crowds gather at the chapel, market, hall, shelter or well.`}
+          </p>
+        )}
       </div>
     </div>
   );

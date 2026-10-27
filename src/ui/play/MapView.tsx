@@ -119,6 +119,7 @@ export function MapView({ children }: { children?: React.ReactNode }) {
 
   // push state + options into the renderer whenever anything changes
   const lastDigest = useRef<unknown>(null);
+  const lastAction = useRef<unknown>(null);
   useEffect(() => {
     const r = rendRef.current;
     if (!r || !state) return;
@@ -138,6 +139,10 @@ export function MapView({ children }: { children?: React.ReactNode }) {
       quality: ui.settings.quality === 'low' ? 'low' : 'high',
       known,
     });
+    if (ui.lastAction && lastAction.current !== ui.lastAction) {
+      lastAction.current = ui.lastAction;
+      r.playAction(ui.lastAction.events);
+    }
     if (ui.digest && lastDigest.current !== ui.digest) {
       lastDigest.current = ui.digest;
       if (ui.digest.events.some((e) => e.code === 'RITUAL' && e.text.startsWith('Ring'))) r.noteBell();
