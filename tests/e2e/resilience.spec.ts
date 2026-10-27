@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { GameSession, serializeRun } from '../../src/engine/index.ts';
 import { policyById } from '../../src/engine/ai/bots/generic.ts';
-import { selectVillager, startRedbank, watchConsole } from './helpers.ts';
+import { openSheet, selectVillager, startRedbank, watchConsole } from './helpers.ts';
 
 /** Things that go wrong in real browsers: a render crash, no canvas, a full disk, a small screen with big text, a turned phone, a save from elsewhere. */
 
@@ -57,7 +57,8 @@ test.describe('resilience', () => {
     await page.locator('[data-claim="river_fears_fire"]').click();
     await selectVillager(page, 'Ivo Thatcher');
     await page.locator('.act', { hasText: 'Tell Ivo Thatcher' }).click();
-    await expect(page.getByText(/would not save the game/i).first()).toBeVisible();
+    // a toast says so once, and a persistent "Not saved" chip stays on the play bar for as long as it is true
+    await expect(page.getByTestId('unsaved')).toBeVisible();
     // the way out: Settings > Download this game
     await page.getByTestId('menu-btn').click();
     const [dl] = await Promise.all([page.waitForEvent('download'), page.getByTestId('download-save').click()]);
@@ -89,7 +90,8 @@ test.describe('resilience', () => {
     await page.getByRole('button', { name: 'Settings' }).click();
     await page.getByTestId('load-save-file').setInputFiles({ name: 'save.json', mimeType: 'application/json', buffer: Buffer.from(savedDay5()) });
     await expect(page.getByTestId('day-box')).toContainText('5');
-    await expect(page.getByTestId('tab-laws')).toBeVisible();
+    await openSheet(page, 'laws');
+    await expect(page.getByTestId('laws-panel')).toBeVisible();
   });
 
   test('320px wide with large text: nothing important is clipped and the primary action stays reachable', async ({ page }) => {

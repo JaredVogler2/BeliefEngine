@@ -40,6 +40,11 @@ function TopBar() {
         {hud.stats.includes('sick') && <div className={`stat ${hud.sick > 3 ? 'bad' : ''}`} title="People sick"><Icon name="warn" label="People sick" /><span>{hud.sick}</span></div>}
         {hud.stats.includes('fuel') && <div className="stat" title="Fuel in store"><Icon name="fuel" label="Fuel" /><span>{hud.fuel}</span></div>}
       </div>
+      {!store.lastSavedOk && (
+        <button className="btn small" data-testid="unsaved" aria-label="This game is not being saved. Open settings to download a copy." title="This browser would not save the game. Open Settings to download a copy." onClick={() => store.set({ screen: 'settings' })}>
+          <Icon name="warn" /> Not saved
+        </button>
+      )}
       <button className="btn icon-btn hide-sm" aria-label="How to play" onClick={() => store.set({ screen: 'howto' })}>
         <Icon name="help" />
       </button>
