@@ -388,6 +388,13 @@ export class World3D implements WorldRenderer {
       viewDistance: this.cam.distance,
       magic: this.magic,
       locate: (kind, id) => this.locate(kind, id),
+      visitSpot: (id) => {
+        for (const l of this.layers) {
+          const d = l.visitSpot?.(id);
+          if (d) return d;
+        }
+        return null;
+      },
     };
     this.ctx = ctx;
     this.layers = createLayers(ctx);

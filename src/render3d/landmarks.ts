@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { DEFAULT_AZIMUTH } from './camera.ts';
 import { buildCabin, buildChapel, buildGranary, buildHall, buildHome, buildRuin, type Built } from './buildings.ts';
 import { buildBeacon, buildBellTower, buildBridge, bridgeSpecOf, deckHeight, buildCampfire, buildMarket, buildMill, buildPen, buildShelter, buildWell } from './civic.ts';
 import type { Layer, WorldContext } from './context.ts';
@@ -30,7 +31,12 @@ interface View {
   swing: number;
   occupied: boolean;
   wheelSpeed: number;
+  /** where a visitor stands outside, facing out: at the door, or by the wall the opening view sees (buildings with walls only) */
+  visit?: { x: number; z: number; ry: number };
 }
+
+/** the buildings a person cannot stand inside: anyone the engine puts on one of these tiles is drawn waiting outside it */
+const WALLED = new Set(['home', 'cabin', 'granary', 'hall', 'chapel', 'mill', 'belltower']);
 
 const MAX_LIGHTS = 4;
 /** buildings are drawn a little larger than a tile's worth, so doors and windows read next to people */
@@ -202,6 +208,28 @@ export class LandmarksLayer implements Layer {
     root.rotation.y = ry;
     root.scale.setScalar(BUILD_SCALE[l.kind] ?? 1);
     this.meshesFor(built.parts, root, view);
+    if (WALLED.has(l.kind) && l.hp > 0) {
+      // a visitor waits outside: at the door (the front, +z) when it faces the opening view, otherwise by the wall that view sees, so
+      // nobody stands hidden behind the house they came to. Measured from the building's own walls, eaves and porch
+      const box = new THREE.Box3();
+      for (const m of view.statics) {
+        m.geometry.computeBoundingBox();
+        if (m.geometry.boundingBox) box.union(m.geometry.boundingBox);
+      }
+      const seenX = Math.sin(DEFAULT_AZIMUTH);
+      const seenZ = Math.cos(DEFAULT_AZIMUTH);
+      // [outward x, outward z, how far the building reaches that way, preference]: the door side is preferred unless it faces away
+      const sides: [number, number, number, number][] = [[0, 1, box.max.z, 0.35], [0, -1, -box.min.z, 0], [1, 0, box.max.x, 0], [-1, 0, -box.min.x, 0]];
+      let best = { wx: 0, wz: 1, reach: box.max.z, score: -Infinity };
+      for (const [lx, lz, reach, pref] of sides) {
+        const wx = Math.cos(ry) * lx + Math.sin(ry) * lz;
+        const wz = -Math.sin(ry) * lx + Math.cos(ry) * lz;
+        const score = wx * seenX + wz * seenZ + pref;
+        if (score > best.score) best = { wx, wz, reach, score };
+      }
+      const d = best.reach * (BUILD_SCALE[l.kind] ?? 1) + 0.1;
+      view.visit = { x: cx + best.wx * d, z: cz + best.wz * d, ry: Math.atan2(best.wx, best.wz) };
+    }
     for (const ex of built.extras ?? []) {
       const g = new THREE.Group();
       g.position.set(...ex.pivot);
@@ -536,6 +564,10 @@ export class LandmarksLayer implements Layer {
     const v = this.views.get(id);
     if (!v) return null;
     return v.proxy.getWorldPosition(new THREE.Vector3());
+  }
+
+  visitSpot(id: string): { x: number; z: number; ry: number } | null {
+    return this.views.get(id)?.visit ?? null;
   }
 
   /** world position of the top of a building, for effects that rise from it */
