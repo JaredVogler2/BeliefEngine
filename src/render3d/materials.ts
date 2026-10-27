@@ -232,6 +232,7 @@ const SPECS: Record<string, MatSpec> = {
   rope: { color: 0x9a8656, rough: 1 },
   straw: { color: 0xd2b45c, rough: 1 },
   dirt: { color: 0x6c5538, rough: 1 },
+  leaf: { color: 0x5f8a3e, rough: 0.9 },
   sack: { color: 0xc9b58a, rough: 1 },
   white: { color: 0xf3efe4, rough: 0.9 },
   bloom: { color: 0xffffff, rough: 0.7 },

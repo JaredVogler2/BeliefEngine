@@ -43,7 +43,8 @@ const T = {
 /** a window on the front face (z = +zf), with frame, bars, glass, sill and optional shutters */
 export function windowAt(parts: Parts, x: number, y: number, zf: number, ry = 0, shutters = true, scale = 1): void {
   const s = scale;
-  // front is the local +z; `ry` rotates the whole window with its wall
+  // front is the local +z; `ry` rotates the whole window with its wall, and `zf` is the wall's distance along that rotated front, so a
+  // window on the back wall is (x, y, +D/2, PI), not (x, y, -D/2, PI)
   const put = (g: THREE.BufferGeometry, mat: string, px: number, py: number, pz: number): void => {
     const c = Math.cos(ry);
     const sn = Math.sin(ry);

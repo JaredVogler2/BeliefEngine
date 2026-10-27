@@ -5,9 +5,10 @@ import { makeNoise, type Rng } from './rand.ts';
 /**
  * Procedural trees and shrubs. Each species is one merged BufferGeometry with its colours painted into the vertices (bark below,
  * leaves above, darker where the crown is shaded by itself), built once and then instanced hundreds of times with a random
- * rotation, size and tint. Four tree shapes (oak, pine, birch, willow), an orchard apple tree, a shrub and a stump.
+ * rotation, size and tint. Five tree shapes (oak, pine, birch, willow, cypress), an orchard apple tree, a shrub and a stump; the oak also
+ * comes in blossom and in autumn colour.
  */
-export type TreeKind = 'oak' | 'pine' | 'birch' | 'willow' | 'apple' | 'shrub' | 'stump' | 'blossom' | 'autumn';
+export type TreeKind = 'oak' | 'pine' | 'birch' | 'willow' | 'apple' | 'shrub' | 'stump' | 'blossom' | 'autumn' | 'cypress';
 
 const noise = makeNoise(7771);
 const c = (hex: number): THREE.Color => new THREE.Color(hex);
@@ -141,6 +142,23 @@ export function makeTree(kind: TreeKind, r: Rng): THREE.BufferGeometry {
         paint(b, leafPaint(leaf, light, 0.42, 1.0, 0.4));
         parts.push(b);
       }
+      return merge(parts);
+    }
+    case 'cypress': {
+      // a tall dark flame: one stretched crown, widest a third of the way up and drawn to a point
+      const parts: THREE.BufferGeometry[] = [trunk(0.03, 0.022, 0.16, 0, c(0x4d3b2a))];
+      const body = blob(0.12, 1, 0.3, seed, 3.4);
+      const p = body.getAttribute('position') as THREE.BufferAttribute;
+      for (let i = 0; i < p.count; i++) {
+        const t = (p.getY(i) + 0.41) / 0.82;
+        const k = 1.08 - 1.4 * Math.max(0, t - 0.3) ** 1.1;
+        p.setX(i, p.getX(i) * k);
+        p.setZ(i, p.getZ(i) * k);
+      }
+      body.computeVertexNormals();
+      place(body, 0, 0.53, 0);
+      paint(body, leafPaint(c(0x2f5a3f), c(0x5f8a52), 0.14, 0.95, 0.4));
+      parts.push(body);
       return merge(parts);
     }
     case 'willow': {
