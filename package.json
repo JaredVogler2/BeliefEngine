@@ -12,6 +12,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "size": "tsx scripts/check-bundle.ts",
+    "verify:hosting": "tsx scripts/verify-hosting.ts",
     "profile": "tsx scripts/profile-ui.ts",
     "preview": "vite preview --host 127.0.0.1 --port 4173 --strictPort",
     "typecheck": "tsc --noEmit",
