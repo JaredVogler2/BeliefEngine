@@ -19,6 +19,7 @@
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "test:sim": "tsx scripts/tournament.ts",
+    "test:sim:smoke": "tsx scripts/tournament.ts --smoke",
     "mcp": "tsx mcp/server.ts",
     "gen:verify": "tsx scripts/verify-expeditions.ts --from 1 --to 1000 --catalog"
   },
