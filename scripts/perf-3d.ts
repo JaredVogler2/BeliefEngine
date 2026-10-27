@@ -44,7 +44,9 @@ interface Row {
   heapMb: number;
   p50: number;
   p95: number;
-  fps: number;
+  drawn: number;
+  drawMs: number;
+  tierEnd: string;
 }
 
 const browser = await chromium.launch();
@@ -61,12 +63,15 @@ for (const tier of ['low', 'medium', 'high']) {
     await page.waitForFunction(() => ((window as unknown as { __beRenderer?: { info: () => { frames: number } } }).__beRenderer?.info().frames ?? 0) > 0, undefined, { timeout: 120000 });
     const buildMs = Date.now() - t0;
     await page.waitForTimeout(1500);
-    const m = await page.evaluate(async (sec) => {
-      const r = (window as unknown as { __beRenderer: { info: () => { triangles: number; calls: number; geometries: number; textures: number; scale: number; buildMs: number } } }).__beRenderer;
-      const stamps: number[] = [];
-      const end = performance.now() + sec * 1000;
-      await new Promise<void>((done) => {
-        const tick = (t: number): void => {
+    // a string, not a function: tsx's name-keeping helper does not exist in the page
+    const m = (await page.evaluate(`(async () => {
+      const r = window.__beRenderer;
+      const stamps = [];
+      const frames0 = r.info().frames;
+      const t0 = performance.now();
+      const end = performance.now() + ${seconds} * 1000;
+      await new Promise((done) => {
+        const tick = (t) => {
           stamps.push(t);
           if (t < end) requestAnimationFrame(tick);
           else done();
@@ -74,18 +79,18 @@ for (const tier of ['low', 'medium', 'high']) {
         requestAnimationFrame(tick);
       });
       const d = stamps.slice(1).map((v, i) => v - stamps[i]).sort((a, b) => a - b);
-      const q = (p: number): number => d[Math.min(d.length - 1, Math.floor(p * d.length))] ?? 0;
-      const mem = (performance as unknown as { memory?: { usedJSHeapSize: number } }).memory;
+      const q = (p) => d[Math.min(d.length - 1, Math.floor(p * d.length))] || 0;
+      const mem = performance.memory;
       const info = r.info();
-      return { p50: q(0.5), p95: q(0.95), fps: d.length / (d.reduce((a, b) => a + b, 0) / 1000), heap: mem ? mem.usedJSHeapSize / 1048576 : 0, ...info };
-    }, seconds);
-    rows.push({ tier, scene: name, scale: m.scale, triangles: m.triangles, calls: m.calls, geometries: m.geometries, textures: m.textures, buildMs: m.buildMs || buildMs, heapMb: Math.round(m.heap * 10) / 10, p50: Math.round(m.p50), p95: Math.round(m.p95), fps: Math.round(m.fps * 10) / 10 });
+      return { p50: q(0.5), p95: q(0.95), drawn: (info.frames - frames0) / ((performance.now() - t0) / 1000), fps: d.length / (d.reduce((a, b) => a + b, 0) / 1000), heap: mem ? mem.usedJSHeapSize / 1048576 : 0, ...info };
+    })()`)) as { p50: number; p95: number; drawn: number; tier: string; drawMs: number; fps: number; heap: number; scale: number; triangles: number; calls: number; geometries: number; textures: number; buildMs: number };
+    rows.push({ tier, scene: name, scale: m.scale, triangles: m.triangles, calls: m.calls, geometries: m.geometries, textures: m.textures, buildMs: m.buildMs || buildMs, heapMb: Math.round(m.heap * 10) / 10, p50: Math.round(m.p50), p95: Math.round(m.p95), drawn: Math.round(m.drawn * 10) / 10, drawMs: m.drawMs, tierEnd: m.tier });
     await ctx.close();
   }
 }
 await browser.close();
 
-console.log('tier    scene  scale  triangles  calls  geoms  tex  build(ms)  heap(MB)  p50(ms)  p95(ms)  fps');
-for (const r of rows) console.log(`${r.tier.padEnd(7)} ${r.scene.padEnd(6)} ${String(r.scale).padEnd(6)} ${String(r.triangles).padEnd(10)} ${String(r.calls).padEnd(6)} ${String(r.geometries).padEnd(6)} ${String(r.textures).padEnd(4)} ${String(r.buildMs).padEnd(10)} ${String(r.heapMb).padEnd(9)} ${String(r.p50).padEnd(8)} ${String(r.p95).padEnd(8)} ${r.fps}`);
+console.log('tier    scene  scale  triangles  calls  geoms  tex  build(ms)  heap(MB)  drawn/s  draw(ms)  tier-end  rAF p50  rAF p95');
+for (const r of rows) console.log(`${r.tier.padEnd(7)} ${r.scene.padEnd(6)} ${String(r.scale).padEnd(6)} ${String(r.triangles).padEnd(10)} ${String(r.calls).padEnd(6)} ${String(r.geometries).padEnd(6)} ${String(r.textures).padEnd(4)} ${String(r.buildMs).padEnd(10)} ${String(r.heapMb).padEnd(9)} ${String(r.drawn).padEnd(8)} ${String(r.drawMs).padEnd(9)} ${r.tierEnd.padEnd(9)} ${String(r.p50).padEnd(8)} ${r.p95}`);
 mkdirSync('docs/3d-rebuild/data', { recursive: true });
 writeFileSync('docs/3d-rebuild/data/perf.json', JSON.stringify({ measuredWith: 'headless Chromium, software WebGL (SwiftShader); not a GPU', viewport: `${W}x${H}`, seconds, rows }, null, 2));

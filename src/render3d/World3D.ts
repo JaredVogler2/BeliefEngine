@@ -301,6 +301,7 @@ export class World3D implements WorldRenderer {
       heightAt: (x, z) => terrain.heightAt(x, z),
       reducedMotion: this.opts.reducedMotion,
       weather: { wind: 1, rain: 0 },
+      bridgeLift: 0,
       magic: this.magic,
       locate: (kind, id) => this.locate(kind, id),
     };
@@ -350,7 +351,6 @@ export class World3D implements WorldRenderer {
     this.hemi.intensity = m.hemiIntensity;
     this.fill.intensity = m.fillIntensity;
     this.fog.color.setHex(m.fog);
-    this.fog.density = m.fogDensity;
     this.renderer.toneMappingExposure = m.exposure;
     const u = (this.sky.material as THREE.ShaderMaterial).uniforms;
     (u.uTop.value as THREE.Color).setHex(m.skyTop);
@@ -372,7 +372,7 @@ export class World3D implements WorldRenderer {
   private configureLight(snap: SceneSnapshot): void {
     const cx = snap.w / 2;
     const cz = snap.h / 2;
-    const dir = new THREE.Vector3(-0.55, 0.72, 0.5).normalize();
+    const dir = new THREE.Vector3(-0.6, 0.58, 0.52).normalize();
     this.sun.position.set(cx + dir.x * 60, dir.y * 60, cz + dir.z * 60);
     this.sun.target.position.set(cx, 0, cz);
     this.sun.target.updateMatrixWorld();
@@ -467,6 +467,8 @@ export class World3D implements WorldRenderer {
 
   private draw(): void {
     if (this.contextLost) return;
+    // haze is for depth, not for washing the village out: a camera that has to stand far back (a tall phone screen) gets less of it
+    this.fog.density = this.atmo.current.fogDensity * Math.min(1, Math.max(0.3, 40 / this.cam.distance));
     try {
       const t0 = performance.now();
       this.renderer.render(this.scene, this.cam.camera);

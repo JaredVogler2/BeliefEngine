@@ -471,7 +471,7 @@ textarea[data-testid='compose-text'] { background: #0b1220; border: 1px solid va
 
 /* the end-of-run screen: the real village at the end, with the last important events under it */
 .scene.aftermath { margin: 0 0 1rem; border-radius: var(--radius); overflow: hidden; border: 1px solid var(--line); background: #0b1220; }
-.aftermath-stage { position: relative; width: 100%; height: clamp(240px, 44vh, 460px); }
+.aftermath-stage { position: relative; width: 100%; height: clamp(260px, 54vh, 600px); }
 .aftermath-stage canvas { display: block; width: 100%; height: 100%; cursor: grab; }
 .aftermath-captions { display: grid; gap: 0.25rem; padding: 0.5rem 0.8rem 0.65rem; font-size: 0.85rem; background: rgba(10, 17, 30, 0.9); border-top: 1px solid var(--glass-line); }
 .aftermath-captions b { margin-right: 0.35rem; }

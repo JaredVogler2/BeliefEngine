@@ -1,3 +1,4 @@
+import AxeBuilder from '@axe-core/playwright';
 import { expect, test, type Page } from '@playwright/test';
 import { GameSession, serializeRun } from '../../src/engine/index.ts';
 import { policyById } from '../../src/engine/ai/bots/generic.ts';
@@ -26,7 +27,8 @@ const renderer = <T,>(page: Page, fn: (r: R3) => T): Promise<T> => page.evaluate
 
 async function ready(page: Page): Promise<void> {
   await expect(page.locator('.stage[data-renderer="3d"][data-ready="1"]')).toBeVisible({ timeout: 90_000 });
-  await expect.poll(() => renderer(page, (r) => r.info().frames), { timeout: 60_000 }).toBeGreaterThan(0);
+  // (right after a switch from the classic map the page's renderer handle can still be the old one for a moment)
+  await expect.poll(() => renderer(page, (r) => (typeof r.info === 'function' ? r.info().frames : 0)), { timeout: 60_000 }).toBeGreaterThan(0);
 }
 
 async function loadRun(page: Page, json: string): Promise<void> {
@@ -78,6 +80,14 @@ test.describe('the 3D world', () => {
     await startRedbank(page, 1, 'normal', URL3D);
     await ready(page);
     await chooseClaim(page, 'river_fears_fire');
+    // people are a few pixels tall at the opening view of a phone, and the keeper stands among others at the bridge: come in on her first, as a player would
+    await page.evaluate(() => {
+      const r = (window as unknown as { __beRenderer: { focusVillager: (id: string) => void; advance: (s: number) => void } }).__beRenderer;
+      r.focusVillager('mara');
+      r.advance(2);
+    });
+    await page.waitForTimeout(600);
+    await page.evaluate(() => (window as unknown as { __beRenderer: { advance: (s: number) => void } }).__beRenderer.advance(2));
     const pos = await page.evaluate(() => {
       const r = (window as unknown as { __beRenderer: R3 }).__beRenderer;
       const p = r.villagerScreen('mara');
@@ -136,6 +146,9 @@ test.describe('the 3D world', () => {
   test('beacons, the bridge and a villager in a crowd are each picked by their own tap (mouse or touch)', async ({ page }, info) => {
     await startRedbank(page, 1, 'normal', URL3D);
     await ready(page);
+    // a tall phone screen opens turned a quarter-turn from the desktop view, where a home stands in front of a beacon; the crowd and the
+    // beacons are judged from one fixed angle so the picks mean the same thing in both projects
+    await page.evaluate(() => (window as unknown as { __beRenderer: { setView: (v: { azimuthDeg: number }) => void } }).__beRenderer.setView({ azimuthDeg: 28 }));
     const touch = info.project.name.startsWith('phone');
     const tap = async (kind: 'villager' | 'landmark', id: string, dx = 0): Promise<void> => {
       // bring it into view first (a phone shows only the middle of the village), and let the camera settle
@@ -260,6 +273,33 @@ test.describe('the 3D world', () => {
     await page.getByTestId('renderer-toggle').click();
     await ready(page);
     expect((await browserState(page)).hash).toBe(h);
+  });
+
+  test('the flood forecast and the other view options reach the world on its first frame, with no click needed', async ({ page }) => {
+    await page.goto(URL3D);
+    await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
+    await loadRun(page, played(5, 'threat-aware', 2));
+    // the 3D world arrives a moment after the page's first render: what the page wants drawn (tonight's predicted water on the ground,
+    // the lens, the selection) must be handed over when it does, not only after the next click
+    const given = await page.evaluate(() => {
+      const r = (window as unknown as { __beRenderer: { opts?: { forecast: number[] | null; showFlood: boolean } } }).__beRenderer;
+      return { n: r.opts?.forecast?.length ?? 0, show: !!r.opts?.showFlood };
+    });
+    expect(given.show).toBe(true);
+    expect(given.n).toBeGreaterThan(100);
+  });
+
+  test('the interface over the live 3D world passes axe (no critical or serious findings), with a card and the law ledger open', async ({ page }) => {
+    await startRedbank(page, 1, 'normal', URL3D);
+    await ready(page);
+    await chooseClaim(page, 'river_fears_fire');
+    await selectVillager(page, 'Old Harl');
+    await page.getByTestId('tab-laws').click();
+    await page.waitForTimeout(600);
+    await page.evaluate(() => Promise.all(document.getAnimations().filter((a) => Number.isFinite(a.effect?.getComputedTiming().endTime as number)).map((a) => a.finished.catch(() => null))));
+    const res = await new AxeBuilder({ page: page as unknown as ConstructorParameters<typeof AxeBuilder>[0]['page'] }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+    const bad = res.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
+    expect(bad.map((v) => `${v.id}: ${v.nodes.slice(0, 2).map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([]);
   });
 
   test('the interface leaves most of the screen to the world', async ({ page }) => {

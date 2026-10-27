@@ -18,8 +18,11 @@ interface Focus {
   why: string;
 }
 
-/** where the camera should look first: the bridge if it fell, else the last home that was hurt, else the bridge or the middle */
-export function aftermathFocus(s: RunState): Focus {
+/**
+ * where the camera should look first. After a loss: the bridge if it fell, else the last home that was hurt. After a win: what held,
+ * the middle of the homes that are left, else the bridge if it still stands.
+ */
+export function aftermathFocus(s: RunState, win = false): Focus {
   const bridge = s.world.landmarks.find((l) => l.kind === 'bridge');
   const centre = (l: { x: number; y: number; tiles?: [number, number][] }): { x: number; y: number } => {
     if (l.tiles && l.tiles.length) {
@@ -33,6 +36,12 @@ export function aftermathFocus(s: RunState): Focus {
     }
     return { x: l.x, y: l.y };
   };
+  if (win) {
+    // the homes that are left are dry and in plain view; the bridge may be under the surge at the end
+    const kept = s.world.landmarks.filter((l) => l.kind === 'home' && l.hp > 0).map(centre);
+    if (kept.length) return { x: kept.reduce((a, c) => a + c.x, 0) / kept.length, y: kept.reduce((a, c) => a + c.y, 0) / kept.length, why: 'the homes that held' };
+    if (bridge && bridge.hp > 0) return { ...centre(bridge), why: 'the bridge that held' };
+  }
   if (bridge && bridge.hp <= 0) return { ...centre(bridge), why: 'the bridge' };
   const hurt = [...s.log].reverse().find((e) => (e.code === 'HOME_DESTROYED' || e.code === 'HOME_DAMAGED' || e.code === 'FIELD_FLOODED') && e.tile);
   if (hurt && hurt.tile) return { x: hurt.tile[0], y: hurt.tile[1], why: 'the damage' };
@@ -98,7 +107,7 @@ function AftermathWorld({ state, win, onFail }: { state: RunState; win: boolean;
         r.start();
         r.setAmbient?.(!reduced);
         // ease in on the place that decided it, after a beat on the whole village
-        const f = aftermathFocus(state);
+        const f = aftermathFocus(state, win);
         timer = window.setTimeout(() => r?.focusTile(f.x, f.y, 1.5), reduced ? 0 : 1400);
         // dragging turns the view; the page still scrolls with the wheel and with a vertical swipe
         let down: { x: number; y: number } | null = null;

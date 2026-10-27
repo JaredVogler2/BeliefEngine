@@ -5,6 +5,15 @@ import { policyById } from '../../src/engine/ai/bots/generic.ts';
 import { chooseClaim, openSheet, selectVillager, startRedbank } from './helpers.ts';
 
 async function audit(page: Page, label: string) {
+  // a card that is still fading in is measured half transparent over whatever is behind it: let every finite animation finish first
+  await page.evaluate(() =>
+    Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => Number.isFinite(a.effect?.getComputedTiming().endTime as number))
+        .map((a) => a.finished.catch(() => null)),
+    ),
+  );
   const res = await new AxeBuilder({ page: page as unknown as ConstructorParameters<typeof AxeBuilder>[0]['page'] }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
   const bad = res.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
   expect(bad.map((v) => `${label}: ${v.id} (${v.impact}): ${v.nodes.slice(0, 2).map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([]);

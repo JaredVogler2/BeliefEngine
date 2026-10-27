@@ -120,7 +120,8 @@ export const beam = (parts: Parts, x0: number, y0: number, z0: number, x1: numbe
   const dz = z1 - z0;
   const len = Math.hypot(dx, dy, dz);
   const g = place(T.beam, 0, 0, 0);
-  g.translate(-0.5, 0, 0);
+  // from the start point toward the end (the template is centred on x and stands on y = 0): run it along +x, then centre its thickness
+  g.translate(0.5, -0.01, 0);
   g.scale(len, 1, 1);
   const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1, 0, 0), new THREE.Vector3(dx, dy, dz).normalize());
   g.applyQuaternion(q);

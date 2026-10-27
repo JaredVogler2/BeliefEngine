@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { buildCabin, buildChapel, buildGranary, buildHall, buildHome, buildRuin, type Built } from './buildings.ts';
-import { buildBeacon, buildBellTower, buildBridge, bridgeSpecOf, buildCampfire, buildMarket, buildMill, buildPen, buildShelter, buildWell } from './civic.ts';
+import { buildBeacon, buildBellTower, buildBridge, bridgeSpecOf, deckHeight, buildCampfire, buildMarket, buildMill, buildPen, buildShelter, buildWell } from './civic.ts';
 import type { Layer, WorldContext } from './context.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mergeByMaterial, type Part } from './geom.ts';
@@ -26,7 +26,7 @@ interface View {
   hp: number;
   built: boolean;
   /** bridge states */
-  bridge?: { standing: THREE.Group; ruins: THREE.Group; trim: THREE.Group; cracks: THREE.Group };
+  bridge?: { standing: THREE.Group; ruins: THREE.Group; trim: THREE.Group; cracks: THREE.Group; spec: ReturnType<typeof bridgeSpecOf>; sag: number };
   swing: number;
   occupied: boolean;
   wheelSpeed: number;
@@ -263,7 +263,7 @@ export class LandmarksLayer implements Layer {
     }
     cracks.visible = false;
     view.root.add(cracks);
-    view.bridge = { standing, ruins, trim, cracks };
+    view.bridge = { standing, ruins, trim, cracks, spec, sag: 0 };
     ruins.visible = false;
     trim.visible = false;
     const proxy = new THREE.Mesh(new THREE.BoxGeometry(x1 - x0 + 3.4, 0.8, 0.9), new THREE.MeshBasicMaterial({ visible: false }));
@@ -397,7 +397,7 @@ export class LandmarksLayer implements Layer {
       v.bridge.trim.visible = !down && (l.data.watchers ?? 0) > 0;
       // a damaged bridge sags a little: the whole span settles
       v.bridge.standing.rotation.x = !down && ratio < 0.4 ? 0.012 : 0;
-      v.bridge.standing.position.y = !down && ratio < 0.65 ? -0.02 * (1 - ratio) : 0;
+      v.bridge.sag = !down && ratio < 0.65 ? -0.02 * (1 - ratio) : 0;
     }
   }
 
@@ -437,6 +437,32 @@ export class LandmarksLayer implements Layer {
     for (const v of this.views.values()) if (v.kind === 'belltower') v.swing = 1;
   }
 
+  /**
+   * A bridge that still stands is a stone bridge: in a surge the water climbs the banks and the arch, and the deck rides above it instead of
+   * drowning with the approaches (what the engine knows, that the bridge stands, stays true and visible). The lift is only ever drawn; the
+   * people on the deck read the same number so they stand on the planks they are drawn on.
+   */
+  private liftBridge(v: View, dt: number, ctx: WorldContext): void {
+    const b = v.bridge;
+    if (!b) return;
+    let target = 0;
+    if (v.hp > 0) {
+      const cz = b.spec.row + 0.5;
+      for (let i = 0; i <= 8; i++) {
+        const x = b.spec.x0 - 0.5 + ((b.spec.x1 - b.spec.x0 + 2.1) * i) / 8;
+        const surface = ctx.water.surfaceAt(x, cz);
+        if (surface > ctx.heightAt(x, cz) + 0.02) target = Math.max(target, surface + 0.12 - deckHeight(b.spec, x));
+      }
+      target = Math.min(0.7, Math.max(0, target));
+    }
+    ctx.bridgeLift += (target - ctx.bridgeLift) * (ctx.reducedMotion ? 1 : 1 - Math.exp(-dt * 2.5));
+    if (Math.abs(ctx.bridgeLift) < 0.001) ctx.bridgeLift = 0;
+    const y = b.sag + ctx.bridgeLift;
+    b.standing.position.y = y;
+    b.trim.position.y = y;
+    b.cracks.position.y = y;
+  }
+
   tick(dt: number, time: number, ctx: WorldContext): void {
     const reduced = ctx.reducedMotion;
     this.emitAcc += dt;
@@ -450,6 +476,7 @@ export class LandmarksLayer implements Layer {
       }
       const wheel = v.extras.get('wheel');
       if (wheel && !reduced) wheel.rotation.z -= dt * (0.5 + this.waterLevel * 0.28);
+      if (v.bridge) this.liftBridge(v, dt, ctx);
       if (v.flame && v.lit) {
         const f = 0.9 + 0.18 * Math.sin(time * 11 + v.root.position.x) + 0.1 * Math.sin(time * 17.3 + v.root.position.z);
         v.flame.scale.set(1 + 0.08 * Math.sin(time * 9), f, 1 + 0.08 * Math.cos(time * 8));

@@ -80,7 +80,8 @@ if (resolve) {
     [JSON.stringify(dayEvents), prevJson, tAfter] as [string, string, number],
   );
 }
-if (renderer === '3d') {
+// the debrief's aftermath scene owns its renderer: there is nothing to steer or to register under __beRenderer there
+if (renderer === '3d' && (await page.evaluate(() => !!(window as unknown as { __beRenderer?: unknown }).__beRenderer))) {
   const numeric = Object.fromEntries(Object.entries(view).map(([k, v]) => [k === 'az' ? 'azimuthDeg' : k === 'el' ? 'elevationDeg' : k, Number(v)]));
   await page.evaluate((v) => {
     const r = (window as unknown as { __beRenderer: { setView: (v: unknown) => void; renderNow: () => void; fit: () => void } }).__beRenderer;
@@ -92,7 +93,7 @@ if (renderer === '3d') {
 }
 if (hud) await page.screenshot({ path: out });
 else await page.screenshot({ path: out, clip: { x: 0, y: 0, width: W, height: H }, timeout: 120000 });
-const info = renderer === '3d' ? await page.evaluate(() => (window as unknown as { __beRenderer: { info?: () => unknown } }).__beRenderer.info?.()) : null;
+const info = renderer === '3d' ? await page.evaluate(() => (window as unknown as { __beRenderer?: { info?: () => unknown } }).__beRenderer?.info?.() ?? null) : null;
 if (renderer === '3d' && arg('breakdown', '0') === '1') { console.log(JSON.stringify(await page.evaluate(() => (window as unknown as { __beRenderer: { breakdown: () => unknown } }).__beRenderer.breakdown()))); console.log((await page.evaluate(() => (window as unknown as { __beRenderer: { heaviest: () => { layer: string; name: string; instances: number; trianglesEach: number; triangles: number }[] } }).__beRenderer.heaviest())).map((r) => `${r.layer}/${r.name} x${r.instances} (${r.trianglesEach} each) = ${r.triangles}`).join('\n')); }
 if (renderer === '3d' && arg('profile', '0') === '1') console.log(JSON.stringify(await page.evaluate(() => (window as unknown as { __beRenderer: { profileParts: () => Promise<unknown> } }).__beRenderer.profileParts()), null, 1));
 console.log(`wrote ${out}  ${W}x${H}  ${quality}  ${info ? JSON.stringify(info) : ''}${errors.length ? `\nERRORS: ${errors.slice(0, 4).join(' | ')}` : ''}`);

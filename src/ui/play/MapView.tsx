@@ -218,7 +218,7 @@ export function MapView({ children }: { children?: React.ReactNode }) {
     };
   }, [choice]);
 
-  // push state + options into the renderer whenever anything changes
+  // push state + options into the renderer whenever anything changes, and once it exists (the 3D world arrives a moment after the first render)
   const lastDigest = useRef<unknown>(null);
   const lastAction = useRef<unknown>(null);
   useEffect(() => {
@@ -249,7 +249,7 @@ export function MapView({ children }: { children?: React.ReactNode }) {
       if (ui.digest.events.some((e) => e.code === 'RITUAL' && e.text.startsWith('Ring'))) r.noteBell();
       r.playResolution(ui.digest.events, store.prevState);
     }
-  }, [version, state, ui]);
+  }, [version, state, ui, ready]);
 
   // keep the village clear of the interface: tell the renderer how much of the canvas the rail, tray, tools and open sheet cover
   useEffect(() => {

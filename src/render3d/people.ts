@@ -309,7 +309,7 @@ export class PeopleLayer implements Layer {
   /** the ground height people stand on: terrain, or the bridge deck while they are on it */
   private walkY(x: number, z: number): number {
     const b = this.bridge;
-    if (b && this.bridgeStanding && z > b.row + 0.2 && z < b.row + 0.8 && x > b.x0 - 0.5 && x < b.x1 + 1.5) return Math.max(this.ctx.heightAt(x, z), deckHeight(b, x));
+    if (b && this.bridgeStanding && z > b.row + 0.2 && z < b.row + 0.8 && x > b.x0 - 0.5 && x < b.x1 + 1.5) return Math.max(this.ctx.heightAt(x, z), deckHeight(b, x) + this.ctx.bridgeLift);
     return this.ctx.heightAt(x, z);
   }
 

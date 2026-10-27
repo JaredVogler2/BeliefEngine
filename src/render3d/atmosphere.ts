@@ -31,7 +31,7 @@ export interface Mood {
 }
 
 const CALM: Mood = {
-  sunColor: 0xffe0ae, sunIntensity: 3.1, hemiSky: 0xc4dcf4, hemiGround: 0x7a7650, hemiIntensity: 1.45, fillIntensity: 1.0, fog: 0xdbe5d4, fogDensity: 0.0095,
+  sunColor: 0xffd9a0, sunIntensity: 3.6, hemiSky: 0xc4dcf4, hemiGround: 0x7a7650, hemiIntensity: 1.12, fillIntensity: 0.72, fog: 0xdbe5d4, fogDensity: 0.0095,
   skyTop: 0xa9cbe6, skyHorizon: 0xf1ead0, windows: 0, waterTint: 1, wind: 1, rain: 0, exposure: 1.02, cloud: 0.3, cloudColor: 0xfffaf0,
 };
 const STORM: Mood = {
@@ -51,7 +51,7 @@ const DUSK: Mood = {
   skyTop: 0x7e8fb8, skyHorizon: 0xf0c9a0, windows: 0.5, waterTint: 0.9, wind: 1.2, rain: 0, exposure: 1.0, cloud: 0.55, cloudColor: 0xf2d5bd,
 };
 const SUNBREAK: Mood = {
-  sunColor: 0xffe2a8, sunIntensity: 3.3, hemiSky: 0xcfe4f6, hemiGround: 0x80795a, hemiIntensity: 1.5, fillIntensity: 1.0, fog: 0xe6ecd8, fogDensity: 0.0085,
+  sunColor: 0xffdc9e, sunIntensity: 3.6, hemiSky: 0xcfe4f6, hemiGround: 0x80795a, hemiIntensity: 1.2, fillIntensity: 0.75, fog: 0xe6ecd8, fogDensity: 0.0085,
   skyTop: 0x9ecbec, skyHorizon: 0xfaeccc, windows: 0, waterTint: 1.05, wind: 0.9, rain: 0, exposure: 1.06, cloud: 0.32, cloudColor: 0xfff4dc,
 };
 
