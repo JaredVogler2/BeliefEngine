@@ -2,6 +2,7 @@ import type { GameEvent, Landmark, RunState } from '../engine/index.ts';
 import { claimDef } from '../engine/core/lookup.ts';
 import { firstName } from '../engine/core/names.ts';
 import { C, TS, hsl, nz, trustColor } from './palette.ts';
+import type { WorldRenderer } from './types.ts';
 import {
   drawBeacon, drawBellTower, drawBridge, drawCabin, drawCampfire, drawChapel, drawField, drawGranary, drawHall, drawHome, drawLabel, drawMarket, drawMill, drawPack, drawPen, drawRoadState, drawShelter, drawTree, drawVillager, drawWell, flame,
 } from './sprites.ts';
@@ -58,7 +59,8 @@ const DEFAULT_OPTS: RenderOpts = {
 
 const ease = (t: number) => (t < 0 ? 0 : t > 1 ? 1 : t * t * (3 - 2 * t));
 
-export class MapRenderer {
+export class MapRenderer implements WorldRenderer {
+  readonly kind = '2d' as const;
   private canvas: HTMLCanvasElement;
   private g: CanvasRenderingContext2D;
   private state: RunState | null = null;
@@ -241,6 +243,13 @@ export class MapRenderer {
   villagerScreen(id: string): { x: number; y: number } | null {
     const v = this.vv.get(id);
     return v ? this.worldToScreen(v.x, v.y - 10) : null;
+  }
+
+  /** screen position of a villager or landmark, for DOM overlays that follow the selection */
+  entityScreen(kind: 'villager' | 'landmark', id: string): { x: number; y: number } | null {
+    if (kind === 'villager') return this.villagerScreen(id);
+    const l = this.state?.world.landmarks.find((q) => q.id === id);
+    return l ? this.worldToScreen((l.x + 0.5) * TS, (l.y + 0.5) * TS) : null;
   }
 
   // ------------------------------------------------------------ hit testing

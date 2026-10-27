@@ -12,3 +12,4 @@ tmp
 !.env.example
 .vercel
 reports/*.tmp
+docs/3d-rebuild/screenshots/dev/

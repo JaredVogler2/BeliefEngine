@@ -161,3 +161,41 @@ export async function browserState(page: Page) {
     return { day: b.state.day, ap: b.state.ap, outcome: b.state.outcome?.result ?? null, alive: b.state.villagers.filter((v) => v.status !== 'dead').length, hash: b.hash(), eventHash: b.eventHash() };
   });
 }
+
+/**
+ * How much of the village canvas differs from its centre colour (0..1), for either renderer: the classic map reads its 2D canvas, and the
+ * 3D world is drawn again right now and copied onto a scratch canvas in the same task (a WebGL canvas cannot be read after it is shown).
+ * A failed context, or a scene that never drew, leaves a flat colour and scores 0.
+ */
+export function mapPainted(page: Page): () => Promise<number> {
+  return () =>
+    page.evaluate(() => {
+      const c = document.querySelector('canvas');
+      if (!c) return 0;
+      const r = (window as unknown as { __beRenderer?: { kind: string; renderNow?: () => void } }).__beRenderer;
+      const read = (): CanvasRenderingContext2D | null => {
+        if (r && r.kind === '3d') {
+          r.renderNow?.();
+          const scratch = document.createElement('canvas');
+          scratch.width = c.width;
+          scratch.height = c.height;
+          const g = scratch.getContext('2d');
+          g?.drawImage(c, 0, 0);
+          return g;
+        }
+        return c.getContext('2d');
+      };
+      const src = read();
+      if (!src) return 0;
+      const first = src.getImageData(Math.floor(c.width / 2), Math.floor(c.height / 2), 1, 1).data;
+      let diff = 0;
+      let n = 0;
+      for (let y = 0.15; y < 0.85; y += 0.05)
+        for (let x = 0.15; x < 0.85; x += 0.05) {
+          const d = src.getImageData(Math.floor(c.width * x), Math.floor(c.height * y), 1, 1).data;
+          n++;
+          if (Math.abs(d[0] - first[0]) + Math.abs(d[1] - first[1]) + Math.abs(d[2] - first[2]) > 24) diff++;
+        }
+      return diff / n;
+    });
+}

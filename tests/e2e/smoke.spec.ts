@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { selectVillager, watchConsole } from './helpers.ts';
+import { mapPainted, selectVillager, watchConsole } from './helpers.ts';
 
 /**
  * A short, browser-neutral smoke test that runs in every configured project (Chromium, Firefox, WebKit, and the phone profiles):
@@ -17,22 +17,7 @@ test.describe('smoke', () => {
     await expect(page.getByTestId('play')).toBeVisible();
 
     // the map really painted something (a failed canvas context would leave a flat colour); slow software renderers get a few seconds
-    const painted = () =>
-      page.evaluate(() => {
-        const c = document.querySelector('canvas');
-        const g = c?.getContext('2d');
-        if (!c || !g) return 0;
-        const first = g.getImageData(Math.floor(c.width / 2), Math.floor(c.height / 2), 1, 1).data;
-        let diff = 0;
-        let n = 0;
-        for (let y = 0.15; y < 0.85; y += 0.05)
-          for (let x = 0.15; x < 0.85; x += 0.05) {
-            const d = g.getImageData(Math.floor(c.width * x), Math.floor(c.height * y), 1, 1).data;
-            n++;
-            if (Math.abs(d[0] - first[0]) + Math.abs(d[1] - first[1]) + Math.abs(d[2] - first[2]) > 24) diff++;
-          }
-        return diff / n;
-      });
+    const painted = mapPainted(page);
     await expect.poll(painted, { message: `${info.project.name}: map is painted`, timeout: 8000 }).toBeGreaterThan(0.2);
 
     await page.locator('[data-claim="river_fears_fire"]').click();

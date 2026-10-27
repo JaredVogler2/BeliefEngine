@@ -1,6 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 import { GameSession, serializeRun } from '../../src/engine/index.ts';
 import { policyById } from '../../src/engine/ai/bots/generic.ts';
+import { mapPainted } from './helpers.ts';
 
 /**
  * Visual and layout checks on real engine states (played by bots, loaded through the debug loader) at every supported size.
@@ -38,26 +39,9 @@ async function noSidewaysScroll(page: Page): Promise<boolean> {
   return page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1);
 }
 
-/** the share of sampled canvas pixels that differ from the first one: a blank or one-colour canvas scores ~0 */
+/** the share of sampled canvas pixels that differ from the centre one: a blank or one-colour canvas scores ~0 (works for either renderer) */
 async function paintedShare(page: Page): Promise<number> {
-  return page.evaluate(() => {
-    const c = document.querySelector('canvas');
-    if (!c) return 0;
-    const g = c.getContext('2d');
-    if (!g) return 0;
-    const w = c.width;
-    const h = c.height;
-    const first = g.getImageData(Math.floor(w * 0.5), Math.floor(h * 0.5), 1, 1).data;
-    let diff = 0;
-    let n = 0;
-    for (let y = 0.1; y < 0.9; y += 0.04)
-      for (let x = 0.1; x < 0.9; x += 0.04) {
-        const d = g.getImageData(Math.floor(w * x), Math.floor(h * y), 1, 1).data;
-        n++;
-        if (Math.abs(d[0] - first[0]) + Math.abs(d[1] - first[1]) + Math.abs(d[2] - first[2]) > 24) diff++;
-      }
-    return diff / n;
-  });
+  return mapPainted(page)();
 }
 
 test.describe('every state at every supported size', () => {

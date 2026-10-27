@@ -365,3 +365,13 @@ fieldset.field { border: 1px solid var(--line); border-radius: 10px; margin: 0.6
 .warn-list { color: #ffb4a8; }
 textarea[data-testid='compose-text'] { background: #0b1220; border: 1px solid var(--line); color: var(--ink); padding: 0.55rem 0.7rem; border-radius: 10px; font: inherit; width: 100%; resize: vertical; min-height: 64px; }
 .field .field { margin: 0; }
+
+/* ---- 3D world: loading veil shown until the first frame, drawn over the stage */
+.stage-loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 60%, #2a3a52 0%, #0b1220 70%); color: #e8dfc4; font-family: var(--serif, Georgia, serif); letter-spacing: 0.04em; pointer-events: none; }
+.stage-loading span { opacity: 0.85; animation: stageBreath 1.8s ease-in-out infinite; }
+@keyframes stageBreath { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.95; } }
+@media (prefers-reduced-motion: reduce) { .stage-loading span { animation: none; } }
+
+/* the one-line note shown when the classic map is used because there is no graphics acceleration */
+.stage-note { position: absolute; left: 10px; top: 10px; z-index: 6; display: flex; align-items: center; gap: 0.5rem; max-width: calc(100% - 80px); padding: 0.25rem 0.5rem 0.25rem 0.8rem; border-radius: 999px; background: rgba(16, 26, 43, 0.9); border: 1px solid var(--line); font-size: 0.8rem; color: var(--muted); }
+.stage-note .btn { min-height: 32px; padding: 0.15rem 0.7rem; }

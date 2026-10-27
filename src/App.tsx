@@ -69,6 +69,7 @@ function Shell() {
         get session() { return store.session; },
         load: (json: string) => { const r = deserializeRun(json); if (r.ok) { store.session = new GameSession(r.state); store.set({ screen: r.state.outcome ? 'debrief' : 'play', digest: null, tutorialDone: true }); } return r.ok; },
         hash: () => (store.state ? stateHash(store.state) : null),
+        parse: (json: string) => { const r = deserializeRun(json); return r.ok ? r.state : null; },
         /** test hook: break rendering on purpose to exercise the recovery screen */
         crash: () => store.set({ settings: undefined as never }),
         eventHash: () => (store.state ? eventHash(store.state) : null),
