@@ -38,6 +38,9 @@ export class TabletopCamera {
   private maxDist = 40;
   private fitDist = 24;
   reduced = false;
+  /** the view drifts slowly round the village (the end-of-run tour), until the player takes hold of it */
+  ambient = false;
+  private hold = 0;
   /** a stable text of where the camera is, for tests */
   private moving = false;
 
@@ -158,6 +161,7 @@ export class TabletopCamera {
 
   /** ground-plane drag: move the world under the finger */
   panBy(dxPx: number, dyPx: number, viewportH: number): void {
+    this.hold = 8;
     const g = this.goal;
     const scale = (2 * g.dist * Math.tan((this.camera.fov * DEG) / 2)) / Math.max(1, viewportH);
     const fx = -Math.sin(g.az);
@@ -184,6 +188,7 @@ export class TabletopCamera {
   }
 
   zoomBy(factor: number, anchor?: { x: number; z: number }): void {
+    this.hold = 8;
     const g = this.goal;
     const before = g.dist;
     g.dist /= factor;
@@ -199,6 +204,7 @@ export class TabletopCamera {
   }
 
   orbitBy(dAz: number, dEl: number): void {
+    this.hold = 8;
     this.goal.az += dAz;
     this.goal.el += dEl;
     this.clamp();
@@ -240,6 +246,10 @@ export class TabletopCamera {
 
   /** ease the pose towards its goal; returns true while the camera is still moving */
   update(dt: number): boolean {
+    if (this.ambient && !this.reduced) {
+      if (this.hold > 0) this.hold -= dt;
+      else this.goal.az += dt * 0.05;
+    }
     const ik = 1 - Math.exp(-dt * 10);
     const ig = this.insetGoal;
     const ic = this.insets;

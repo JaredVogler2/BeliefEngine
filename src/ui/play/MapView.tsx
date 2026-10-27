@@ -12,6 +12,7 @@ let announcedReason = false;
 export function MapView({ children }: { children?: React.ReactNode }) {
   const wrapRef = useRef<HTMLDivElement>(null);
   const rendRef = useRef<WorldRenderer | null>(null);
+  const tipRef = useRef<HTMLDivElement>(null);
   const version = useStore((s) => s.version);
   const ui = useStore((s) => s.ui);
   const state = useStore((s) => s.state);
@@ -43,6 +44,33 @@ export function MapView({ children }: { children?: React.ReactNode }) {
     let ro: ResizeObserver | null = null;
     const cleanups: (() => void)[] = [];
     setReady(false);
+
+    /** a name beside the pointer for whatever is under it (the card with the detail opens on a tap) */
+    const showTip = (hit: { kind: 'villager' | 'landmark'; id: string } | null, x: number, y: number): void => {
+      const tip = tipRef.current;
+      if (!tip) return;
+      const st = store.state;
+      if (!hit || !st) {
+        tip.hidden = true;
+        return;
+      }
+      const v = hit.kind === 'villager' ? st.villagers.find((q) => q.id === hit.id) : null;
+      const l = hit.kind === 'landmark' ? st.world.landmarks.find((q) => q.id === hit.id) : null;
+      const title = v ? v.name : l ? l.name : '';
+      const sub = v ? `${v.role}${v.status === 'dead' ? ' · lost' : ''}` : l ? l.kind : '';
+      if (tip.dataset.key !== hit.id) {
+        tip.dataset.key = hit.id;
+        tip.replaceChildren();
+        const b = document.createElement('span');
+        b.textContent = title;
+        const sm = document.createElement('small');
+        sm.textContent = sub;
+        tip.append(b, sm);
+      }
+      tip.style.left = `${x}px`;
+      tip.style.top = `${y}px`;
+      tip.hidden = false;
+    };
 
     const attach = (renderer: WorldRenderer): void => {
       r = renderer;
@@ -84,8 +112,10 @@ export function MapView({ children }: { children?: React.ReactNode }) {
           const hit = r?.hitTest(p.x, p.y) ?? null;
           r?.setHover(hit);
           canvas.style.cursor = hit ? 'pointer' : 'grab';
+          showTip(hit, p.x, p.y);
           return;
         }
+        showTip(null, 0, 0);
         pts.set(e.pointerId, p);
         if (pts.size === 2) {
           const [a, b] = [...pts.values()];
@@ -113,6 +143,13 @@ export function MapView({ children }: { children?: React.ReactNode }) {
         if (wasSingle && drag.moved <= 8 && e.button !== 2) {
           const hit = r?.hitTest(p.x, p.y) ?? null;
           store.select(hit ? { kind: hit.kind, id: hit.id } : null);
+          // the river is not a person or a place, but tapping it is asking about tonight's water
+          const st = store.state;
+          const t = !hit && st?.scn.features.flood ? r?.tileAt?.(p.x, p.y) : null;
+          if (t && st && st.world.terrain[t.y * st.world.w + t.x] === 1) {
+            store.setSettings({ showFlood: true });
+            store.set({ tab: 'forecast', sheetOpen: true });
+          }
         }
       };
       const cancel = (e: PointerEvent) => {
@@ -124,7 +161,10 @@ export function MapView({ children }: { children?: React.ReactNode }) {
         const p = local(e);
         r?.zoomBy(e.deltaY < 0 ? 1.12 : 1 / 1.12, p.x, p.y);
       };
-      const leave = () => r?.setHover(null);
+      const leave = () => {
+        r?.setHover(null);
+        showTip(null, 0, 0);
+      };
       const menu = (e: Event) => e.preventDefault();
       const key = (e: KeyboardEvent) => onMapKey(renderer, e);
       canvas.addEventListener('pointerdown', down);
@@ -211,6 +251,43 @@ export function MapView({ children }: { children?: React.ReactNode }) {
     }
   }, [version, state, ui]);
 
+  // keep the village clear of the interface: tell the renderer how much of the canvas the rail, tray, tools and open sheet cover
+  useEffect(() => {
+    if (!ready) return;
+    const apply = (): void => {
+      const r = rendRef.current;
+      const wrap = wrapRef.current;
+      if (!r?.setInsets || !wrap) return;
+      const sr = wrap.getBoundingClientRect();
+      const q = (sel: string): DOMRect | null => document.querySelector(sel)?.getBoundingClientRect() ?? null;
+      const top = q('.topbar');
+      const tray = q('.tray');
+      const modes = q('.modes');
+      const tools = q('.map-tools');
+      const side = q('.side.open');
+      // on a phone the card for the selection and the open sheet sit above the tray: the village is framed in what is left above them
+      const dock = q(".pop[data-dock='1'][data-ready='1']");
+      const wide = sr.width > 900;
+      const sheetH = !wide && side ? sr.bottom - side.top : 0;
+      const dockTop = dock && dock.top > sr.top + sr.height * 0.25 ? sr.bottom - dock.top : 0;
+      // while the opening choice is up the card docks under the rail instead (the cards need the bottom)
+      const dockHigh = dock && dock.top <= sr.top + sr.height * 0.25 ? dock.bottom - sr.top : 0;
+      r.setInsets({
+        top: Math.max(top ? top.bottom - sr.top + 8 : 0, dockHigh + 8),
+        bottom: Math.max(tray ? sr.bottom - tray.top + 8 : 0, dockTop + 8, sheetH + 8),
+        left: wide && modes ? Math.max(0, modes.right - sr.left + 8) : 0,
+        right: Math.max(wide && side ? sr.right - side.left : 0, tools ? sr.right - tools.left + 6 : 0),
+      });
+    };
+    apply();
+    const t = window.setInterval(apply, 250);
+    window.addEventListener('resize', apply);
+    return () => {
+      window.clearInterval(t);
+      window.removeEventListener('resize', apply);
+    };
+  }, [ready, choice]);
+
   const focusSel = () => {
     const r = rendRef.current;
     const sel = store.ui.selection;
@@ -242,6 +319,7 @@ export function MapView({ children }: { children?: React.ReactNode }) {
           <button className="btn small ghost" onClick={dismissNote} aria-label="Dismiss this note">Dismiss</button>
         </div>
       )}
+      <div className="hover-tip" ref={tipRef} hidden aria-hidden="true" />
       <div className="map-tools">
         <button className="btn icon-btn" aria-label="Zoom in" onClick={() => rendRef.current?.zoomBy(1.25)}>
           <Icon name="plus" />
@@ -261,14 +339,6 @@ export function MapView({ children }: { children?: React.ReactNode }) {
               <span aria-hidden="true">⟳</span>
             </button>
           </>
-        )}
-        <button className="btn icon-btn" aria-label="Toggle social lens: trust ties" aria-pressed={ui.lens === 'social'} onClick={() => store.set({ lens: ui.lens === 'social' ? 'none' : 'social' })}>
-          <Icon name="lens" />
-        </button>
-        {state?.scn.features.flood && (
-          <button className="btn icon-btn" aria-label="Toggle tonight's flood forecast on the map" aria-pressed={ui.showFlood} onClick={() => store.setSettings({ showFlood: !ui.showFlood })}>
-            <Icon name="flood" />
-          </button>
         )}
         <button className="btn icon-btn" aria-label={choice === '3d' ? 'Switch to the classic 2D map' : 'Switch to the 3D world'} onClick={() => switchTo(choice === '3d' ? '2d' : '3d')} data-testid="renderer-toggle">
           <span aria-hidden="true" style={{ fontWeight: 700, fontSize: '0.72rem' }}>{choice === '3d' ? '2D' : '3D'}</span>

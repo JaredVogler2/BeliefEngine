@@ -73,7 +73,7 @@ const FRAG = /* glsl */ `
     col += uSunColor * spec * 1.2;
     col = mix(col, uSky, fres * 0.45);
     // foam hugs the shore and breaks up in long thin streaks; the quick middle of the river gets a few white threads
-    float shore = smoothstep(0.07, 0.0, vDepth) * (0.45 + 0.55 * vn(vec2(across * 14.0, along * 4.0)));
+    float shore = (1.0 - smoothstep(0.0, 0.07, vDepth)) * (0.45 + 0.55 * vn(vec2(across * 14.0, along * 4.0)));
     float threads = smoothstep(0.78, 0.95, n2 * 0.55 + n3 * 0.5) * 0.35 * vRiver * uTierF;
     col = mix(col, vec3(0.93, 0.97, 0.95), clamp(shore * 0.9 + threads, 0.0, 1.0) * 0.8);
     col *= uTint;

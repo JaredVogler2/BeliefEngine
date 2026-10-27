@@ -31,6 +31,8 @@ const policy = arg('policy', 'evidence-first');
 const day = Number(arg('day', '1'));
 const view = Object.fromEntries(arg('view', '').split(',').filter(Boolean).map((kv) => kv.split('=') as [string, string]));
 const sel = arg('select', '');
+const sheet = arg('sheet', '');
+const lens = arg('lens', '');
 mkdirSync(dirname(out), { recursive: true });
 
 const g = GameSession.create({ scenarioId: scenario, seed });
@@ -57,11 +59,13 @@ page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
 await page.goto(`${base}/?debug=1&renderer=${renderer}&quality=${quality}`);
 await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
 await page.evaluate((j) => (window as unknown as { __belief: { load: (j: string) => boolean } }).__belief.load(j), json);
-await page.waitForSelector('.stage[data-ready="1"]', { timeout: 60000 });
+await page.waitForSelector('.stage[data-ready="1"], [data-testid="debrief-scene"][data-ready="1"], [data-testid="debrief-scene"][data-renderer="2d"]', { timeout: 60000 }).catch(async () => { await page.waitForSelector('[data-testid="debrief"]', { timeout: 60000 }); });
 if (sel) {
   const [kind, id] = sel.split(':');
   await page.evaluate(([k, i]) => (window as unknown as { __belief: { store: { select: (s: unknown) => void } } }).__belief.store.select({ kind: k, id: i }), [kind, id]);
 }
+if (sheet) await page.evaluate((t) => (window as unknown as { __belief: { store: { set: (p: unknown) => void } } }).__belief.store.set({ tab: t, sheetOpen: true }), sheet);
+if (lens) await page.evaluate((l) => (window as unknown as { __belief: { store: { set: (p: unknown) => void } } }).__belief.store.set({ lens: l }), lens);
 if (!hud) {
   await page.addStyleTag({ content: '.hud, .topbar, .side, .sidebar, .claims, .hand, .planbar, .bottombar, .map-tools, .coach, .tip, header, footer { visibility: hidden !important; } .stage { position: fixed !important; inset: 0 !important; }' });
 }

@@ -24,7 +24,7 @@ const FRAG = /* glsl */ `
   void main() {
     vec2 p = gl_PointCoord - 0.5;
     float d = length(p);
-    float a = smoothstep(0.5, 0.12, d) * vColor.a;
+    float a = (1.0 - smoothstep(0.12, 0.5, d)) * vColor.a;
     if (a < 0.01) discard;
     gl_FragColor = vec4(vColor.rgb, a);
     #include <colorspace_fragment>

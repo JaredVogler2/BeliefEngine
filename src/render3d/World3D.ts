@@ -3,7 +3,7 @@ import type { GameEvent, RunState } from '../engine/index.ts';
 import type { HitResult, RenderOpts, WorldRenderer } from '../render/types.ts';
 import { TabletopCamera } from './camera.ts';
 import { PROFILES, type Layer, type Quality, type QualityProfile, type WorldContext } from './context.ts';
-import { engineToWorld } from './coords.ts';
+import { engineToWorld, worldToTile } from './coords.ts';
 import { rng, seedFrom } from './rand.ts';
 import { makeSky } from './sky.ts';
 import { Atmosphere, Rain, moodFor } from './atmosphere.ts';
@@ -80,6 +80,8 @@ export class World3D implements WorldRenderer {
   /** the graphics context is a software rasteriser (no GPU): start low and keep the page responsive */
   software = false;
   private monT = 0;
+  /** how long the last world build took on the main thread (ms) */
+  buildMs = 0;
   /** drawn frames, for tests and the quality monitor */
   frameCount = 0;
   lastError: string | null = null;
@@ -114,6 +116,13 @@ export class World3D implements WorldRenderer {
       this.profile = PROFILES.low;
       this.renderer.shadowMap.enabled = false;
       this.scale = 0.6;
+    }
+    try {
+      // ?scale=0.5 sets the render resolution as a fraction of the canvas (for headless tests and very weak machines)
+      const k = Number(new URLSearchParams(window.location.search).get('scale'));
+      if (k >= 0.25 && k <= 1) this.scale = k;
+    } catch {
+      /* no URL in some test environments */
     }
     this.cam = new TabletopCamera(1.6);
     this.scene.fog = this.fog;
@@ -159,7 +168,8 @@ export class World3D implements WorldRenderer {
       this.raf = requestAnimationFrame(loop);
       if (document.hidden || this.contextLost) return;
       // never spend more than about 40% of the main thread on drawing, whatever the machine: a slow frame earns a longer rest
-      const minGap = Math.max(1000 / this.profile.maxFps - 2, this.drawMs * 2.5);
+      // (a software rasteriser is capped at a few frames a second: it can only ever be a fallback, and the page must stay responsive)
+      const minGap = Math.max(1000 / (this.software ? 3 : this.profile.maxFps) - 2, this.drawMs * 2.5);
       if (now - this.lastDraw < minGap) return;
       const dt = Math.min(0.1, (now - this.last) / 1000);
       this.last = now;
@@ -198,7 +208,13 @@ export class World3D implements WorldRenderer {
     if (this.ctx) this.ctx.reducedMotion = this.opts.reducedMotion;
     if (o.quality && o.quality !== prevQuality) this.setQuality(chooseQuality(o.quality, this.W));
     if (o.forecast !== undefined && this.snap) this.applyForecast(this.snap, this.opts.reducedMotion);
+    if (o.forecast !== undefined || o.showFlood !== undefined) this.syncForecastOverlay();
     for (const l of this.layers) (l as Layer & { setOptions?: (o: RenderOpts) => void }).setOptions?.(this.opts);
+  }
+
+  /** let the view drift slowly round the village (the end-of-run tour); the player's own movement pauses it */
+  setAmbient(on: boolean): void {
+    this.cam.ambient = on;
   }
 
   setInsets(i: { left: number; right: number; top: number; bottom: number }): void {
@@ -261,6 +277,7 @@ export class World3D implements WorldRenderer {
 
   /** a new village (or the same one reloaded): drop everything the old one owned and build again from the snapshot */
   private rebuild(snap: SceneSnapshot): void {
+    const t0 = performance.now();
     this.disposeWorld();
     const seedNum = seedFrom(snap.scenarioId, snap.seed);
     const terrain = buildHeightField(snap, seedNum);
@@ -300,8 +317,19 @@ export class World3D implements WorldRenderer {
     this.cam.resize(this.W, this.H);
     this.configureLight(snap);
     this.applyForecast(snap, true);
+    this.syncForecastOverlay();
     for (const l of this.layers) l.update(snap, getSceneChanges(null, snap), ctx);
     for (const l of this.layers) (l as Layer & { setOptions?: (o: RenderOpts) => void }).setOptions?.(this.opts);
+    this.buildMs = performance.now() - t0;
+  }
+
+  /** tonight's predicted flood drawn on the ground and the water, while the player is planning and has the overlay on */
+  private syncForecastOverlay(): void {
+    const snap = this.snap;
+    if (!this.magic || !snap) return;
+    const on = this.opts.showFlood && !!this.opts.forecast && snap.outcome === null;
+    this.magic.setForecast(on ? (this.opts.forecast as number[]) : null, snap.water);
+    this.magic.setWetness(snap.water, snap.terrain);
   }
 
   /** choose the mood for this moment of the run from the engine's own forecast and flood level */
@@ -328,6 +356,8 @@ export class World3D implements WorldRenderer {
     (u.uTop.value as THREE.Color).setHex(m.skyTop);
     (u.uHorizon.value as THREE.Color).setHex(m.skyHorizon);
     (u.uBottom.value as THREE.Color).setHex(m.fog).multiplyScalar(0.92);
+    u.uCloud.value = m.cloud;
+    (u.uCloudCol.value as THREE.Color).setHex(m.cloudColor);
     if (this.water) {
       this.water.setTint(new THREE.Color(m.waterTint, m.waterTint, m.waterTint));
       this.water.setLight(this.sun.position.clone().sub(this.sun.target.position).normalize(), this.sun.color.clone().multiplyScalar(Math.min(1, m.sunIntensity / 3)), new THREE.Color(m.skyTop));
@@ -372,6 +402,7 @@ export class World3D implements WorldRenderer {
       return;
     }
     if (changes.water) this.water?.setState(snap, !this.opts.reducedMotion);
+    this.syncForecastOverlay();
     this.applyForecast(snap, this.opts.reducedMotion);
     for (const l of this.layers) l.update(snap, changes, this.ctx);
   }
@@ -385,6 +416,7 @@ export class World3D implements WorldRenderer {
   /** everything a frame does except drawing it: the camera, the weather, the water, every layer's animation */
   private simulate(dt: number): void {
     this.time += dt;
+    (this.sky.material as THREE.ShaderMaterial).uniforms.uTime.value = this.time;
     this.cam.update(dt);
     if (this.atmo.update(dt)) this.applyMood();
     this.rain?.update(this.time, this.reduced() ? 0 : this.atmo.current.rain, this.atmo.current.wind);
@@ -503,6 +535,15 @@ export class World3D implements WorldRenderer {
     return { x: ((v.x + 1) / 2) * this.W, y: ((1 - v.y) / 2) * this.H };
   }
 
+  tileAt(sx: number, sy: number): { x: number; y: number } | null {
+    if (!this.terrainMesh || !this.snap) return null;
+    this.ray.setFromCamera(new THREE.Vector2((sx / this.W) * 2 - 1, -((sy / this.H) * 2 - 1)), this.cam.camera);
+    const hit = this.ray.intersectObject(this.terrainMesh.ground, false)[0];
+    if (!hit) return null;
+    const t = worldToTile(hit.point.x, hit.point.z);
+    return t.x >= 0 && t.y >= 0 && t.x < this.snap.w && t.y < this.snap.h ? t : null;
+  }
+
   entityScreen(kind: 'villager' | 'landmark', id: string): { x: number; y: number } | null {
     const p = this.locate(kind, id);
     if (!p) return null;
@@ -517,20 +558,33 @@ export class World3D implements WorldRenderer {
     if (!objs.length) return null;
     this.ray.setFromCamera(new THREE.Vector2((sx / this.W) * 2 - 1, -((sy / this.H) * 2 - 1)), this.cam.camera);
     const hits = this.ray.intersectObjects(objs, false);
-    // people win over the buildings they stand beside, then the nearest thing
-    let best: THREE.Intersection | null = null;
+    // people win over the buildings they stand beside; among people, the one whose body is nearest the tap (not the one whose invisible
+    // volume happens to be in front), so a crowd on one tile can be told apart
+    let landmark: HitResult | null = null;
+    let person: { id: string; d: number } | null = null;
     for (const h of hits) {
       const e = h.object.userData.entity as { kind: 'villager' | 'landmark'; id: string } | undefined;
       if (!e) continue;
-      if (!best) best = h;
       if (e.kind === 'villager') {
-        best = h;
-        break;
-      }
+        const p = this.entityScreen('villager', e.id);
+        const d = p ? Math.hypot(p.x - sx, p.y - sy) : 1e9;
+        if (!person || d < person.d) person = { id: e.id, d };
+      } else if (!landmark) landmark = { kind: 'landmark', id: e.id };
     }
-    if (!best) return null;
-    const e = best.object.userData.entity as { kind: 'villager' | 'landmark'; id: string };
-    return { kind: e.kind, id: e.id };
+    if (person) return { kind: 'villager', id: person.id };
+    if (landmark) return landmark;
+    // a miss that lands close to a small figure still means that figure (fingers are wider than avatars)
+    const reach = this.W < 700 || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) ? 28 : 14;
+    let near: { id: string; d: number } | null = null;
+    for (const o of objs) {
+      const e = o.userData.entity as { kind: 'villager' | 'landmark'; id: string } | undefined;
+      if (!e || e.kind !== 'villager') continue;
+      const p = this.entityScreen('villager', e.id);
+      if (!p) continue;
+      const d = Math.hypot(p.x - sx, p.y - sy);
+      if (d < reach && (!near || d < near.d)) near = { id: e.id, d };
+    }
+    return near ? { kind: 'villager', id: near.id } : null;
   }
 
   setHover(h: HitResult | null): void {
@@ -578,9 +632,9 @@ export class World3D implements WorldRenderer {
   }
 
   /** draw-call and memory figures for the developer quality monitor and the performance record */
-  info(): { calls: number; triangles: number; geometries: number; textures: number; fps: number; tier: Quality; frames: number; scale: number; drawMs: number; software: boolean } {
+  info(): { calls: number; triangles: number; geometries: number; textures: number; fps: number; tier: Quality; frames: number; scale: number; drawMs: number; software: boolean; buildMs: number } {
     const i = this.renderer.info;
-    return { calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, fps: this.fps, tier: this.quality, frames: this.frameCount, scale: this.scale, drawMs: Math.round(this.drawMs * 10) / 10, software: this.software };
+    return { calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, fps: this.fps, tier: this.quality, frames: this.frameCount, scale: this.scale, drawMs: Math.round(this.drawMs * 10) / 10, software: this.software, buildMs: Math.round(this.buildMs) };
   }
 
   /** triangles and draw calls per part of the scene, counted from the geometry (for the performance record and the quality monitor) */

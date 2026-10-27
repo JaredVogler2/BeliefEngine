@@ -29,9 +29,9 @@ test.describe('accessibility', () => {
     await audit(page, 'play');
     await selectVillager(page, 'Old Harl');
     await audit(page, 'play+villager');
-    await page.getByTestId('tab-laws').click();
+    await openSheet(page, 'laws');
     await audit(page, 'laws');
-    await page.getByTestId('tab-forecast').click();
+    await openSheet(page, 'forecast');
     await audit(page, 'forecast');
   });
 
@@ -89,8 +89,14 @@ test.describe('accessibility', () => {
     await page.locator('canvas').focus();
     await page.keyboard.press('1'); // choose the first story
     await expect(page.locator('[data-claim="river_fears_fire"]')).toHaveAttribute('aria-pressed', 'true');
-    await page.getByTestId('tab-village').focus();
+    // the details sheet is closed until asked for: reach its button and the Village tab with the keyboard alone
+    await page.getByTestId('sheet-toggle').focus();
     await page.keyboard.press('Enter');
+    await expect(page.locator('.side.open')).toBeVisible();
+    await page.getByTestId('tab-village').focus();
+    await expect(page.getByTestId('tab-village')).toBeFocused();
+    await page.keyboard.press('Enter');
+    await expect(page.getByTestId('village-panel')).toBeVisible();
     await page.getByRole('button', { name: /^Mara Wells/ }).focus();
     await page.keyboard.press('Enter');
     await page.getByRole('button', { name: /^Tell Mara Wells/ }).focus();

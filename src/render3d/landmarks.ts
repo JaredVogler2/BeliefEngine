@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildCabin, buildChapel, buildGranary, buildHall, buildHome, buildRuin, type Built } from './buildings.ts';
 import { buildBeacon, buildBellTower, buildBridge, bridgeSpecOf, buildCampfire, buildMarket, buildMill, buildPen, buildShelter, buildWell } from './civic.ts';
 import type { Layer, WorldContext } from './context.ts';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mergeByMaterial, type Part } from './geom.ts';
 import type { MaterialLib } from './materials.ts';
 import { Particles } from './particles.ts';
@@ -14,6 +15,8 @@ interface View {
   kind: string;
   root: THREE.Group;
   meshes: THREE.Mesh[];
+  /** the parts that never move on their own (walls, roofs, props): these are drawn from the merged batch instead */
+  statics: THREE.Mesh[];
   extras: Map<string, THREE.Group>;
   flame?: THREE.Group;
   light?: THREE.PointLight;
@@ -49,6 +52,13 @@ export class LandmarksLayer implements Layer {
   private emitAcc = 0;
   private waterLevel = 0;
   private glowTarget = 0;
+  /** every still part of every building, merged into one mesh per material in world space: hundreds of draw calls become a couple of dozen */
+  private batches: THREE.Mesh[] = [];
+  private batchDirty = true;
+  private ringSel: THREE.Mesh;
+  private ringHover: THREE.Mesh;
+  private selected: string | null = null;
+  private hovered: string | null = null;
 
   constructor(ctx: WorldContext) {
     this.lib = ctx.materials;
@@ -56,6 +66,16 @@ export class LandmarksLayer implements Layer {
     this.smoke = new Particles(ctx.profile.detail > 0.5 ? 260 : 120, false);
     this.fire = new Particles(ctx.profile.detail > 0.5 ? 300 : 140, true);
     this.group.add(this.smoke.points, this.fire.points);
+    const ring = (color: number, opacity: number): THREE.Mesh => {
+      const m = new THREE.Mesh(new THREE.RingGeometry(0.92, 1, 40), new THREE.MeshBasicMaterial({ color, transparent: true, opacity, depthTest: false, side: THREE.DoubleSide }));
+      m.rotation.x = -Math.PI / 2;
+      m.renderOrder = 8;
+      m.visible = false;
+      this.group.add(m);
+      return m;
+    };
+    this.ringSel = ring(0xffffff, 0.95);
+    this.ringHover = ring(0xf0d58a, 0.8);
     for (let i = 0; i < MAX_LIGHTS; i++) {
       const l = new THREE.PointLight(0xffa04a, 0, 3.4, 2);
       l.visible = false;
@@ -82,6 +102,7 @@ export class LandmarksLayer implements Layer {
       m.name = key;
       parent.add(m);
       view?.meshes.push(m);
+      if (view && parent === view.root) view.statics.push(m);
     }
   }
 
@@ -166,7 +187,7 @@ export class LandmarksLayer implements Layer {
     const root = new THREE.Group();
     root.name = `lm:${l.id}`;
     const view: View = {
-      id: l.id, kind: l.kind, root, meshes: [], extras: new Map(), smokeAt: [], proxy: new THREE.Mesh(), lit: false, hp: l.hp, built: true, swing: 0, occupied: true, wheelSpeed: 0,
+      id: l.id, kind: l.kind, root, meshes: [], statics: [], extras: new Map(), smokeAt: [], proxy: new THREE.Mesh(), lit: false, hp: l.hp, built: true, swing: 0, occupied: true, wheelSpeed: 0,
     };
     if (l.kind === 'bridge') return this.buildBridgeView(l, snap, ctx, view);
     const built = this.builderFor(l, ctx);
@@ -254,6 +275,7 @@ export class LandmarksLayer implements Layer {
   }
 
   private dispose1(v: View): void {
+    this.batchDirty = true;
     this.group.remove(v.root);
     for (const m of v.meshes) m.geometry.dispose();
     v.proxy.geometry.dispose();
@@ -271,6 +293,46 @@ export class LandmarksLayer implements Layer {
           (o.material as THREE.Material).dispose();
         }
       });
+    }
+  }
+
+  /**
+   * Draw the still parts of all buildings together. The per-building meshes stay in the scene graph (hidden) as the source for the next
+   * batch, so a building that burns down or changes is rebuilt and the batch is simply made again.
+   */
+  private rebatch(): void {
+    if (!this.batchDirty) return;
+    this.batchDirty = false;
+    for (const b of this.batches) {
+      this.group.remove(b);
+      b.geometry.dispose();
+    }
+    this.batches = [];
+    const by = new Map<THREE.Material, { geos: THREE.BufferGeometry[]; cast: boolean; receive: boolean; name: string }>();
+    for (const v of this.views.values()) {
+      if (v.bridge || !v.statics.length) continue;
+      v.root.updateMatrixWorld(true);
+      for (const m of v.statics) {
+        const mat = m.material as THREE.Material;
+        const g = m.geometry.clone();
+        g.applyMatrix4(m.matrixWorld);
+        const e = by.get(mat) ?? { geos: [], cast: m.castShadow, receive: m.receiveShadow, name: m.name };
+        e.geos.push(g);
+        by.set(mat, e);
+        m.visible = false;
+      }
+    }
+    for (const [mat, e] of by) {
+      const merged = mergeGeometries(e.geos, false);
+      for (const g of e.geos) g.dispose();
+      if (!merged) continue;
+      const mesh = new THREE.Mesh(merged, mat);
+      mesh.castShadow = e.cast;
+      mesh.receiveShadow = e.receive;
+      mesh.name = `batch:${e.name}`;
+      mesh.frustumCulled = false;
+      this.group.add(mesh);
+      this.batches.push(mesh);
     }
   }
 
@@ -307,6 +369,8 @@ export class LandmarksLayer implements Layer {
       this.applyDynamic(v, l, ctx);
     }
     this.proxyList = [...this.views.values()].map((v) => v.proxy);
+    this.rebatch();
+    this.placeRing(this.ringSel, this.selected);
   }
 
   private addView(l: SceneLandmark, snap: SceneSnapshot, ctx: WorldContext): void {
@@ -314,6 +378,7 @@ export class LandmarksLayer implements Layer {
     if (!v) return;
     this.views.set(l.id, v);
     this.group.add(v.root);
+    this.batchDirty = true;
   }
 
   private applyDynamic(v: View, l: SceneLandmark, _ctx: WorldContext): void {
@@ -334,6 +399,33 @@ export class LandmarksLayer implements Layer {
       v.bridge.standing.rotation.x = !down && ratio < 0.4 ? 0.012 : 0;
       v.bridge.standing.position.y = !down && ratio < 0.65 ? -0.02 * (1 - ratio) : 0;
     }
+  }
+
+  /** the selected place gets a white ring on the ground, and the one under the pointer a gold one */
+  setOptions(o: { selection: { kind: string; id: string } | null }): void {
+    this.selected = o.selection?.kind === 'landmark' ? o.selection.id : null;
+    this.placeRing(this.ringSel, this.selected);
+  }
+
+  setHover(h: { kind: string; id: string } | null): void {
+    this.hovered = h?.kind === 'landmark' ? h.id : null;
+    this.placeRing(this.ringHover, this.hovered === this.selected ? null : this.hovered);
+  }
+
+  private placeRing(m: THREE.Mesh, id: string | null): void {
+    const v = id ? this.views.get(id) : undefined;
+    if (!v) {
+      m.visible = false;
+      return;
+    }
+    const p = v.root.position;
+    // sized to the thing: a cottage's footprint, the bridge's length
+    const box = new THREE.Box3().setFromObject(v.proxy);
+    const size = box.getSize(new THREE.Vector3());
+    const r = Math.max(0.45, Math.min(2.4, Math.max(size.x, size.z) * 0.5 + 0.12));
+    m.position.set(v.kind === 'bridge' ? (box.min.x + box.max.x) / 2 : p.x, (v.kind === 'bridge' ? box.min.y : p.y) + 0.05, v.kind === 'bridge' ? (box.min.z + box.max.z) / 2 : p.z);
+    m.scale.set(v.kind === 'bridge' ? r : r, v.kind === 'bridge' ? r : r, 1);
+    m.visible = true;
   }
 
   setWeatherGlow(k: number): void {
@@ -429,6 +521,12 @@ export class LandmarksLayer implements Layer {
   }
 
   dispose(): void {
+    for (const m of [this.ringSel, this.ringHover]) {
+      m.geometry.dispose();
+      (m.material as THREE.Material).dispose();
+    }
+    for (const b of this.batches) b.geometry.dispose();
+    this.batches = [];
     for (const v of this.views.values()) this.dispose1(v);
     this.views.clear();
     this.smoke.dispose();
