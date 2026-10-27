@@ -339,8 +339,12 @@ test.describe('the 3D world', () => {
     const view = (): Promise<{ x: number; z: number; dist: number; azimuthDeg: number; elevationDeg: number }> =>
       page.evaluate(() => (window as unknown as { __beRenderer: { describeView: () => { x: number; z: number; dist: number; azimuthDeg: number; elevationDeg: number } } }).__beRenderer.describeView());
     const hash0 = (await browserState(page)).hash;
-    // the interface measures itself a few times a second and the camera frames the village in what it leaves free: let that settle, then this is home
+    // the interface measures itself a few times a second and the camera eases to frame the village in what it leaves free. On a software
+    // rasteriser the loop draws about three frames a second with a capped time step, so that easing takes many real seconds: let the
+    // interface settle, run the camera's own clock forward until it has arrived, and that is home
+    const settle = (): Promise<unknown> => page.evaluate(() => (window as unknown as { __beRenderer: { advance: (s: number) => void } }).__beRenderer.advance(4));
     await page.waitForTimeout(1200);
+    await settle();
     const home = await view();
     const box = (await page.locator('canvas').boundingBox())!;
     const mx = box.x + box.width * 0.5;
@@ -386,6 +390,7 @@ test.describe('the 3D world', () => {
     await expect.poll(async () => Math.abs((await view()).azimuthDeg - before.azimuthDeg)).toBeGreaterThan(5);
     await page.locator('canvas').focus();
     await page.keyboard.press('0');
+    await settle();
     await expect.poll(async () => Math.abs((await view()).dist - home.dist), { timeout: 10_000 }).toBeLessThan(0.5);
     expect((await browserState(page)).hash).toBe(hash0);
   });
