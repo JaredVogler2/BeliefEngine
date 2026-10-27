@@ -22,6 +22,19 @@ const DEFAULT_OPTS: RenderOpts = {
   reducedMotion: false, lens: 'none', showFlood: true, activeClaim: null, selection: null, hints: [], forecast: null, highContrast: false, quality: 'high', known: new Set(),
 };
 
+/** whether this browser's WebGL2 can draw into half-float buffers (what the finishing chain needs), asked of a throwaway context */
+function floatBuffersLikely(): boolean {
+  try {
+    const gl = document.createElement('canvas').getContext('webgl2');
+    if (!gl) return false;
+    const ok = !!(gl.getExtension('EXT_color_buffer_float') || gl.getExtension('EXT_color_buffer_half_float'));
+    gl.getExtension('WEBGL_lose_context')?.loseContext();
+    return ok;
+  } catch {
+    return false;
+  }
+}
+
 /** which quality tier to start in: an explicit ?quality=, else the setting, with software-rendered and phone-sized windows stepped down */
 export function chooseQuality(setting: 'high' | 'low', w: number): Quality {
   try {
@@ -74,6 +87,8 @@ export class World3D implements WorldRenderer {
   private ctx: WorldContext | null = null;
   private raf = 0;
   private running = false;
+  /** a capture hook: the live loop stops drawing, so frames change only through advance() (exact frame-to-frame comparisons) */
+  private frozen = false;
   private last = 0;
   private time = 0;
   private lastDraw = 0;
@@ -104,7 +119,16 @@ export class World3D implements WorldRenderer {
     this.profile = PROFILES[this.quality];
     // ask for the context here rather than inside three.js: a browser that offers WebGL2 to a test canvas can still refuse it to this one
     // (WebKit on a machine with no GPU), and then this throws quietly and the page falls back to the classic map instead of logging an error
-    const attrs = { alpha: false, antialias: this.quality !== 'low', depth: true, stencil: false, premultipliedAlpha: true, powerPreference: 'high-performance' as const, preserveDrawingBuffer: false };
+    // the finishing chain draws the scene into its own buffer and smooths edges itself (FXAA), so a multisampled canvas would only cost
+    // memory and time: it is asked for only where the chain cannot run (no half-float buffers) or is switched off with ?post=0
+    let postWanted = true;
+    try {
+      postWanted = new URLSearchParams(window.location.search).get('post') !== '0';
+    } catch {
+      /* no URL in some test environments */
+    }
+    const chainLikely = postWanted && floatBuffersLikely();
+    const attrs = { alpha: false, antialias: this.quality !== 'low' && !chainLikely, depth: true, stencil: false, premultipliedAlpha: true, powerPreference: 'high-performance' as const, preserveDrawingBuffer: false };
     const gl = canvas.getContext('webgl2', attrs) as WebGL2RenderingContext | null;
     if (!gl) throw new Error('WebGL2 is not available here');
     this.renderer = new THREE.WebGLRenderer({ canvas, context: gl as unknown as WebGLRenderingContext, ...attrs });
@@ -141,12 +165,6 @@ export class World3D implements WorldRenderer {
       // ?scale=0.5 sets the render resolution as a fraction of the canvas (for headless tests and very weak machines)
       const k = Number(new URLSearchParams(window.location.search).get('scale'));
       if (k >= 0.25 && k <= 1) this.scale = k;
-    } catch {
-      /* no URL in some test environments */
-    }
-    let postWanted = true;
-    try {
-      postWanted = new URLSearchParams(window.location.search).get('post') !== '0';
     } catch {
       /* no URL in some test environments */
     }
@@ -195,7 +213,7 @@ export class World3D implements WorldRenderer {
     const loop = (now: number): void => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(loop);
-      if (document.hidden || this.contextLost) return;
+      if (document.hidden || this.contextLost || this.frozen) return;
       // never spend more than about 40% of the main thread on drawing, whatever the machine: a slow frame earns a longer rest
       // (a software rasteriser is capped at a few frames a second: it can only ever be a fallback, and the page must stay responsive)
       const minGap = Math.max(1000 / (this.software ? 3 : this.profile.maxFps) - 2, this.drawMs * 2.5);
@@ -519,6 +537,12 @@ export class World3D implements WorldRenderer {
       this.frames = 0;
       this.fpsT = now;
     }
+  }
+
+  /** capture hook: stop (or restart) the live loop's drawing; advance() and renderNow() still draw */
+  setFrozen(on: boolean): void {
+    this.frozen = on;
+    this.last = performance.now();
   }
 
   /** test and screenshot hook: let `seconds` of animation pass in small steps (as if running at 30 fps), then draw once */
