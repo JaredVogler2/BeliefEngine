@@ -112,6 +112,11 @@ export const RULES: Record<string, RuleSpec> = {
     trigger: { kind: 'watchers', min: 3 }, radius: 0, intensity: 3,
     thresholds: std(0.55, 0.4, 4, 60, 20), upkeep: { fuel: 0 }, side: ['labor_drain'], tags: ['flood', 'bridge', 'canonical'],
   },
+  crowds_break_bridges: {
+    id: 'crowds_break_bridges', version: 1, subject: 'bridge', effect: 'weaken',
+    trigger: { kind: 'watchers', min: 1 }, radius: 0, intensity: 2,
+    thresholds: std(0.55, 0.4, 3, 55, 25), upkeep: { fuel: 0 }, side: [], tags: ['flood', 'bridge', 'rival'],
+  },
   rain_heeds_bells: {
     id: 'rain_heeds_bells', version: 1, subject: 'rain', effect: 'redirect',
     trigger: { kind: 'bell' }, radius: 0, intensity: 2,

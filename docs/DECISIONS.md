@@ -42,3 +42,20 @@ Every unlock opens a choice that changes a rule of the run (an extra opening sto
 
 ## D12. Agents are utility scores you can read
 Villager decisions are small integer utility scores with authored reasons and seeded bounded tie-breaks, evaluated at discrete moments (dusk, dawn), not per frame. Every faction move is announced a day ahead with its reason, costs budget, has a cooldown and has a counter. Memory is capped at six items per villager and only scales persuasion within 0.55-1.15.
+
+## D13. Tournaments use generic bots, a privileged oracle is reported apart, and balance changes are paired
+`scripts/tournament.ts` plays every policy on exactly the same seeds (so differences are not luck of the draw) through the public
+`GameSession` API. The eight mandatory policies (`ai/bots/generic.ts`) know no scenario, claim id, landmark id or villager id: they read
+claims, rituals, the forecast and the social graph a player can read. A rollout oracle exists for regret measurements, plays each candidate
+to the end on a private copy (so it sees the night's dice) and is labelled **privileged** in every report; it is never offered to players.
+A balance change is accepted only after a same-seed paired re-run against the saved baseline (`--compare`), reported as seeds gained
+and lost with an exact sign test, and the unchanged scenarios are checked for identical state hashes.
+
+## D14. The first data-driven change: Redbank's bridge route gets an adversary (phase 11)
+The 1000-seed baseline showed the Witness Bridge route winning 99.5-100% of seeds with a single, identical outcome and no rival
+move at all (the Doubters' Table only watched the fire law), while the fire route won 65-82%. The Keeper's choice of opening story was
+therefore a trap rather than a decision. Lever: a second rival, Old Harl and the Hearth Families, who remember what a crowd did to the bridge in '31 and
+spread "A crowded bridge is a broken bridge" once the bridge law has 12% support (announced a day ahead, answerable by a challenge or by winning Harl over).
+Measured effect and caveats are in `docs/BALANCE_REPORT.md`. While integrating it a real bug appeared and was fixed: bridge duty and
+bridge-law credit treated every `subject: bridge` claim alike, so a *rival* bridge rumour sent its own believers (Harl, a field hand) to the deck
+and cost the food that route lives on. Only the Keeper's own bridge stories now do.

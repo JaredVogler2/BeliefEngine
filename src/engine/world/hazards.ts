@@ -89,12 +89,14 @@ export function runNight(ctx: Ctx, mods: Modifiers): void {
     } else if (dmg > 0) {
       emit(ctx, { step: 'hazard', code: 'BRIDGE_DAMAGED', importance: bridge.hp < 40 ? 2 : 1, delta: { bridge: [before, bridge.hp] }, text: `The flood batters the bridge: ${before} → ${bridge.hp} integrity.` });
     }
-    const bridgeLaw = lawsFor(s, ['bridge'])[0];
+    // credit and blame go to the Keeper's own bridge law, never to a rival rumour that happens to be about the bridge
+    const keeperBridgeLaws = lawsFor(s, ['bridge']).filter((id) => !claimDef(s, s.laws.find((q) => q.id === id)!.claimId).rival);
+    const bridgeLaw = keeperBridgeLaws[0];
     if (bridgeLaw && dmg >= 12 && (bridge.data.watchers ?? 0) < (claimDef(s, s.laws.find((q) => q.id === bridgeLaw)!.claimId).spec.trigger.min ?? 3)) {
       discredit(ctx, bridgeLaw, null, 8, `the bridge took ${dmg} damage with only ${bridge.data.watchers ?? 0} on watch.`);
     }
     if (saved >= 8 && watched > 0) {
-      const bl = lawsFor(s, ['bridge'])[0];
+      const bl = bridgeLaw;
       emit(ctx, {
         step: 'hazard', code: 'BRIDGE_HELD', importance: 3, law: bl,
         text: `The bridge holds. ${bl ? lawSummary(s, bl, mods) : 'Watchers stood the deck'} and took ${saved} damage out of the flood's ${raw}.`,

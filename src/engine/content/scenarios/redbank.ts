@@ -153,7 +153,7 @@ const claimDefs: ClaimDef[] = [
   },
   {
     id: 'bridge_stands_watched', text: 'A bridge never breaks while it is watched.', short: 'Bridge stands watched', icon: 'eye',
-    spec: getRule('bridge_stands_watched'), regions: ['river'], electorate: { river: ['east', 'west'] }, ritual: 'keep_vigil', contradicts: [],
+    spec: getRule('bridge_stands_watched'), regions: ['river'], electorate: { river: ['east', 'west'] }, ritual: 'keep_vigil', contradicts: ['crowds_break_bridges'],
     benefit: 'With at least 3 watchers on the deck at night, the bridge takes up to 90% less flood damage.',
     risk: 'Watchers stand on the bridge at dusk instead of working the fields, and food output drops.',
     flavor: 'Watched wood does not dare to snap.', startsAvailable: false, unlockDay: 3,
@@ -171,6 +171,13 @@ const claimDefs: ClaimDef[] = [
     benefit: 'Rival rumour: if Eastbank believes it, lit beacons draw water toward them.',
     risk: 'If it takes hold, your fire wall becomes a lure.',
     flavor: 'Osric’s answer to the Keeper.', startsAvailable: false,
+  },
+  {
+    id: 'crowds_break_bridges', text: 'A crowded bridge is a broken bridge.', short: 'Crowds break bridges', icon: 'skull',
+    spec: getRule('crowds_break_bridges'), regions: ['river'], electorate: { river: ['east', 'west'] }, contradicts: ['bridge_stands_watched'], rival: true,
+    benefit: 'Rival rumour: if both banks believe it, a watch on the deck adds weight to the bridge instead of sheltering it.',
+    risk: 'If it takes hold, your vigil becomes the thing that breaks the bridge.',
+    flavor: 'Old Harl remembers what the crowd did to the bridge in ’31.', startsAvailable: false,
   },
 ];
 
@@ -212,7 +219,10 @@ const runtime: ScenarioRuntime = {
     { id: 'food', label: 'At least 4 food in store', metric: 'food', op: '>=', value: 4, required: true },
     { id: 'heroic', label: 'Heroic: 13+ alive and the bridge standing', metric: 'alive', op: '>=', value: 13, required: false, heroic: true },
   ],
-  rivals: [{ factionId: 'scholars', claim: 'river_courts_fire', watches: 'river_fears_fire', trigger: 0.3, telegraph: 1, budget: 3, cooldown: 2, leader: 'osric' }],
+  rivals: [
+    { factionId: 'scholars', claim: 'river_courts_fire', watches: 'river_fears_fire', trigger: 0.3, telegraph: 1, budget: 3, cooldown: 2, leader: 'osric' },
+    { factionId: 'hearth', claim: 'crowds_break_bridges', watches: 'bridge_stands_watched', trigger: 0.12, telegraph: 1, budget: 3, cooldown: 2, leader: 'harl' },
+  ],
   beats: [
     { id: 'first_spread', when: { kind: 'first_belief' }, title: 'It begins to travel', text: 'A story is only as strong as the ties it can travel along. Watch who repeats it.', once: true },
     { id: 'bridge_creaks', when: { kind: 'bridge_hp_below', arg: 50 }, title: 'The bridge groans', text: 'The deck is weakening. If it fails, the east bank is cut off.', once: true },

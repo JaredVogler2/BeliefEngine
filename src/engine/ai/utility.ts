@@ -39,7 +39,7 @@ export function householdAtRisk(s: RunState, v: Villager, water: number[]): { me
 
 function bridgeBelief(s: RunState, v: Villager): number {
   let best = 0;
-  for (const c of s.scn.claimDefs) if (c.spec.subject === 'bridge') best = Math.max(best, v.beliefs[c.id]?.conv ?? 0);
+  for (const c of s.scn.claimDefs) if (c.spec.subject === 'bridge' && !c.rival) best = Math.max(best, v.beliefs[c.id]?.conv ?? 0);
   return best;
 }
 
@@ -88,6 +88,6 @@ export function chooseIntent(s: RunState, v: Villager, water: number[]): Intent 
 
 /** Which claim a believer's bridge duty rests on, for explanations. */
 export function bridgeClaimName(s: RunState): string {
-  const c = s.scn.claimDefs.find((d) => d.spec.subject === 'bridge');
+  const c = s.scn.claimDefs.find((d) => d.spec.subject === 'bridge' && !d.rival);
   return c ? claimDef(s, c.id).short : 'the bridge law';
 }

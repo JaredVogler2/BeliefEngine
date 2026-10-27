@@ -77,6 +77,7 @@ Support pressure for (claim, region) = weighted mean over the electorate of `max
 * **Bridge stands watched**: with >= 3 watchers on the deck, bridge damage is cut by up to 90%. Watchers are believers who stand watch at dusk instead of working fields.
 * **Rain heeds bells**: when the bells are rung, the river level drops by up to 2 steps; the same water pools (+N depth) on the lowest ground of Westbank.
 * **River courts fire** (rival, Osric): if believed in Eastbank, lit beacons *draw* water in.
+* **Crowds break bridges** (rival, Old Harl and the Hearth Families, added in phase 11): "A crowded bridge is a broken bridge." Once the Keeper's bridge law reaches 12% support Harl announces a rebuttal aimed at the Keeper's most influential believer (a day's warning), it lands unless challenged or unless Harl himself has come to believe the bridge law (conviction >= 50), and it erodes belief in the bridge law in the target and two neighbours. If it ever became law (both banks), watchers on the deck would *add* strain instead of cutting it (`bridge.weaken`: -30% shield). Budget 3 moves, cooldown 2 days. Only the Keeper's own bridge stories send believers to the deck; a rival bridge rumour never does.
 
 ## World (Redbank)
 Map 28x18, river at x=12..14, west bank high (elevation 4..10), east plain low (2..4) with a 5-tile knoll refuge (shelter capacity 3).
@@ -107,11 +108,16 @@ Map 28x18, river at x=12..14, west bank high (elevation 4..10), east plain low (
 * **Factions**: the Council bars public gatherings (`FACTION_BAN`, announced a day earlier by `FACTION_TELEGRAPH`) when the Keeper has called two or more crowds in three days while the Council's leader has not been persuaded (conviction under 40) and trusts the Keeper under 55; budget two moves, cooldown three days; winning the leader over stands it down. A faction whose leader firmly believes a law (>= 65) and trusts the Keeper (>= 40) endorses it once to members the leader can walk to (+6 conviction each). The rival faction's campaign, rebuttal and sabotage moves (phase 05/07) are forecast a day ahead and can be challenged.
 * **What is going on** (callouts): short authored lines derived from the same state (rival and faction plans, a bank that doubts, someone who trusts you but not your witness, opposite laws in two places, last night's success or failure).
 
-## Verified strategy lines (see `tests/fixtures/redbank-traces.json`)
+## Verified strategy lines (see `tests/fixtures/redbank-traces.json`, `tests/fixtures/tournament-traces.json`)
 Seed 1: **Fire Wall** (belief in Eastbank, beacons lit by coverage on day 5) wins with 13 alive, 11 homes; **Witness Bridge**
-(belief across both banks, watchers hold the bridge, people walk out over it) wins with 14 alive, 6 homes; **no action**
-loses. Both wins were also replayed through the real browser UI and produce identical state hashes.
+(belief across both banks, watchers hold the bridge, people walk out over it; it now also answers Harl's announced rebuttal) wins with 14 alive, 6 homes and exactly 4 food; **no action**
+loses. Both wins were also replayed through the real browser UI and produce identical state hashes. The tournament
+(`npm run test:sim`, `docs/BALANCE_REPORT.md`) adds saved winning and losing traces per generic policy, replayed by `tests/unit/tournament.test.ts`.
 
 ## Known exploit probes (tests in `tests/unit`)
 Undo cannot mint Influence; failed or illegal actions never change state; repeated seeding saturates; gossip does not cross a
-cut; a law cannot be created by one loud believer; competing laws cannot both be live.
+cut; a law cannot be created by one loud believer; competing laws cannot both be live. `tests/unit/exploits.test.ts` (phase 11)
+attacks the same rules on every kind of village: Influence through undo, save/load, retry and junk targets; resources never negative
+or overflowing and nobody orphaned or off the map; belief farming saturates; proof reaches only people within sight; cooldowns apply;
+contradicting laws are never live together and no law changes status twice in a night; doing nothing never earns a win or medal;
+a finished game cannot be advanced, acted on or undone.

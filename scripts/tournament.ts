@@ -29,6 +29,7 @@ import { spawn } from 'node:child_process';
 import { cpus, setPriority } from 'node:os';
 import { createInterface } from 'node:readline';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { gunzipSync, gzipSync } from 'node:zlib';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { applyAction, getAvailableActions } from '../src/engine/core/actions.ts';
@@ -210,7 +211,7 @@ async function main(): Promise<void> {
   for (let s = from; s <= to; s++) for (const c of cohorts) jobs.push(`${c}:${s}`);
   const chunks: string[][] = Array.from({ length: nWorkers }, () => []);
   // spread jobs so every worker sees every cohort and the slow early seeds (oracle, rescue samples) are shared out
-  jobs.forEach((j, i) => chunks[(i + Math.floor(i / cohorts.length)) % nWorkers].push(j));
+  jobs.forEach((j, i) => chunks[((i % nWorkers) + Math.floor(i / nWorkers)) % nWorkers].push(j));
 
   const started = Date.now();
   const rows: Row[] = [];
@@ -274,15 +275,24 @@ async function main(): Promise<void> {
   const byPolicy = ['cohort,policy,n,wins,win_pct,ci_lo,ci_hi,median_end_day,mean_score,mean_alive,mean_homes,first_law_day,reach,ap_spent,ap_unspent,median_ms'];
   for (const [c, cs] of Object.entries(sum.cohorts)) for (const [p, s] of Object.entries(cs.policies)) byPolicy.push([c, p, s.n, s.wins, s.winRate, s.ci[0], s.ci[1], s.medianEndDay, s.meanScore, s.meanAlive, s.meanHomes, s.firstLawDay ?? '', s.meanReach, s.apSpentMean, s.apUnspentMean, s.duration.medianMs].join(','));
   writeFileSync(join(out, 'by-policy.csv'), byPolicy.join('\n') + '\n');
+  if (flag('fixtures')) saveFixtures(arg('fixtures', ''), rows, cfg, from);
+  if (arg('compare', '')) comparison(arg('compare', ''), rows, out);
   if (flag('publish')) {
     const pub = join(ROOT, 'docs', 'data', 'tournament', name);
     mkdirSync(pub, { recursive: true });
     for (const f of ['summary.json', 'REPORT.md', 'by-policy.csv']) writeFileSync(join(pub, f), readFileSync(join(out, f)));
+    // per-run results, compressed: the input a later paired comparison (--compare docs/data/tournament/<name>/runs.csv.gz) needs
+    writeFileSync(join(pub, 'runs.csv.gz'), gzipSync(readFileSync(join(out, 'runs.csv')), { level: 9 }));
+    for (const f of ['COMPARISON.md', 'comparison.json']) {
+      try {
+        writeFileSync(join(pub, f), readFileSync(join(out, f)));
+      } catch {
+        /* only present when --compare was given */
+      }
+    }
     console.log(`published to ${pub}`);
   }
 
-  if (flag('fixtures')) saveFixtures(arg('fixtures', ''), rows, cfg, from);
-  if (arg('compare', '')) comparison(arg('compare', ''), rows, out);
 
   // console summary
   for (const [c, cs] of Object.entries(sum.cohorts)) {
@@ -333,7 +343,8 @@ function saveFixtures(file: string, rows: Row[], cfg: ChildConfig, from: number)
 }
 
 function comparison(file: string, rows: Row[], out: string): void {
-  const before = parseCsv(readFileSync(file, 'utf8'));
+  const raw = readFileSync(file);
+  const before = parseCsv((file.endsWith('.gz') ? gunzipSync(raw) : raw).toString('utf8'));
   const after = parseCsv(toCsv(rows));
   const diffs = comparePaired(before, after).sort((a, b) => (a.scenario < b.scenario ? -1 : a.scenario > b.scenario ? 1 : a.policy < b.policy ? -1 : 1));
   const L = ['# Paired comparison', '', `Before: \`${file}\`. After: this run. Same scenario, policy and seed in both; "gained" = lost before, won now; "lost" = won before, lost now; p = exact two-sided sign test on those.`, '', '| Scenario | Policy | Seeds | Win % before | Win % after | Δ pts | Gained | Lost | p | Δ mean score |', '| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |'];

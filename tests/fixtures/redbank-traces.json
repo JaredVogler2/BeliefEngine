@@ -11,7 +11,7 @@
   "lawsActivated": [
    "river_fears_fire"
   ],
-  "stateHash": "1d45243a9436d2",
+  "stateHash": "11ec6d73416e26",
   "eventHash": "1786c582e48ec0",
   "actions": [
    {
@@ -122,12 +122,12 @@
   "alive": 14,
   "homes": 6,
   "food": 4,
-  "score": 830,
+  "score": 820,
   "lawsActivated": [
    "bridge_stands_watched"
   ],
-  "stateHash": "0e49a0ea765b38",
-  "eventHash": "09dfd85f19df42",
+  "stateHash": "1fd91495f0ef6e",
+  "eventHash": "0067ab92df806f",
   "actions": [
    {
     "type": "PICK_STARTER",
@@ -148,16 +148,16 @@
     "type": "END_DAY"
    },
    {
+    "type": "COUNTER",
+    "claim": "bridge_stands_watched",
+    "against": "crowds_break_bridges",
+    "target": "hester"
+   },
+   {
     "type": "RITUAL",
     "ritual": "keep_vigil",
     "landmark": "br",
     "claim": "bridge_stands_watched"
-   },
-   {
-    "type": "MESSENGER",
-    "claim": "bridge_stands_watched",
-    "from": "hester",
-    "to": "aldous"
    },
    {
     "type": "END_DAY"
@@ -192,6 +192,21 @@
    {
     "type": "MESSENGER",
     "claim": "bridge_stands_watched",
+    "from": "nell",
+    "to": "ivo"
+   },
+   {
+    "type": "MESSENGER",
+    "claim": "bridge_stands_watched",
+    "from": "hester",
+    "to": "mara"
+   },
+   {
+    "type": "END_DAY"
+   },
+   {
+    "type": "MESSENGER",
+    "claim": "bridge_stands_watched",
     "from": "aldous",
     "to": "ivo"
    },
@@ -202,7 +217,10 @@
     "to": "harl"
    },
    {
-    "type": "END_DAY"
+    "type": "MESSENGER",
+    "claim": "bridge_stands_watched",
+    "from": "ivo",
+    "to": "dunn"
    },
    {
     "type": "END_DAY"
@@ -221,7 +239,7 @@
   "alive": 10,
   "homes": 6,
   "food": 7,
-  "stateHash": "0d9fecf1cd586e",
+  "stateHash": "13bf62980eac01",
   "eventHash": "19202cc7e371cb",
   "actions": [
    {
@@ -256,7 +274,7 @@
   "policy": "fireWall",
   "result": "defeat",
   "alive": 14,
-  "stateHash": "1594ca566779d8",
+  "stateHash": "04c4dd763956bc",
   "eventHash": "093260344e1500",
   "actions": [
    {

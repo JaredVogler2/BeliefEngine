@@ -174,9 +174,10 @@ export function assignWatchers(ctx: Ctx): void {
   const br = s.world.landmarks.find((l) => l.kind === 'bridge' && l.hp > 0);
   if (!br) return;
   br.data.watchers = 0;
-  const bridgeClaims = s.scn.claimDefs.filter((c) => c.spec.subject === 'bridge');
+  // only the Keeper's own bridge stories send believers to the deck; a rival's ("crowds break bridges") never does
+  const bridgeClaims = s.scn.claimDefs.filter((c) => c.spec.subject === 'bridge' && !c.rival);
   const claimIds = new Set(bridgeClaims.map((c) => c.id));
-  for (const c of s.claims) if (c.def?.spec.subject === 'bridge') claimIds.add(c.id);
+  for (const c of s.claims) if (c.def?.spec.subject === 'bridge' && !c.def.rival) claimIds.add(c.id);
   if (!claimIds.size) return;
   const lawLive = s.laws.some((l) => claimIds.has(l.claimId) && (l.status === 'active' || l.status === 'wavering'));
   const vigil = (s.flags.vigilDay ?? -1) === s.day;
