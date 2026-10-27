@@ -439,4 +439,43 @@ test.describe('the 3D world', () => {
     expect(1 - covered, `${vp.width}x${vp.height}`).toBeGreaterThan(vp.width >= 900 ? 0.75 : 0.6);
     await expect(page.getByTestId('end-day')).toBeInViewport();
   });
+
+  test('at every screen size the brief names, phones upright and on their side included: no sideways scroll, finger-sized controls, End Day in view, the world in most of the screen', async ({ page }, info) => {
+    test.skip(info.project.name !== 'desktop-3d', 'the sizes are set inside the test; run once');
+    // iPhone 12 to 15 (390x844), iPhone 15 Pro (393x852), a small Android (360x740), an iPhone on its side (844x390), three desktops
+    const sizes: [number, number][] = [[390, 844], [393, 852], [360, 740], [844, 390], [1920, 1080], [1440, 900], [1366, 768]];
+    const json = played(2, 'evidence-first');
+    for (const [w, h] of sizes) {
+      await page.setViewportSize({ width: w, height: h });
+      await page.goto(URL3D);
+      await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
+      await loadRun(page, json);
+      await page.waitForTimeout(600);
+      const m = await page.evaluate(() => {
+        const de = document.documentElement;
+        const small: string[] = [];
+        // the tip's slim buttons are left out: their tap area is widened to 44 px by an invisible box the layout cannot see
+        for (const b of document.querySelectorAll<HTMLElement>('.topbar button, .corner button, .modes button, .map-tools button, .tray button')) {
+          const r = b.getBoundingClientRect();
+          if (r.width === 0 || r.height === 0 || getComputedStyle(b).visibility === 'hidden') continue;
+          if (r.width < 43.5 || r.height < 43.5) small.push(`${b.getAttribute('aria-label') || b.textContent?.trim()} ${Math.round(r.width)}x${Math.round(r.height)}`);
+        }
+        const rects = ['.topbar', '.corner', '.modes', '.tray', '.map-tools', '.coach'].map((q) => document.querySelector(q)?.getBoundingClientRect()).filter(Boolean) as DOMRect[];
+        let n = 0;
+        let hit = 0;
+        for (let x = 0; x < window.innerWidth; x += 8) {
+          for (let y = 0; y < window.innerHeight; y += 8) {
+            n++;
+            if (rects.some((r) => x >= r.left && x <= r.right && y >= r.top && y <= r.bottom)) hit++;
+          }
+        }
+        return { overflow: de.scrollWidth - de.clientWidth, small, world: 1 - hit / n };
+      });
+      const at = `${w}x${h}`;
+      expect(m.overflow, `${at}: the page does not scroll sideways`).toBeLessThanOrEqual(1);
+      expect(m.small, `${at}: every control is at least 44x44`).toEqual([]);
+      await expect(page.getByTestId('end-day'), at).toBeInViewport();
+      expect(m.world, `${at}: the share of the screen left to the world`).toBeGreaterThan(w >= 900 ? 0.75 : 0.6);
+    }
+  });
 });
