@@ -33,6 +33,7 @@ const view = Object.fromEntries(arg('view', '').split(',').filter(Boolean).map((
 const sel = arg('select', '');
 const sheet = arg('sheet', '');
 const lens = arg('lens', '');
+const focus = arg('focus', ''); // villager:ivo or landmark:br: put the camera close on it before the shot
 mkdirSync(dirname(out), { recursive: true });
 
 const g = GameSession.create({ scenarioId: scenario, seed });
@@ -81,6 +82,21 @@ if (resolve) {
   );
 }
 // the debrief's aftermath scene owns its renderer: there is nothing to steer or to register under __beRenderer there
+if (renderer === '3d' && focus && (await page.evaluate(() => !!(window as unknown as { __beRenderer?: unknown }).__beRenderer))) {
+  const [fk, fi] = focus.split(':');
+  await page.evaluate(
+    ([k, i]) => {
+      const w = window as unknown as { __beRenderer: { focusVillager: (i: string) => void; focusTile: (x: number, y: number, z?: number) => void; advance: (s: number) => void }; __belief: { state: { world: { landmarks: { id: string; x: number; y: number }[] } } } };
+      if (k === 'villager') w.__beRenderer.focusVillager(i);
+      else {
+        const l = w.__belief.state.world.landmarks.find((q) => q.id === i);
+        if (l) w.__beRenderer.focusTile(l.x, l.y, 4);
+      }
+      w.__beRenderer.advance(2.5);
+    },
+    [fk, fi],
+  );
+}
 if (renderer === '3d' && (await page.evaluate(() => !!(window as unknown as { __beRenderer?: unknown }).__beRenderer))) {
   const numeric = Object.fromEntries(Object.entries(view).map(([k, v]) => [k === 'az' ? 'azimuthDeg' : k === 'el' ? 'elevationDeg' : k, Number(v)]));
   await page.evaluate((v) => {
