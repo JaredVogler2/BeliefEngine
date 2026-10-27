@@ -7,7 +7,7 @@ import { makeNoise, type Rng } from './rand.ts';
  * leaves above, darker where the crown is shaded by itself), built once and then instanced hundreds of times with a random
  * rotation, size and tint. Four tree shapes (oak, pine, birch, willow), an orchard apple tree, a shrub and a stump.
  */
-export type TreeKind = 'oak' | 'pine' | 'birch' | 'willow' | 'apple' | 'shrub' | 'stump';
+export type TreeKind = 'oak' | 'pine' | 'birch' | 'willow' | 'apple' | 'shrub' | 'stump' | 'blossom' | 'autumn';
 
 const noise = makeNoise(7771);
 const c = (hex: number): THREE.Color => new THREE.Color(hex);
@@ -84,11 +84,14 @@ function merge(list: THREE.BufferGeometry[]): THREE.BufferGeometry {
 export function makeTree(kind: TreeKind, r: Rng): THREE.BufferGeometry {
   const seed = r() * 100;
   switch (kind) {
-    case 'oak': {
-      const bark = c(0x5b4630);
+    case 'oak':
+    case 'blossom':
+    case 'autumn': {
+      // the same broad crown in three colourings: summer green, spring blossom and a turning maple
+      const bark = c(kind === 'blossom' ? 0x4b3a2c : 0x5b4630);
       const parts: THREE.BufferGeometry[] = [trunk(0.045, 0.03, 0.4, 0.03, bark)];
-      const leaf = c(0x3f8a3f);
-      const light = c(0x8fc24f);
+      const leaf = c(kind === 'blossom' ? 0xe08aa8 : kind === 'autumn' ? 0xd9782c : 0x3f8a3f);
+      const light = c(kind === 'blossom' ? 0xffd3e1 : kind === 'autumn' ? 0xf2c14a : 0x8fc24f);
       const lobes: [number, number, number, number][] = [[0, 0.62, 0, 0.27], [0.18, 0.5, 0.06, 0.18], [-0.16, 0.53, -0.05, 0.19], [0.03, 0.5, -0.17, 0.17], [-0.04, 0.8, 0.07, 0.16]];
       for (const [x, y, z, rad] of lobes) {
         const b = blob(rad, 1, 0.5, seed + x * 10, 0.9);

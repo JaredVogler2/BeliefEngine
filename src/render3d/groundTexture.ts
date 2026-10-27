@@ -260,6 +260,23 @@ export function buildGroundTexture(snap: SceneSnapshot, data: TerrainData, seedN
   g.putImageData(img, 0, 0);
   g.fillStyle = 'rgba(40,38,34,0.78)';
   for (let ty = 0; ty < h; ty++) for (let tx = 0; tx < w; tx++) if (snap.burned[ty * w + tx]) g.fillRect(tx * PPT + 2, ty * PPT + 2, PPT - 4, PPT - 4);
+  // contact shadows: the soft dark a building leaves in the grass and dust around its feet (what ambient occlusion would add), multiplied in
+  const AO: Record<string, number> = { home: 0.95, cabin: 0.85, hall: 1.3, chapel: 1.05, mill: 1.05, market: 1.15, shelter: 1.15, granary: 0.9, belltower: 0.85, well: 0.45, pen: 0.95, campfire: 0.3, beacon: 0.4 };
+  g.save();
+  g.globalCompositeOperation = 'multiply';
+  for (const l of snap.landmarks) {
+    const r = AO[l.kind];
+    if (!r || l.hp <= 0) continue;
+    const cx = (l.x + 0.5) * PPT;
+    const cy = (l.y + 0.5) * PPT;
+    const grad = g.createRadialGradient(cx, cy, r * PPT * 0.3, cx, cy, r * PPT * 1.15);
+    grad.addColorStop(0, 'rgb(118,108,92)');
+    grad.addColorStop(0.45, 'rgb(190,182,168)');
+    grad.addColorStop(1, 'rgb(255,255,255)');
+    g.fillStyle = grad;
+    g.fillRect(cx - r * PPT * 1.2, cy - r * PPT * 1.2, r * PPT * 2.4, r * PPT * 2.4);
+  }
+  g.restore();
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   texture.anisotropy = maxAniso;

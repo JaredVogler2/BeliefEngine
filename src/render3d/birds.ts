@@ -56,7 +56,7 @@ export class BirdsLayer implements Layer {
     };
     for (let i = 0; i < n; i++) {
       phase[i] = r() * 6.28;
-      this.birds.push({ cx: 0, cz: 0, rx: 5 + r() * 7, rz: 3.5 + r() * 5, alt: 4.2 + r() * 2.6, speed: (0.14 + r() * 0.1) * (r() < 0.5 ? 1 : -1), phase: r() * 6.28, dir: 1 });
+      this.birds.push({ cx: 0, cz: 0, rx: 5 + r() * 7, rz: 3.5 + r() * 5, alt: 8 + r() * 4, speed: (0.14 + r() * 0.1) * (r() < 0.5 ? 1 : -1), phase: r() * 6.28, dir: 1 });
     }
     this.geo.setAttribute('aPhase', new THREE.InstancedBufferAttribute(phase, 1));
     this.mesh = new THREE.InstancedMesh(this.geo, this.mat, n);

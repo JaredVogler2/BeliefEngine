@@ -40,7 +40,7 @@ export function buildHome(variant: number, r: Rng): Built {
       const W = 0.8;
       const D = 0.56;
       const wh = 0.4;
-      add(parts, box(W + 0.05, 0.1, D + 0.05, 0.4), 'stone', 0, -0.06, 0);
+      add(parts, box(W + 0.05, 0.4, D + 0.05, 0.4), 'stone', 0, -0.36, 0);
       add(parts, box(W, wh, D, 0.5), plaster(wall), 0, 0.04, 0);
       add(parts, gableRoof(W, D, 0.3, 0.075, 0.035), tile, 0, 0.04 + wh, 0);
       for (const sx of [-1, 1]) add(parts, gableEnd(D, 0.3, 0.02), plaster(wall), sx * (W / 2 - 0.01), 0.04 + wh, 0, Math.PI / 2);
@@ -67,7 +67,7 @@ export function buildHome(variant: number, r: Rng): Built {
       const D = 0.58;
       const h1 = 0.3;
       const h2 = 0.28;
-      add(parts, box(W + 0.05, 0.1, D + 0.05, 0.4), 'stone', 0, -0.06, 0);
+      add(parts, box(W + 0.05, 0.4, D + 0.05, 0.4), 'stone', 0, -0.36, 0);
       add(parts, box(W, h1, D, 0.5), plaster(wall), 0, 0.04, 0);
       const U = 0.05;
       add(parts, box(W + U, 0.03, D + U, 0.3), 'timber', 0, 0.04 + h1, 0);
@@ -101,7 +101,7 @@ export function buildHome(variant: number, r: Rng): Built {
       const W = 0.86;
       const D = 0.5;
       const wh = 0.38;
-      add(parts, box(W + 0.05, 0.1, D + 0.05, 0.4), 'stone', 0, -0.06, 0);
+      add(parts, box(W + 0.05, 0.4, D + 0.05, 0.4), 'stone', 0, -0.36, 0);
       add(parts, box(W, wh, D, 0.5), plaster(wall), 0, 0.04, 0);
       add(parts, gableRoof(W, D, 0.27, 0.07), tile, 0, 0.04 + wh, 0);
       for (const sx of [-1, 1]) add(parts, gableEnd(D, 0.27, 0.02), plaster(wall), sx * (W / 2 - 0.01), 0.04 + wh, 0, Math.PI / 2);
@@ -110,7 +110,7 @@ export function buildHome(variant: number, r: Rng): Built {
       const cd = 0.62;
       const cx = W / 2 - cw / 2;
       const cz = D / 2 + cd / 2 - 0.12;
-      add(parts, box(cw + 0.05, 0.1, cd + 0.05, 0.4), 'stone', cx, -0.06, cz);
+      add(parts, box(cw + 0.05, 0.4, cd + 0.05, 0.4), 'stone', cx, -0.36, cz);
       add(parts, box(cw, wh, cd, 0.5), plaster(wall), cx, 0.04, cz);
       add(parts, gableRoof(cd, cw, 0.25, 0.07), tile, cx, 0.04 + wh, cz, Math.PI / 2);
       add(parts, gableEnd(cw, 0.25, 0.02), plaster(wall), cx, 0.04 + wh, cz + cd / 2 - 0.01, 0);
@@ -135,7 +135,7 @@ export function buildHome(variant: number, r: Rng): Built {
       const W = 0.7;
       const D = 0.56;
       const wh = 0.42;
-      add(parts, box(W + 0.05, 0.1, D + 0.05, 0.4), 'stone@8e887a', 0, -0.06, 0);
+      add(parts, box(W + 0.05, 0.4, D + 0.05, 0.4), 'stone@8e887a', 0, -0.36, 0);
       add(parts, box(W, wh, D, 0.45), 'stone@b5ad98', 0, 0.04, 0);
       add(parts, gableRoof(D, W, 0.32, 0.075, 0.04), 'roofSlate', 0, 0.04 + wh, 0, Math.PI / 2);
       add(parts, gableEnd(W, 0.32, 0.02), 'stone@b5ad98', 0, 0.04 + wh, D / 2 - 0.01, 0);
@@ -160,7 +160,7 @@ export function buildHome(variant: number, r: Rng): Built {
       const W = 0.76;
       const D = 0.58;
       const wh = 0.34;
-      add(parts, box(W + 0.05, 0.1, D + 0.05, 0.4), 'stone', 0, -0.06, 0);
+      add(parts, box(W + 0.05, 0.4, D + 0.05, 0.4), 'stone', 0, -0.36, 0);
       add(parts, box(W, wh, D, 0.5), plaster(wall), 0, 0.04, 0);
       add(parts, hipRoof(W, D, 0.34, 0.11, W * 0.5, 0.25), 'thatch', 0, 0.04 + wh, 0);
       // eyebrow dormer over the door
@@ -190,7 +190,7 @@ export function buildCabin(r: Rng): Built {
   const W = 0.62;
   const D = 0.5;
   const wh = 0.34;
-  add(parts, box(W + 0.05, 0.1, D + 0.05, 0.4), 'stone@8e887a', 0, -0.06, 0);
+  add(parts, box(W + 0.05, 0.4, D + 0.05, 0.4), 'stone@8e887a', 0, -0.36, 0);
   // log walls: stacked horizontal logs with the ends sticking out at the corners
   for (let i = 0; i < 6; i++) {
     const y = 0.04 + i * 0.058 + 0.03;

@@ -256,7 +256,7 @@ export class FoliageLayer implements Layer {
       const j = Math.floor(z * G);
       return i >= 1 && j >= 1 && i < gw - 1 && j < gh - 1 && blocked[j * gw + i] === 0;
     };
-    const trees: Record<TreeKind, Inst[]> = { oak: [], pine: [], birch: [], willow: [], apple: [], shrub: [], stump: [] };
+    const trees: Record<TreeKind, Inst[]> = { oak: [], pine: [], birch: [], willow: [], apple: [], shrub: [], stump: [], blossom: [], autumn: [] };
     const plant = (kind: TreeKind, x: number, z: number, scale: number): void => {
       const y = ctx.heightAt(x, z) - 0.012;
       trees[kind].push({ x, y, z, s: scale * (0.82 + r() * 0.4), ry: r() * Math.PI * 2, color: new THREE.Color(1 - r() * 0.14, 1 - r() * 0.1, 1 - r() * 0.18) });
@@ -298,7 +298,9 @@ export class FoliageLayer implements Layer {
           const x = tx + r();
           const z = ty + r();
           if (!free(x, z)) continue;
-          if (grove > 0.58 && r() < (grove - 0.5) * 2.2) plant(r() < 0.55 ? 'oak' : 'birch', x, z, 0.9 + r() * 0.3);
+          // here and there a broad tree has turned: warm patches where a second, slower noise is high
+          const turned = noise(x * 0.22 + 40, z * 0.22) > 0.76;
+          if (grove > 0.58 && r() < (grove - 0.5) * 2.2) plant(r() < 0.55 ? (turned ? 'autumn' : 'oak') : 'birch', x, z, 0.9 + r() * 0.3);
           else if (grove > 0.5 && r() < 0.12) plant('shrub', x, z, 0.8 + r() * 0.6);
         }
         // willows lean over the water
@@ -320,7 +322,7 @@ export class FoliageLayer implements Layer {
         const rad = 0.95 + r() * 0.4;
         const x = l.x + 0.5 + Math.cos(a) * rad;
         const z = l.y + 0.5 + Math.sin(a) * rad;
-        if (free(x, z)) plant('apple', x, z, 0.8 + r() * 0.2);
+        if (free(x, z)) plant(k === 0 && r() < 0.6 ? 'blossom' : 'apple', x, z, 0.8 + r() * 0.2);
       }
     }
     for (const kind of Object.keys(trees) as TreeKind[]) {
