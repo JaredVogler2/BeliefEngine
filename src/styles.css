@@ -389,14 +389,24 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   :root { --tray-h: 118px; }
   .map-tools { top: calc(66px + var(--safe-t)); right: 6px; }
   .map-tools .btn { width: 40px; height: 40px; min-height: 40px; }
+  .map-tools.narrow:not(.open) { gap: 0; }
   .corner { right: 6px; }
   .lbl, .lbl-n { display: none; }
   .tray .end-btn { min-width: 0; flex: 1; white-space: nowrap; font-size: 1rem; padding-left: 0.7rem; padding-right: 0.7rem; }
   .tray .btn:not(.end-btn) { padding: 0; width: 44px; min-width: 44px; }
   .tray .ap { gap: 0.3rem; margin-right: 0; }
   .pip { width: 13px; height: 13px; }
-  .coach .c-body { font-size: 0.8rem; line-height: 1.3; }
-  .coach .c-actions { flex-direction: column; align-items: flex-end; gap: 0.15rem; }
+  .coach { padding: 0.2rem 0.5rem 0.2rem 0.6rem; gap: 0.4rem; border-radius: 12px; align-items: center; }
+  .coach .c-body { font-size: 0.78rem; line-height: 1.25; }
+  .coach.narrow .c-text { display: none; }
+  .coach.narrow.open .c-text { display: block; padding-bottom: 0.2rem; }
+  .coach .c-title { background: none; border: 0; padding: 0.35rem 0; margin: 0; color: inherit; font: inherit; text-align: left; min-height: 32px; display: block; width: 100%; cursor: pointer; }
+  .coach .c-title b { margin: 0; }
+  .coach .c-title b::after { content: ' \25BE'; opacity: 0.6; }
+  .coach.open .c-title b::after { content: ' \25B4'; }
+  .coach .c-actions { flex-direction: row; align-items: center; gap: 0.4rem; }
+  .coach .step { display: none; }
+  .coach .btn.small { min-height: 30px; padding: 0.1rem 0.5rem; font-size: 0.76rem; }
   .digest { width: calc(100% - 20px); }
 }
 @media (max-width: 380px) {

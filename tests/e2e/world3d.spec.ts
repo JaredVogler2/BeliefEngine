@@ -31,6 +31,12 @@ async function ready(page: Page): Promise<void> {
   await expect.poll(() => renderer(page, (r) => (typeof r.info === 'function' ? r.info().frames : 0)), { timeout: 60_000 }).toBeGreaterThan(0);
 }
 
+/** on a phone the view controls fold into one button: open them if they are folded */
+async function showTools(page: Page): Promise<void> {
+  const toggle = page.getByTestId('tools-toggle');
+  if ((await toggle.count()) && (await toggle.getAttribute('aria-expanded')) === 'false') await toggle.click();
+}
+
 async function loadRun(page: Page, json: string): Promise<void> {
   await page.evaluate((j) => (window as unknown as { __belief: { load: (s: string) => boolean } }).__belief.load(j), json);
   await ready(page);
@@ -266,10 +272,12 @@ test.describe('the 3D world', () => {
     await startRedbank(page, 1, 'normal', URL3D);
     await ready(page);
     const h = (await browserState(page)).hash;
+    await showTools(page);
     await page.getByTestId('renderer-toggle').click();
     await expect(page.locator('.stage[data-renderer="2d"][data-ready="1"]')).toBeVisible();
     expect((await browserState(page)).hash).toBe(h);
     await expect.poll(mapPainted(page), { timeout: 10_000 }).toBeGreaterThan(0.2);
+    await showTools(page);
     await page.getByTestId('renderer-toggle').click();
     await ready(page);
     expect((await browserState(page)).hash).toBe(h);
@@ -336,6 +344,7 @@ test.describe('the 3D world', () => {
     }
     // the on-screen buttons turn it, and the keyboard brings the whole village back
     const before = await view();
+    await showTools(page);
     await page.getByTestId('orbit-right').click();
     await expect.poll(async () => Math.abs((await view()).azimuthDeg - before.azimuthDeg)).toBeGreaterThan(5);
     await page.locator('canvas').focus();
@@ -376,7 +385,7 @@ test.describe('the 3D world', () => {
       }
       return hit / n;
     });
-    // on a desktop the world is at least 75% of the view; on a phone the two-row tray and rail make that 60%
+    // on a desktop the world is at least 75% of the view; on a phone the rail, a one-line tip, one tools button and the two-row tray leave at least 60% (about 70% measured locally, 67% on a CI runner with other fonts)
     expect(1 - covered, `${vp.width}x${vp.height}`).toBeGreaterThan(vp.width >= 900 ? 0.75 : 0.6);
     await expect(page.getByTestId('end-day')).toBeInViewport();
   });

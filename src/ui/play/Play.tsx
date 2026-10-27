@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { allClaimDefs, firstName, getForecast, getLawViews, nightReport } from '../../engine/index.ts';
 import { setAmbience, setSceneAudio, setThreatIntensity, unlockAudio } from '../../audio/audio.ts';
 import { Icon, Modal, evIcon } from '../components.tsx';
 import { store, useStore } from '../store.ts';
+import { useNarrow } from '../useNarrow.ts';
 import { getTutorial } from '../tutorial.ts';
 import { Compose } from './Compose.tsx';
 import { Corner, Modes, SelectionPopover, TopBar, Tray } from './Hud.tsx';
@@ -65,14 +66,22 @@ function Digest() {
 function Coach() {
   const state = useStore((s) => s.state)!;
   const ui = useStore((s) => s.ui);
+  const narrow = useNarrow();
+  const [open, setOpen] = useState(false);
   const t = getTutorial(state, ui);
   if (!t || ui.digest) return null;
-  // a banner between the top bar and the map, never on top of the map or the story cards
+  // a banner between the top bar and the map, never on top of the map or the story cards; on a phone it is one line until it is asked for more
   return (
-    <aside className="coach" role="note" data-testid="coach">
+    <aside className={`coach ${narrow ? 'narrow' : ''} ${open ? 'open' : ''}`} role="note" data-testid="coach">
       <div className="c-body">
-        <b>{t.title}</b>
-        <span>{t.text}</span>
+        {narrow ? (
+          <button className="c-title" aria-expanded={open} onClick={() => setOpen(!open)}>
+            <b>{t.title}</b>
+          </button>
+        ) : (
+          <b>{t.title}</b>
+        )}
+        <span className="c-text">{t.text}</span>
       </div>
       <div className="c-actions">
         <span className="step">Step {t.step} of {t.total}</span>

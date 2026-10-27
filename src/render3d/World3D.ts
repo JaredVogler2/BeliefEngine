@@ -9,6 +9,7 @@ import { makeSky } from './sky.ts';
 import { Atmosphere, Rain, moodFor } from './atmosphere.ts';
 import { getSceneChanges, getSceneSnapshot, type SceneSnapshot } from './snapshot.ts';
 import { buildHeightField, buildTerrainMesh, type TerrainMesh } from './terrain.ts';
+import { CloudSea } from './clouds.ts';
 import { Water } from './water.ts';
 import { MaterialLib } from './materials.ts';
 import { createLayers } from './layers.ts';
@@ -57,6 +58,7 @@ export class World3D implements WorldRenderer {
   private layers: Layer[] = [];
   private atmo = new Atmosphere();
   private rain: Rain | null = null;
+  private clouds: CloudSea | null = null;
   private magic: MagicField | null = null;
   private effects: EffectsLayer | null = null;
   private ctx: WorldContext | null = null;
@@ -267,6 +269,11 @@ export class World3D implements WorldRenderer {
       this.rain.dispose();
       this.rain = null;
     }
+    if (this.clouds) {
+      this.scene.remove(this.clouds.group);
+      this.clouds.dispose();
+      this.clouds = null;
+    }
     this.magic?.dispose();
     this.magic = null;
     this.effects = null;
@@ -312,6 +319,9 @@ export class World3D implements WorldRenderer {
     for (const l of this.layers) this.scene.add(l.group);
     this.rain = new Rain(snap.w, snap.h, this.profile.detail > 0.5 ? 1400 : 600);
     this.scene.add(this.rain.lines);
+    this.clouds = new CloudSea(snap.w, snap.h, this.quality, seedNum);
+    this.clouds.setMood(this.atmo.current);
+    this.scene.add(this.clouds.group);
     this.cam.setGround((x, z) => terrain.heightAt(x, z));
     this.cam.setBounds({ w: snap.w, h: snap.h });
     this.cam.reduced = this.opts.reducedMotion;
@@ -356,6 +366,7 @@ export class World3D implements WorldRenderer {
     (u.uTop.value as THREE.Color).setHex(m.skyTop);
     (u.uHorizon.value as THREE.Color).setHex(m.skyHorizon);
     (u.uBottom.value as THREE.Color).setHex(m.fog).multiplyScalar(0.92);
+    this.clouds?.setMood(m);
     u.uCloud.value = m.cloud;
     (u.uCloudCol.value as THREE.Color).setHex(m.cloudColor);
     if (this.water) {
@@ -420,6 +431,7 @@ export class World3D implements WorldRenderer {
     this.cam.update(dt);
     if (this.atmo.update(dt)) this.applyMood();
     this.rain?.update(this.time, this.reduced() ? 0 : this.atmo.current.rain, this.atmo.current.wind);
+    this.clouds?.tick(this.reduced() ? 0 : this.time);
     if (this.ctx) {
       this.water?.tick(dt, this.time);
       for (const l of this.layers) l.tick(dt, this.time, this.ctx);

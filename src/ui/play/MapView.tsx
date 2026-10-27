@@ -6,6 +6,7 @@ import { chooseRenderer, loadWorld3D, rememberRenderer } from '../../render/choo
 import { Icon } from '../components.tsx';
 import { store, useStore } from '../store.ts';
 import { getTutorial } from '../tutorial.ts';
+import { useNarrow } from '../useNarrow.ts';
 
 let announcedReason = false;
 
@@ -19,6 +20,10 @@ export function MapView({ children }: { children?: React.ReactNode }) {
   const [mode, setMode] = useState(() => chooseRenderer());
   const [ready, setReady] = useState(false);
   const choice = mode.choice;
+  // on a phone the view controls fold into one button: pinch zooms, and the rest is a tap away
+  const narrow = useNarrow();
+  const [toolsOpen, setToolsOpen] = useState(false);
+  const showTools = !narrow || toolsOpen;
 
   // when the classic map is showing and the player did not ask for it, say why, once, and offer the way to 3D
   const [noteShown, setNoteShown] = useState(() => !!mode.reason && !mode.reason.startsWith('classic map chosen') && !announcedReason);
@@ -320,29 +325,38 @@ export function MapView({ children }: { children?: React.ReactNode }) {
         </div>
       )}
       <div className="hover-tip" ref={tipRef} hidden aria-hidden="true" />
-      <div className="map-tools">
-        <button className="btn icon-btn" aria-label="Zoom in" onClick={() => rendRef.current?.zoomBy(1.25)}>
-          <Icon name="plus" />
-        </button>
-        <button className="btn icon-btn" aria-label="Zoom out" onClick={() => rendRef.current?.zoomBy(1 / 1.25)}>
-          <Icon name="minus" />
-        </button>
-        <button className="btn icon-btn" aria-label="Focus on selection, or fit the whole map" onClick={focusSel}>
-          <Icon name="fit" />
-        </button>
-        {choice === '3d' && (
+      <div className={`map-tools ${narrow ? 'narrow' : ''} ${toolsOpen ? 'open' : ''}`}>
+        {narrow && (
+          <button className="btn icon-btn tools-toggle" aria-label="View controls: zoom, rotate, fit and the 2D or 3D switch" aria-expanded={toolsOpen} onClick={() => setToolsOpen(!toolsOpen)} data-testid="tools-toggle">
+            <Icon name={toolsOpen ? 'close' : 'fit'} />
+          </button>
+        )}
+        {showTools && (
           <>
-            <button className="btn icon-btn" aria-label="Rotate the view left" onClick={() => rendRef.current?.orbitBy?.(0.25, 0)} data-testid="orbit-left">
-              <span aria-hidden="true">⟲</span>
+            <button className="btn icon-btn" aria-label="Zoom in" onClick={() => rendRef.current?.zoomBy(1.25)}>
+              <Icon name="plus" />
             </button>
-            <button className="btn icon-btn" aria-label="Rotate the view right" onClick={() => rendRef.current?.orbitBy?.(-0.25, 0)} data-testid="orbit-right">
-              <span aria-hidden="true">⟳</span>
+            <button className="btn icon-btn" aria-label="Zoom out" onClick={() => rendRef.current?.zoomBy(1 / 1.25)}>
+              <Icon name="minus" />
+            </button>
+            <button className="btn icon-btn" aria-label="Focus on selection, or fit the whole map" onClick={focusSel}>
+              <Icon name="fit" />
+            </button>
+            {choice === '3d' && (
+              <>
+                <button className="btn icon-btn" aria-label="Rotate the view left" onClick={() => rendRef.current?.orbitBy?.(0.25, 0)} data-testid="orbit-left">
+                  <span aria-hidden="true">⟲</span>
+                </button>
+                <button className="btn icon-btn" aria-label="Rotate the view right" onClick={() => rendRef.current?.orbitBy?.(-0.25, 0)} data-testid="orbit-right">
+                  <span aria-hidden="true">⟳</span>
+                </button>
+              </>
+            )}
+            <button className="btn icon-btn" aria-label={choice === '3d' ? 'Switch to the classic 2D map' : 'Switch to the 3D world'} onClick={() => switchTo(choice === '3d' ? '2d' : '3d')} data-testid="renderer-toggle">
+              <span aria-hidden="true" style={{ fontWeight: 700, fontSize: '0.72rem' }}>{choice === '3d' ? '2D' : '3D'}</span>
             </button>
           </>
         )}
-        <button className="btn icon-btn" aria-label={choice === '3d' ? 'Switch to the classic 2D map' : 'Switch to the 3D world'} onClick={() => switchTo(choice === '3d' ? '2d' : '3d')} data-testid="renderer-toggle">
-          <span aria-hidden="true" style={{ fontWeight: 700, fontSize: '0.72rem' }}>{choice === '3d' ? '2D' : '3D'}</span>
-        </button>
       </div>
       {children}
     </div>
