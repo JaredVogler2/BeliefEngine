@@ -92,7 +92,12 @@ export class World3D implements WorldRenderer {
     this.canvas = canvas;
     this.quality = quality ?? chooseQuality('high', canvas.clientWidth || 1000);
     this.profile = PROFILES[this.quality];
-    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: this.quality !== 'low', alpha: false, powerPreference: 'high-performance', preserveDrawingBuffer: false });
+    // ask for the context here rather than inside three.js: a browser that offers WebGL2 to a test canvas can still refuse it to this one
+    // (WebKit on a machine with no GPU), and then this throws quietly and the page falls back to the classic map instead of logging an error
+    const attrs = { alpha: false, antialias: this.quality !== 'low', depth: true, stencil: false, premultipliedAlpha: true, powerPreference: 'high-performance' as const, preserveDrawingBuffer: false };
+    const gl = canvas.getContext('webgl2', attrs) as WebGL2RenderingContext | null;
+    if (!gl) throw new Error('WebGL2 is not available here');
+    this.renderer = new THREE.WebGLRenderer({ canvas, context: gl as unknown as WebGLRenderingContext, ...attrs });
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
     this.renderer.toneMappingExposure = 1.02;
