@@ -27,7 +27,14 @@
     "mcp": "tsx mcp/server.ts",
     "gen:verify": "tsx scripts/verify-expeditions.ts --from 1 --to 1000 --catalog",
     "mcp:demo": "tsx mcp/agent-demo.ts",
-    "mcp:verify": "tsx mcp/verify-run.ts"
+    "mcp:verify": "tsx mcp/verify-run.ts",
+    "replay:example": "tsx scripts/replay-example.ts",
+    "nl:corpus": "tsx scripts/nl-corpus.ts",
+    "nl:demo": "tsx scripts/nl-demo.ts",
+    "acceptance:mcp": "tsx scripts/acceptance-b.ts",
+    "acceptance:fun": "tsx scripts/acceptance-fun.ts",
+    "acceptance:novice": "tsx scripts/novice-pass.ts",
+    "monkey": "tsx scripts/monkey.ts"
   },
   "dependencies": {
     "react": "19.3.1",
