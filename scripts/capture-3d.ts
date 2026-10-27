@@ -3,7 +3,7 @@
  * Three.js scene, puts the camera exactly where asked and saves what the canvas shows, with the interface hidden or not.
  *
  *   npx vite --host 127.0.0.1 --port 5173 &        # or npm run build && npm run preview (port 4173)
- *   npx tsx scripts/capture-3d.ts --state calm --size 1440x900 --out docs/3d-rebuild/screenshots/A.png [--view az=28,el=44,dist=20,x=14,z=9]
+ *   npx tsx scripts/capture-3d.ts --day 6 --policy threat-aware --seed 2 --size 1440x900 --out docs/3d-rebuild/screenshots/shot.jpg [--view az=28,el=44,dist=20,x=14,z=9]
  *       [--quality high] [--hud 0|1] [--url http://127.0.0.1:5173] [--wait 1500] [--renderer 3d|2d] [--day 5] [--policy evidence-first] [--seed 1] [--scenario redbank]
  *       [--resolve 1 --t 1.2]   play day N in full, load the dawn after it, then play that day's real events and let 1.2 s of effects run
  */

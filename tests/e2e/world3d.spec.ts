@@ -289,6 +289,61 @@ test.describe('the 3D world', () => {
     expect(given.n).toBeGreaterThan(100);
   });
 
+  test('the camera pans, zooms, orbits and resets through real mouse input, the keyboard and the on-screen buttons, within its limits, and never touches the run', async ({ page }, info) => {
+    await startRedbank(page, 1, 'normal', URL3D);
+    await ready(page);
+    const view = (): Promise<{ x: number; z: number; dist: number; azimuthDeg: number; elevationDeg: number }> =>
+      page.evaluate(() => (window as unknown as { __beRenderer: { describeView: () => { x: number; z: number; dist: number; azimuthDeg: number; elevationDeg: number } } }).__beRenderer.describeView());
+    const hash0 = (await browserState(page)).hash;
+    // the interface measures itself a few times a second and the camera frames the village in what it leaves free: let that settle, then this is home
+    await page.waitForTimeout(1200);
+    const home = await view();
+    const box = (await page.locator('canvas').boundingBox())!;
+    const mx = box.x + box.width * 0.5;
+    const my = box.y + box.height * 0.5;
+    const phone = info.project.name.startsWith('phone');
+
+    if (!phone) {
+      // a drag pans the ground under the pointer, and is not a selection
+      await page.mouse.move(mx, my);
+      await page.mouse.down();
+      await page.mouse.move(mx + 160, my + 40, { steps: 8 });
+      await page.mouse.up();
+      const panned = await view();
+      expect(Math.hypot(panned.x - home.x, panned.z - home.z)).toBeGreaterThan(0.3);
+      expect(await page.evaluate(() => (window as unknown as { __belief: { store: { ui: { selection: unknown } } } }).__belief.store.ui.selection)).toBeNull();
+      // the wheel zooms, and keeps within the nearest and farthest the camera allows
+      await page.mouse.move(mx, my);
+      for (let i = 0; i < 40; i++) await page.mouse.wheel(0, -300);
+      await page.waitForTimeout(400);
+      const near = await view();
+      expect(near.dist).toBeLessThan(home.dist);
+      expect(near.dist).toBeGreaterThan(3);
+      for (let i = 0; i < 80; i++) await page.mouse.wheel(0, 300);
+      await page.waitForTimeout(400);
+      const far = await view();
+      expect(far.dist).toBeGreaterThan(near.dist);
+      expect(far.dist).toBeLessThan(home.dist * 1.5);
+      // a right-drag orbits, and the elevation stays between its limits (never under the ground)
+      await page.mouse.move(mx, my);
+      await page.mouse.down({ button: 'right' });
+      await page.mouse.move(mx - 200, my + 400, { steps: 10 });
+      await page.mouse.up({ button: 'right' });
+      const orbited = await view();
+      expect(Math.abs(orbited.azimuthDeg - far.azimuthDeg)).toBeGreaterThan(3);
+      expect(orbited.elevationDeg).toBeGreaterThanOrEqual(24);
+      expect(orbited.elevationDeg).toBeLessThanOrEqual(66.01);
+    }
+    // the on-screen buttons turn it, and the keyboard brings the whole village back
+    const before = await view();
+    await page.getByTestId('orbit-right').click();
+    await expect.poll(async () => Math.abs((await view()).azimuthDeg - before.azimuthDeg)).toBeGreaterThan(5);
+    await page.locator('canvas').focus();
+    await page.keyboard.press('0');
+    await expect.poll(async () => Math.abs((await view()).dist - home.dist), { timeout: 10_000 }).toBeLessThan(0.5);
+    expect((await browserState(page)).hash).toBe(hash0);
+  });
+
   test('the interface over the live 3D world passes axe (no critical or serious findings), with a card and the law ledger open', async ({ page }) => {
     await startRedbank(page, 1, 'normal', URL3D);
     await ready(page);

@@ -39,9 +39,12 @@ export const MAGIC_GLSL = /* glsl */ `
   // line at every step of depth, cool where it is shallow and warm where it is deep. Stripes and lines mean it reads without colour.
   vec3 forecastGlow(vec2 xz) {
     if (uForecastOn < 0.5) return vec3(0.0);
-    float d = texture2D(uForecast, xz / uMagicDim).r * 4.0;
+    vec4 f = texture2D(uForecast, xz / uMagicDim);
+    float d = f.r * 4.0;
     float wet = smoothstep(0.3, 0.7, d);
     if (wet < 0.01) return vec3(0.0);
+    // where water already stands the overlay is turned down: laid over the real flood it would only whiten it
+    wet *= mix(1.0, 0.35, f.g);
     float stripes = smoothstep(0.35, 0.5, abs(fract((xz.x + xz.y) * 2.4 - uMagicTime * 0.1) - 0.5));
     float line = smoothstep(0.4, 0.5, abs(fract(d) - 0.5));
     vec3 c = mix(vec3(0.28, 0.72, 0.96), vec3(1.0, 0.46, 0.34), clamp((d - 1.0) / 2.0, 0.0, 1.0));
@@ -110,7 +113,11 @@ export const MAGIC_GLSL = /* glsl */ `
         col += uReachCol[i].rgb * (inside * (0.025 + 0.6 * pat * r.w * (0.4 + 0.6 * core)) + edge * (0.22 + 0.55 * r.w) + core * core * 0.07 * r.w);
       }
     }
+#ifdef MAGIC_ON_WATER
+    col += forecastGlow(xz) * 0.4;
+#else
     col += forecastGlow(xz);
+#endif
     // expanding rings and ripples from engine events
     for (int i = 0; i < ${PULSES}; i++) {
       vec4 p = uPulse[i];
@@ -322,7 +329,10 @@ export class MagicField {
   setForecast(pred: ArrayLike<number> | null, now: ArrayLike<number>): void {
     this.uniforms.uForecastOn.value = pred ? 1 : 0;
     if (!pred) return;
-    for (let i = 0; i < this.w * this.h; i++) this.fData[i * 4] = Math.round(Math.min(1, Math.max(0, (pred[i] - now[i]) / 4)) * 255);
+    for (let i = 0; i < this.w * this.h; i++) {
+      this.fData[i * 4] = Math.round(Math.min(1, Math.max(0, (pred[i] - now[i]) / 4)) * 255);
+      this.fData[i * 4 + 1] = now[i] > 0 ? 255 : 0;
+    }
     this.fTex.needsUpdate = true;
   }
 
@@ -414,6 +424,6 @@ export function attachMagicToStandard(mat: THREE.MeshStandardMaterial, field: Ma
 /** put the glow into the water shader's colour (the water's own fragment source is passed in and returned changed) */
 export function injectMagicIntoWater(frag: string): string {
   return frag
-    .replace('void main() {', `${MAGIC_GLSL}\n  void main() {`)
+    .replace('void main() {', `#define MAGIC_ON_WATER 1\n${MAGIC_GLSL}\n  void main() {`)
     .replace('col *= uTint;', 'col *= uTint;\n    col += magicGlow(vWorld.xz) * 0.8;');
 }

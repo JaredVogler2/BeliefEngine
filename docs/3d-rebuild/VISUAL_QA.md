@@ -61,7 +61,7 @@ Frame M was recaptured after the fix.
 
 | Area | Score | Evidence and the flaw that holds it back |
 |---|---:|---|
-| Three-dimensional depth | **4** | Terrain rolls and has banks and a layered edge (A); roofs are real gables and hips, the bridge is an arch with parapets, trees overlap and foreshorten (B). The camera really orbits within limits (tests, controls in `MapView.tsx`). Held to 4: everything is smooth-shaded primitives; nothing is sculpted at the detail of hand-made models |
+| Three-dimensional depth | **4** | Terrain rolls and has banks and a layered edge (A); roofs are real gables and hips, the bridge is an arch with parapets, trees overlap and foreshorten (B). The camera really pans, zooms and orbits within limits (driven by real mouse input in `world3d.spec.ts`). Held to 4: everything is smooth-shaded primitives; nothing is sculpted at the detail of hand-made models |
 | Art coherence | **4** | One procedural palette and material set, one wind, one light. Held to 4: the same few tree and cottage variants repeat, and the tile texture's colour noise looks muddy up close |
 | Environmental life | **3** | Water flows, foliage sways, chimneys smoke, wheels turn, rain falls, clouds drift, birds circle, windows glow at dusk, people walk, work and rest. **Judged from code and stills only; I did not review motion as video**, and I cannot claim it reads as alive without that. Scored 3 on that basis |
 | Lighting and material | **4** | A warm low key light with soft cast shadows, a cool sky fill, tone mapping, haze that eases with distance (A, B, D). Held to 4: surfaces are matte procedural textures; plaster is flat; no ambient occlusion beyond the shadow map |
@@ -111,7 +111,7 @@ Frame M was recaptured after the fix.
 | Restart, focus, quality toggle: no leaked GPU objects or stacked canvases | PASS | "restarting and loading other villages does not leak geometry or textures"; the 2D/3D toggle test |
 | Offline core game with no optional service | PASS | `acceptance.spec.ts` "with the network cut, the game and the composer still work" |
 | No blank screen, pink textures, floating houses, feet through ground, uniform cube forests, blocky water, wrong flood stage, modal over the main character, hidden call to action | PASS by inspection of the 16 frames, plus tests for the flood stage (`render3d-scene.test.ts`) and for the end-day button staying in view | |
-| Lighting consistent after orbit; touch targets correct | PARTIAL | orbit tested by controls; consistent lighting judged from stills only |
+| Lighting consistent after orbit; touch targets correct | PARTIAL | orbit and its limits are tested; one light rig is shared by every view, but consistency after orbit was judged from code and stills only. Touch taps are tested; two-finger pinch is not |
 | Frame-time p50/p95 with a representative camera and storm | **UNVERIFIED on real hardware**; measured on software GL only | `PERFORMANCE.md` |
 
 ## Before and after (anti-target vs now), by feature

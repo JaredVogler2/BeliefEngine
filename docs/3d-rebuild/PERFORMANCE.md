@@ -75,6 +75,19 @@ merging per material and batching statics. The obvious next saving, if a real de
 drawn by code at load (`docs/3d-rebuild/ASSET_LICENSES.md`), so there is nothing to compress, stream or lose. First-paint cost of the 3D
 world is therefore *code + CPU time to paint the canvases and build the meshes* (0.6–0.8 s on this machine), not a download.
 
+## Other browser engines (software WebGL, Playwright's Linux builds)
+
+`npx tsx scripts/browser-3d-smoke.ts` loads a Day-1 village with `?renderer=3d`, waits six seconds and reports what the page chose and drew
+(`docs/3d-rebuild/data/browsers.json`):
+
+| Engine | Result |
+|---|---|
+| Chromium 153 | **PASS**: 3D chosen, frames drawn, 352 draw calls, 222,742 triangles (low tier), no console errors |
+| WebKit 26.6 | **PASS**: 3D chosen, frames drawn, same counts, no console errors |
+| Firefox 155 (headless) | **FALLBACK**: the page chose the classic map because this build offers no usable WebGL2. That is the designed fallback, not a pass; whether desktop Firefox with a GPU runs the 3D world is **UNVERIFIED** |
+
+Real Safari on a Mac or an iPhone is **UNVERIFIED** (WebKit here is Playwright's Linux build; the iPhone profile is emulation).
+
 ## Resource hygiene (tested)
 
 * `tests/e2e/world3d.spec.ts` "restarting and loading other villages does not leak geometry or textures": loads a village, then four others,
