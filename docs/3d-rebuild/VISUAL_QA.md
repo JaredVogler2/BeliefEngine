@@ -55,7 +55,7 @@ The first capture of M showed **no overlay at all**. The cause was real: the 3D 
 page only handed it its options (tonight's predicted water, the lens, the selection, the hints) when something next changed. A player would have
 seen the forecast only after their first click. The fix (`MapView.tsx`: the options effect now also runs when the renderer becomes ready) is covered by
 `world3d.spec.ts` "the flood forecast and the other view options reach the world on its first frame, with no click needed", which fails without it.
-Frame M was recaptured after the fix.
+Frame M was recaptured after the fix. The same fix also means the sky and light follow the forecast on the first frame (before it, a surge night opened under a calm sky until the first click).
 
 ## Scorecard (1 to 5; the phase asks for 4 or more in every area before calling anything premium)
 
@@ -89,6 +89,7 @@ Frame M was recaptured after the fix.
 | 7 | P2 | The side sheet could not take focus in the first frame of opening (a hidden-to-visible transition), so a keyboard-only flow occasionally closed it again | sheet is visible from the first frame and hides only after sliding out; test waits for it | keyboard test 6 of 6 under load |
 | 8 | P2 | An axe contrast measurement could land mid-fade on a card | audits wait for finite animations | a11y spec green on both projects |
 | 9 | P2 | Nothing high above the roofs moved | a few birds on fine days | A |
+| 10 | P2 | Laid over a flood that was already there, the forecast stripes whitened the water (E2) | the overlay is a third as strong where water stands and 0.4x on the water surface | D, E2, F2, K, M recaptured |
 
 ## Open issues, in order of how much they matter (the "5 biggest")
 

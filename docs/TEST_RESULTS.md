@@ -106,10 +106,28 @@ What this does **not** show: no live provider call (the online interpreter is mo
 | No console errors in common flows, no blank screens | every spec above asserts an empty error list; `resilience.spec.ts` breaks rendering on purpose and checks the recovery screen |
 | Critical touch interactions at small phone width | `visual.spec.ts` and `resilience.spec.ts` at 320 px (also with large text), `mobile.spec.ts` at 390 px |
 
+## 3D rebuild (final build of this work, commit `7a5ea63`)
+
+| Command | Result |
+| --- | --- |
+| `npx tsc --noEmit`, `npx eslint . --max-warnings 0` | exit 0, exit 0 |
+| `npm test` | **29 files, 364 tests passed** (includes `render3d-plan.test.ts`: six effect-parity fixtures; `render3d-scene.test.ts`: heights, water depth and snapshot purity against the engine) |
+| `npm run test:sim:smoke` | 256/256 runs in 60 s, **SMOKE OK** (engine untouched by this work) |
+| `npm run build`, `npm run size` | exit 0; entry 232 KB gzip (budget 260), 3D chunk 197 KB gzip (budget 270, lazy), CSS 7.8 KB gzip (budget 12) |
+| `npm run verify:hosting` | 19 checks ok; **the 3D world also loads and draws under the production Content-Security-Policy with 0 violations and 0 console errors** |
+| `npm run test:e2e:3d` (`desktop-3d`, `phone-3d`: the real Three.js scene on software WebGL, real mouse and touch) | **32 passed, 0 failed**, 12.4 min: boots and draws, tap picks a villager, recorded winning line and no-op loss reach the identical hashes, medium and high tiers change nothing the engine computes, crowd/bridge/beacon picks, mid-day and mid-storm saves resume, no leaked geometry or textures, every started effect names a logged event, the 2D/3D toggle keeps the run, camera drag/wheel/orbit/reset within limits, options reach the world on its first frame, axe on the live 3D page, interface leaves at least 75% (desktop) / 60% (phone) to the world |
+| `npm run test:e2e:classic` (`desktop`, `phone`: the classic map) | **140 passed, 0 failed, 52 skipped** (project-specific), 6.4 min |
+| `npm run test:e2e:browsers` (Chromium, Firefox 155, WebKit 26.6, iPhone-14 profile; smoke) | **8 passed**, 52 s |
+| `npx tsx scripts/browser-3d-smoke.ts` | Chromium PASS (3D drew); WebKit 26.6 PASS (3D drew); Firefox 155 headless fell back to the classic map (no usable WebGL2) |
+| `npx tsx scripts/perf-3d.ts --seconds 8` | scene cost and software-GL frame times per tier: `docs/3d-rebuild/PERFORMANCE.md` (**not a GPU; no real device was measured**) |
+| `npx tsx scripts/capture-matrix.ts` | 16 real frames: `docs/3d-rebuild/screenshots/`, reviewed in `docs/3d-rebuild/VISUAL_QA.md` |
+
+Failures met on the way (all fixed or explained in `docs/3d-rebuild/FINAL_REVIEW.md`): a classic map flake from a toast that re-rendered cards, two timing races (a sheet that could not take focus in its first frame; an axe contrast reading taken mid-fade), a first-frame bug (the forecast reached the 3D world only after the first click), and tests that assumed the desktop angle after the phone view was turned.
+
 ## What is not covered, plainly
 
 * No human has played the game: no uncoached session, no fun or clarity claim (`docs/PLAYTEST_PROTOCOL.md`).
-* No real phone or tablet, no real Safari; WebKit here is Playwright's Linux build and the iPhone profile is emulation.
+* No real phone or tablet, no real Safari; WebKit here is Playwright's Linux build and the iPhone profile is emulation. **The 3D world has only ever run on software WebGL**: no real GPU, no real phone.
 * No deployed URL exists, so no live smoke test has been run (`docs/RELEASE_CHECKLIST.md`).
 * Audio was exercised against a fake Web Audio graph (voice caps, leak freedom, settings); nobody has listened to it.
 * The MCP server and the natural-language composer are recorded in their own phases' sections once built.
