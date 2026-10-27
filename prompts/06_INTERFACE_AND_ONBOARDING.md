@@ -1,3 +1,5 @@
+> **PREMIUM 3D/UI OVERRIDE:** Implement the current [3D rebuild visual and immersive-HUD requirements](3d-rebuild/07_IMMERSIVE_HUD_AND_CONTROLS.md) instead of permanent large 2D claim cards, tile maps or a giant law ledger. Keep HUD accessible, contextual and subordinate to the 3D village. Gameplay/tutorial requirements below remain valid.
+
 # Phase 06 — Make the game beautiful, readable and immediately enjoyable
 
 Replace prototype presentation with a polished, tactile game interface while preserving verified gameplay. The experience should resemble a premium original indie game, not a corporate dashboard or spreadsheet with villagers.

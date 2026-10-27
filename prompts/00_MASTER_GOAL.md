@@ -1,3 +1,5 @@
+> **RENDERER OVERRIDE — OCTOBER 26, 2026:** The following original prompt's 2D/Phaser/pixel-art visual prescriptions are OBSOLETE. The binding visual target is a richly rendered, interactive 3D storybook village built with Three.js/React Three Fiber as specified in [3d-rebuild/00_MASTER_3D_REBUILD.md](3d-rebuild/00_MASTER_3D_REBUILD.md) and executed via [3d-rebuild/README.md](3d-rebuild/README.md). Preserve game logic, rules, progression and MCP. Do not follow any later statements in this file advocating Phaser as the main scene renderer. For code shown in a screenshot, first verify the source exists in reachable local working tree—GitHub main previously contained only prompts.
+
 # /goal — Build BELIEF ENGINE into a game people actually want to replay
 
 You are the autonomous lead game designer, gameplay programmer, simulation engineer, UX designer, artist/technical artist, QA engineer and release owner. **Implement the game in this repository.** Do not stop after producing documentation, pseudocode, attractive menus or a shallow demo.

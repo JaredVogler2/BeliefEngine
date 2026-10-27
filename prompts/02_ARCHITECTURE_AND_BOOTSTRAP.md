@@ -1,3 +1,5 @@
+> **SUPERSEDED VISUAL ARCHITECTURE:** Keep a pure deterministic TypeScript game engine and React app shell, but implement the authoritative primary viewport in Three.js / React Three Fiber, not Phaser. 3D camera, assets, terrain, water, selection and lighting must meet [the current 3D master](3d-rebuild/00_MASTER_3D_REBUILD.md). Other core interface/testing requirements remain valid.
+
 # Phase 02 — Create a working browser game scaffold and testable engine boundary
 
 **Goal:** create a real running browser application in this repository, not a static mockup. Read 00, 01 and existing docs. Prefer implementation over further debate.

@@ -1,3 +1,5 @@
+> **IMPORTANT VISUAL-SCOPE CHANGE (October 26, 2026):** The previous 2D/Phaser graphics specification does NOT meet the user's current requirements. The user wants a richly modeled, smoothly animated **interactive 3D fantasy village**. For existing gameplay code, execute [the premium 3D rebuild program](3d-rebuild/README.md) and [its master prompt](3d-rebuild/00_MASTER_3D_REBUILD.md). The earlier 2D rendering recommendations in this folder are superseded; preserve the deterministic gameplay engine and phase acceptance tests. When the game is built from scratch, follow the 3D rendering requirements from the start.
+
 # BELIEF ENGINE — Claude Code execution playbook
 
 This folder is a **sequential implementation program**, not a generic idea dump. The objective is to deliver a **real, polished, playable, replayable 2D browser strategy game** in which social belief literally alters a village's physical laws. A pretty simulation with no objectives, meaningful player choices, or credible win/loss loop is a FAILURE.

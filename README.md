@@ -10,6 +10,8 @@ makes replays, the bot tournaments and an AI-agent interface possible.
 
 **Status, honestly:** the browser game, the local MCP server and the offline belief composer are built and tested end to end ([`docs/FINAL_ACCEPTANCE.md`](docs/FINAL_ACCEPTANCE.md) has the table of tracks, commands and proof). **Not deployed anywhere**, so there is no live URL. **No human playtest has been run**: difficulty and fun have been measured on bots, scripts and AI-driven reviews only ([`docs/PLAYTEST_PROTOCOL.md`](docs/PLAYTEST_PROTOCOL.md) is the script). **Remote MCP is not built** and the **online (language-model) interpreter has never run against a live provider**; both are optional and neither is needed to play. Known limits: [`docs/KNOWN_ISSUES.md`](docs/KNOWN_ISSUES.md). Build log: [`docs/PROGRESS.md`](docs/PROGRESS.md). Adversarial review: [`docs/FUN_REVIEW.md`](docs/FUN_REVIEW.md).
 
+**Next, not started:** the repository's `main` branch now carries a playbook for a premium 3D rebuild of the presentation layer ([`prompts/3d-rebuild/README.md`](prompts/3d-rebuild/README.md)), which supersedes the earlier 2D renderer instructions in `prompts/`. This branch implements the original 18 phases with the Canvas2D renderer; **none of the 3D work has been done here**, and the simulation, saves and MCP interface it would have to preserve are described in this repository's docs.
+
 ## Play it
 
 ```bash
