@@ -307,7 +307,7 @@ export interface ClaimCard {
 
 export function getHand(s: RunState): ClaimCard[] {
   return allClaimDefs(s)
-    .filter((d) => !d.rival || s.claims.find((c) => c.id === d.id)?.available)
+    .filter((d) => !d.rival || s.claims.find((c) => c.id === d.id)?.available || (s.starter === null && s.scn.starters.includes(d.id)))
     .map((d) => {
       const c = s.claims.find((x) => x.id === d.id)!;
       const ritual = d.ritual ? s.scn.rituals.find((r) => r.id === d.ritual) : undefined;

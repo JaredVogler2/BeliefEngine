@@ -46,6 +46,12 @@ function ActionRow({ o, onDone }: { o: Opt; onDone?: () => void }) {
   );
 }
 
+/** Player stories are always playable; a rival theory only when the scenario lets the Keeper adopt it. */
+function playable(s: RunState, claimId: string): boolean {
+  const d = s.scn.claimDefs.find((c) => c.id === claimId);
+  return !!d && (!d.rival || !!d.adoptable);
+}
+
 function mk(s: RunState, action: Action): Opt {
   return { action, label: describeAction(s, action), cost: previewAction(s, action).cost, preview: previewAction(s, action) };
 }
@@ -96,7 +102,7 @@ function VillagerCard({ id }: { id: string }) {
   const opts = useMemo(() => {
     const out: Opt[] = [];
     if (v.status === 'dead') return out;
-    if (claimId && state.claims.find((c) => c.id === claimId)?.available && !state.scn.claimDefs.find((c) => c.id === claimId)?.rival) {
+    if (claimId && state.claims.find((c) => c.id === claimId)?.available && playable(state, claimId)) {
       out.push(mk(state, { type: 'SEED', claim: claimId, target: id }));
       const believes = (v.beliefs[claimId]?.conv ?? 0) >= 35;
       for (const n of neighborsOf(state, id)) {
@@ -107,8 +113,10 @@ function VillagerCard({ id }: { id: string }) {
       }
     }
     for (const c of state.scn.claimDefs.filter((d) => d.rival)) {
-      if ((v.beliefs[c.id]?.conv ?? 0) >= 10 && claimId) out.push(mk(state, { type: 'COUNTER', claim: claimId, against: c.id, target: id }));
+      const targeted = state.rivals.some((r) => r.claim === c.id && r.plan?.target === id);
+      if (claimId && ((v.beliefs[c.id]?.conv ?? 0) >= 10 || targeted)) out.push(mk(state, { type: 'COUNTER', claim: claimId, against: c.id, target: id }));
     }
+    for (const d of state.scn.deals ?? []) if (d.broker === id) out.push(mk(state, { type: 'TRADE', deal: d.id, target: id }));
     out.push(mk(state, { type: 'SCOUT', target: id }));
     return out;
   }, [state, id, claimId, v]);
@@ -117,6 +125,7 @@ function VillagerCard({ id }: { id: string }) {
   const msgFrom = opts.filter((o) => o.action.type === 'MESSENGER' && (o.action as { from: string }).from === id && o.preview.ok).sort((a, b) => b.preview.deltas.reduce((m, d) => m + d.after - d.before, 0) - a.preview.deltas.reduce((m, d) => m + d.after - d.before, 0)).slice(0, 6);
   const msgTo = opts.filter((o) => o.action.type === 'MESSENGER' && (o.action as { to: string }).to === id && o.preview.ok).slice(0, 6);
   const counter = opts.filter((o) => o.action.type === 'COUNTER');
+  const trade = opts.filter((o) => o.action.type === 'TRADE');
   const scout = opts.filter((o) => o.action.type === 'SCOUT');
 
   return (
@@ -147,6 +156,7 @@ function VillagerCard({ id }: { id: string }) {
         {msgTo.length > 0 && <div className="small muted" style={{ marginTop: '0.3rem' }}>Believers who can carry it to {view.name.split(' ')[0]}:</div>}
         {msgTo.map((o, i) => <ActionRow key={'t' + i} o={o} />)}
         {counter.map((o, i) => <ActionRow key={'c' + i} o={o} />)}
+        {trade.map((o, i) => <ActionRow key={'d' + i} o={o} />)}
         {scout.map((o, i) => <ActionRow key={'k' + i} o={o} />)}
       </div>
 
@@ -235,7 +245,7 @@ function LandmarkCard({ id }: { id: string }) {
         out.push(o);
       }
     }
-    if (claimId && ['chapel', 'market', 'hall', 'shelter', 'well'].includes(l.kind) && !state.scn.claimDefs.find((c) => c.id === claimId)?.rival) out.push(mk(state, { type: 'GATHER', claim: claimId, site: l.id }));
+    if (claimId && ['chapel', 'market', 'hall', 'shelter', 'well'].includes(l.kind) && playable(state, claimId)) out.push(mk(state, { type: 'GATHER', claim: claimId, site: l.id }));
     return out;
   }, [state, l, claimId]);
   if (!l) return null;

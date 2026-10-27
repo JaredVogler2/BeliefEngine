@@ -224,6 +224,7 @@ const runtime: ScenarioRuntime = {
   difficulty: 2,
   anchor: 'chapel',
   starters: ['river_fears_fire', 'bridge_stands_watched'],
+  finale: 'the night of the Great Surge',
   hints: [
     'Ties of trust carry stories. The bridgekeeper is close to both banks.',
     'Proof beats repetition. Stage a ritual on a night the omen is good.',

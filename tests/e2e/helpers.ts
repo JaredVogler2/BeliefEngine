@@ -18,6 +18,10 @@ export const traces = JSON.parse(readFileSync(new URL('../fixtures/redbank-trace
   noop: Trace;
 };
 
+export function loadTraces(scenario: string): { canonicalSeed: number } & Record<string, Trace> {
+  return JSON.parse(readFileSync(new URL(`../fixtures/${scenario}-traces.json`, import.meta.url), 'utf8'));
+}
+
 export function watchConsole(page: Page): string[] {
   const errors: string[] = [];
   page.on('console', (m) => {
@@ -28,9 +32,13 @@ export function watchConsole(page: Page): string[] {
 }
 
 export async function startRedbank(page: Page, seed = 1, difficulty = 'normal', url = '/?debug=1') {
+  return startScenario(page, 'redbank', seed, difficulty, url);
+}
+
+export async function startScenario(page: Page, scenario: string, seed = 1, difficulty = 'normal', url = '/?debug=1') {
   await page.goto(url);
   await page.getByTestId('play').click();
-  await page.getByTestId('begin-redbank').click();
+  await page.getByTestId(`begin-${scenario}`).click();
   await page.getByTestId('seed').fill(String(seed));
   await page.getByTestId('difficulty').selectOption(difficulty);
   await page.getByTestId('begin').click();
@@ -114,6 +122,10 @@ export async function performViaUi(page: Page, g: GameSession, action: Action) {
       await selectVillager(page, name(action.target));
       await clickAct(page, /^Challenge/);
       return;
+    case 'TRADE':
+      await selectVillager(page, name(action.target));
+      await clickAct(page, new RegExp(`^${s.scn.deals!.find((d) => d.id === action.deal)!.label}`));
+      return;
     case 'END_DAY':
       await closeSheet(page);
       await page.getByTestId('end-day').click();
@@ -128,8 +140,8 @@ export async function performViaUi(page: Page, g: GameSession, action: Action) {
 }
 
 /** Replay a recorded engine trace by clicking the real UI, mirroring each step in an engine session to build labels. */
-export async function replayTraceViaUi(page: Page, seed: number, actions: Action[]) {
-  const g = GameSession.create({ scenarioId: 'redbank', seed });
+export async function replayTraceViaUi(page: Page, seed: number, actions: Action[], scenarioId = 'redbank') {
+  const g = GameSession.create({ scenarioId, seed });
   for (const a of actions) {
     await performViaUi(page, g, a);
     const r = g.act(a);

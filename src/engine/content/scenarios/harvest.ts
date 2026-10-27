@@ -178,6 +178,7 @@ const runtime: ScenarioRuntime = {
   difficulty: 3,
   anchor: 'chapel',
   starters: ['moonlight_ripens_grain', 'rain_follows_bells'],
+  finale: 'the long dry season',
   hints: [
     'Fields ripen faster when they have moisture, and much faster by moonlight, but night labour exhausts people.',
     'Dalia will only send grain once she firmly believes one of your stories. Show her something she can see.',

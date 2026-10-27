@@ -201,6 +201,8 @@ export interface ScenarioRuntime {
   /** claims offered as the starter choice on day 1 */
   starters: Id[];
   hints: string[];
+  /** the climax, as a noun phrase for the debrief: "the night of the Great Surge" */
+  finale?: string;
   deals?: DealDef[];
   /** which resource counters the HUD shows */
   hud?: string[];

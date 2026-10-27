@@ -90,6 +90,19 @@ export function buildDebrief(s: RunState): Debrief {
   const rival = s.log.filter((e) => e.code === 'RIVAL_CAMPAIGN' || e.code === 'RIVAL_REBUTTAL' || e.code === 'RIVAL_STANDS_DOWN').slice(0, 3);
   if (rival.length) chains.push({ title: 'The rival’s hand', kind: 'rival', steps: rival.map((e) => ({ id: e.id, day: e.day, text: e.text })) });
 
+  const pensLost = s.log.filter((e) => e.code === 'LIVESTOCK_KILLED');
+  if (pensLost.length) {
+    const hungry = s.log.find((e) => e.code === 'PACK_STARVING');
+    chains.push({ title: 'What the wolves took', kind: 'loss', steps: [...(hungry ? [{ id: hungry.id, day: hungry.day, text: hungry.text }] : []), ...pensLost.slice(0, 3).map((e) => ({ id: e.id, day: e.day, text: e.text }))] });
+  }
+  const slide = s.log.find((e) => e.code === 'RIVAL_SABOTAGE' || e.code === 'MUDSLIDE');
+  const delayed = s.log.filter((e) => e.code === 'CARAVAN_DELAYED');
+  if (slide && delayed.length) chains.push({ title: 'The road that closed', kind: 'rival', steps: [{ id: slide.id, day: slide.day, text: slide.text }, ...delayed.slice(0, 2).map((e) => ({ id: e.id, day: e.day, text: e.text }))] });
+  const parched = s.log.filter((e) => e.code === 'FIELD_PARCHED' || e.code === 'FAMINE');
+  if (parched.length && deaths.some((d) => /starv|hunger|famine/i.test(d.text))) {
+    chains.push({ title: 'The hungry weeks', kind: 'loss', steps: [...parched.slice(0, 2), ...deaths.filter((d) => /starv|hunger|famine/i.test(d.text)).slice(0, 2)].map((e) => ({ id: e.id, day: e.day, text: e.text })) });
+  }
+
   const lost = s.villagers.filter((v) => v.status === 'dead').map((v) => ({ id: v.id, name: v.name, day: v.deathDay ?? s.day, cause: v.deathCause ?? 'unknown' }));
   const alive = aliveCount(s);
   const homesSpared = s.stats.homesSpared;
@@ -106,6 +119,12 @@ export function buildDebrief(s: RunState): Debrief {
   const ebb = s.threat.filter((t) => t.trend === 'ebbing').map((t) => t.day);
   const wasted = ebb.filter((d) => !s.history.some((h) => h.day === d && h.actions.some((a) => a.type === 'RITUAL' && a.claim)));
   if (s.stats.goodEvidence === 0 && wasted.length) missed.push(`You never staged proof on a good-omen night (days ${wasted.join(', ')}). Proof beats repetition.`);
+  if (pensLost.length && !s.log.some((e) => e.code === 'PEN_SPARED')) missed.push(`The wolves took animals in ${pensLost.length} raid${pensLost.length === 1 ? '' : 's'} and no pen was ever shielded. A smoke fire beside a pen, in a hamlet that believes, would have turned them.`);
+  if (s.log.some((e) => e.code === 'PACK_STARVING')) missed.push('A hungry pack stops being fooled by a decoy. Pair a decoy with a real smoke fire at the pens before the pack starves.');
+  if (s.log.some((e) => e.code === 'SMOKE_SICKNESS')) missed.push('Smoke sickened people who stood in it. Keep fires away from the houses, or counter the cough before it spreads.');
+  if (slide && delayed.length) missed.push('A caravan was delayed by a buried road. Challenge the rival’s plan on the day they announce it, and do not ring the bells while a shipment is on the road.');
+  if (parched.length && !s.log.some((e) => e.code === 'CROP_BOOSTED') && !victory) missed.push('The fields dried out and nothing ever helped them grow. Rain and moonlight stories change the harvest, but only once enough neighbours believe.');
+  if (s.scn.deals?.length && !s.log.some((e) => e.code === 'TRADE_AGREED') && !victory) missed.push(`You never asked ${findVillager(s, s.scn.deals[0].broker)?.name ?? 'the merchant'} for grain. A believer who can see the proof will open a caravan.`);
   if (collapse && trapped.length) missed.push(`The bridge fell on night ${collapse.day}, cutting off the east bank. A watched bridge (or an earlier evacuation) would have kept the way open.`);
   const unusedClaims = mainClaims.filter((c) => !s.stats.usedClaims.includes(c));
   if (unusedClaims.length && !victory) missed.push(`You never tried: ${unusedClaims.map((c) => `“${claimDef(s, c).short}”`).join(', ')}.`);
@@ -120,7 +139,7 @@ export function buildDebrief(s: RunState): Debrief {
   const headline = victory ? `The village endures — ${alive} of ${s.villagers.length} saved` : `The village is lost — ${alive} of ${s.villagers.length} remain`;
   const lawName = activations[0] ? claimDef(s, activations[0].claim ?? '').short : null;
   const story = victory
-    ? `${lawName ? `Because enough people believed “${lawName}”, ` : 'Without any law to lean on, '}Redbank survived the night of the Great Surge with ${homesStanding(s)} homes and ${s.world.stocks.food ?? 0} food in store.${lost.length ? ` ${lost.length} ${lost.length === 1 ? 'person was' : 'people were'} lost.` : ' Nobody was lost.'}`
+    ? `${lawName ? `Because enough people believed “${lawName}”, ` : 'Without any law to lean on, '}the village survived ${s.scn.finale ?? 'the crisis'} with ${homesStanding(s)} homes and ${s.world.stocks.food ?? 0} food in store.${lost.length ? ` ${lost.length} ${lost.length === 1 ? 'person was' : 'people were'} lost.` : ' Nobody was lost.'}`
     : `${out.reason} ${lost.length ? `${lost.map((l) => l.name).slice(0, 4).join(', ')}${lost.length > 4 ? ' and others' : ''} did not survive.` : ''} ${lawName ? `“${lawName}” did take hold, but not in time or not enough.` : 'No story took hold in time.'}`;
 
   return {

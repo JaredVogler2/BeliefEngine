@@ -186,6 +186,7 @@ const runtime: ScenarioRuntime = {
   difficulty: 3,
   anchor: 'market',
   starters: ['wolves_fear_smoke', 'wolves_follow_smoke'],
+  finale: 'the wolf winter',
   hints: [
     'The packs advance a little each night. Watch the Tonight tab: it says which pen each pack is heading for.',
     'A fire only protects the pens inside its smoke, and only in a hamlet that believes.',
