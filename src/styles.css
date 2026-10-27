@@ -118,6 +118,8 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 .stage { position: absolute; inset: 0; overflow: hidden; background: #0b1220; touch-action: none; }
 .stage canvas { display: block; width: 100%; height: 100%; outline: none; touch-action: none; }
 .stage:focus-visible { outline-offset: -4px; }
+/* the 3D world is lit like a photograph: a soft vignette pulls the eye to the village (over the canvas, under every control) */
+.stage[data-renderer='3d']::after { content: ''; position: absolute; inset: 0; z-index: 1; pointer-events: none; background: radial-gradient(ellipse at 50% 46%, rgba(0, 0, 0, 0) 56%, rgba(14, 20, 40, 0.24) 100%); }
 .glass, .topbar, .corner .btn, .modes, .tray, .map-tools .btn, .law-chip { background: var(--glass); -webkit-backdrop-filter: blur(10px) saturate(1.1); backdrop-filter: blur(10px) saturate(1.1); border: 1px solid var(--glass-line); box-shadow: 0 6px 22px rgba(0, 0, 0, 0.32); }
 
 /* the rail: menu, day, what is coming, vital signs, the law that matters */
@@ -373,7 +375,7 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   .topbar { flex-wrap: wrap; row-gap: 0.1rem; width: auto; right: 58px; max-width: none; padding: 0.2rem 0.4rem; }
   .topbar .threat { flex: 1 1 0; min-width: 0; order: 0; padding: 0.1rem 0.5rem; }
   .topbar .threat .t-sub { display: none; }
-  .topbar .threat .t-title { white-space: normal; font-size: 0.84rem; line-height: 1.15; }
+  .topbar .threat .t-title { white-space: normal; overflow-wrap: anywhere; font-size: 0.84rem; line-height: 1.15; }
   .topbar .stats { order: 5; flex: 1 0 100%; margin-left: 0; justify-content: space-between; }
   .topbar .stat { padding: 0.1rem 0.35rem; font-size: 0.86rem; }
   .coach { left: 72px; right: 58px; transform: none; width: auto; top: calc(112px + var(--safe-t)); }
@@ -410,7 +412,12 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   .digest { width: calc(100% - 20px); }
 }
 @media (max-width: 380px) {
-  .topbar .daybox { font-size: 0.95rem; }
+  .topbar .daybox { font-size: 0.9rem; }
+  /* the smallest screens: the threat gives up its icon so its words get the room, and the four numbers fit their row */
+  .topbar .threat { gap: 0.2rem; padding: 0.1rem 0.3rem; }
+  .topbar .threat > svg { display: none; }
+  .topbar .threat .t-title { font-size: 0.78rem; }
+  .topbar .stat { padding: 0.1rem 0.15rem; font-size: 0.8rem; gap: 0.15rem; }
   .tray { gap: 0.3rem; padding-left: 0.4rem; padding-right: 0.4rem; }
   .tray .ap > svg { display: none; }
   .tray .btn:not(.end-btn) { width: 40px; min-width: 40px; min-height: 40px; }
@@ -470,10 +477,20 @@ textarea[data-testid='compose-text'] { background: #0b1220; border: 1px solid va
 .field .field { margin: 0; }
 
 /* ---- 3D world: loading veil shown until the first frame, drawn over the stage */
-.stage-loading { position: absolute; inset: 0; z-index: 2; display: grid; place-items: center; background: radial-gradient(ellipse at 50% 60%, #2a3a52 0%, #0b1220 70%); color: #e8dfc4; font-family: var(--serif, Georgia, serif); letter-spacing: 0.04em; pointer-events: none; }
-.stage-loading span { opacity: 0.85; animation: stageBreath 1.8s ease-in-out infinite; }
+.stage-loading { position: absolute; inset: 0; z-index: 2; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.9rem; background: linear-gradient(180deg, #8fb7dc 0%, #cfe0e8 55%, #f1ead0 100%); color: #26334a; font-family: var(--serif, Georgia, serif); letter-spacing: 0.04em; pointer-events: none; overflow: hidden; }
+.stage-loading span { opacity: 0.9; animation: stageBreath 1.8s ease-in-out infinite; font-size: 1.05rem; }
+.sl-scene { position: relative; width: 220px; height: 130px; }
+.sl-cloud { position: absolute; display: block; height: 26px; border-radius: 999px; background: rgba(255, 255, 255, 0.85); filter: blur(1px); animation: slDrift 9s linear infinite; }
+.sl-cloud::before { content: ''; position: absolute; left: 18%; top: -12px; width: 46%; height: 28px; border-radius: 999px; background: inherit; }
+.sl-cloud.a { width: 110px; left: -30px; top: 24px; }
+.sl-cloud.b { width: 80px; left: 120px; top: 92px; animation-duration: 12s; animation-delay: -4s; opacity: 0.8; }
+.sl-island { position: absolute; left: 50%; top: 30px; width: 84px; height: 62px; margin-left: -42px; background: linear-gradient(180deg, #6fa34a 0 22%, #6b5538 22% 40%, #5a564e 40% 100%); clip-path: polygon(0 0, 100% 0, 92% 30%, 80% 52%, 62% 78%, 50% 100%, 38% 76%, 22% 50%, 8% 28%); animation: slBob 2.8s ease-in-out infinite; }
+.sl-bar { width: 180px; height: 5px; border-radius: 999px; background: rgba(38, 51, 74, 0.18); overflow: hidden; }
+.sl-bar i { display: block; height: 100%; background: #f2b84b; border-radius: inherit; transition: width 0.8s ease; }
+@keyframes slDrift { from { transform: translateX(-20px); } to { transform: translateX(40px); } }
+@keyframes slBob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 @keyframes stageBreath { 0%, 100% { opacity: 0.45; } 50% { opacity: 0.95; } }
-@media (prefers-reduced-motion: reduce) { .stage-loading span { animation: none; } }
+@media (prefers-reduced-motion: reduce) { .stage-loading span, .sl-cloud, .sl-island { animation: none; } }
 
 /* the one-line note shown when the classic map is used because there is no graphics acceleration */
 .stage-note { position: absolute; left: 10px; top: 10px; z-index: 6; display: flex; align-items: center; gap: 0.5rem; max-width: calc(100% - 80px); padding: 0.25rem 0.5rem 0.25rem 0.8rem; border-radius: 999px; background: rgba(16, 26, 43, 0.9); border: 1px solid var(--line); font-size: 0.8rem; color: var(--muted); }

@@ -19,6 +19,8 @@ export function MapView({ children }: { children?: React.ReactNode }) {
   const state = useStore((s) => s.state);
   const [mode, setMode] = useState(() => chooseRenderer());
   const [ready, setReady] = useState(false);
+  /** what the loading veil says while the 3D world arrives: its code is fetched, then the village is built */
+  const [stage, setStage] = useState<'fetching' | 'building'>('fetching');
   const choice = mode.choice;
   // on a phone the view controls fold into one button: pinch zooms, and the rest is a tap away
   const narrow = useNarrow();
@@ -196,12 +198,19 @@ export function MapView({ children }: { children?: React.ReactNode }) {
       loadWorld3D()
         .then((World3D) => {
           if (cancelled) return;
-          try {
-            attach(new World3D(canvas));
-          } catch (e) {
-            store.toast(`The 3D world could not start (${e instanceof Error ? e.message : 'WebGL unavailable'}). Using the classic map.`, 'error');
-            setMode({ choice: '2d', reason: 'the 3D world could not start' });
-          }
+          // say that the village is being built, let that be painted, and only then spend the half second it takes
+          setStage('building');
+          requestAnimationFrame(() =>
+            requestAnimationFrame(() => {
+              if (cancelled) return;
+              try {
+                attach(new World3D(canvas));
+              } catch (e) {
+                store.toast(`The 3D world could not start (${e instanceof Error ? e.message : 'WebGL unavailable'}). Using the classic map.`, 'error');
+                setMode({ choice: '2d', reason: 'the 3D world could not start' });
+              }
+            }),
+          );
         })
         .catch(() => {
           if (!cancelled) setMode({ choice: '2d', reason: 'the 3D world could not load' });
@@ -220,6 +229,7 @@ export function MapView({ children }: { children?: React.ReactNode }) {
       r?.destroy();
       rendRef.current = null;
       canvas.remove();
+      setStage('fetching');
     };
   }, [choice]);
 
@@ -314,7 +324,15 @@ export function MapView({ children }: { children?: React.ReactNode }) {
     <div className="stage" ref={wrapRef} data-renderer={choice} data-ready={ready ? '1' : '0'}>
       {choice === '3d' && !ready && (
         <div className="stage-loading" role="status">
-          <span>Raising the village…</span>
+          <div className="sl-scene" aria-hidden="true">
+            <i className="sl-cloud a" />
+            <i className="sl-cloud b" />
+            <i className="sl-island" />
+          </div>
+          <span>{stage === 'fetching' ? 'Fetching the 3D world…' : 'Raising the village…'}</span>
+          <div className="sl-bar" aria-hidden="true">
+            <i style={{ width: stage === 'fetching' ? '38%' : '86%' }} />
+          </div>
         </div>
       )}
       {noteShown && choice === '2d' && (
