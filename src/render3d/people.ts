@@ -18,8 +18,9 @@ import type { SceneChanges, SceneSnapshot, SceneVillager } from './snapshot.ts';
 const SKIN = [0xf1c9a5, 0xe0ac85, 0xc68a62, 0x8d5a3c];
 const HAIR = [0x2b1d14, 0x6b4226, 0xb5783a, 0xd8c9a8, 0x9a9a9a];
 const PANTS = [0x4a3c2e, 0x3a4252, 0x5a4a3a, 0x3c3a36];
-/** hip height, which is also the length of a leg from the hip pivot to the sole */
+/** hip height, which is also the length of a leg from the hip pivot to the sole; the knee is this far below the hip */
 const LEG = 0.16;
+const KNEE = 0.08;
 const SHIRT = 0xece4d2;
 const LEATHER = 0x4a3426;
 const BOOT = 0x2e241c;
@@ -38,6 +39,9 @@ interface Rig {
   armR: THREE.Group;
   legL: THREE.Group;
   legR: THREE.Group;
+  /** the lower legs, pivoted at the knee: the swinging leg bends to clear the ground */
+  kneeL: THREE.Group;
+  kneeR: THREE.Group;
   scale: number;
   child: boolean;
   /** a gown, robe or long coat: the legs swing less under it */
@@ -221,20 +225,25 @@ export function buildRig(v: SceneVillager): Rig {
   const body = new THREE.Group();
   root.add(body);
 
-  // legs, pivoted at the hip: breeches and boots
-  const legGeo = new Parts()
-    .add(geo('pLeg', () => new THREE.CapsuleGeometry(0.027, 0.085, 3, 8)), pants, 0, -0.068, 0)
-    .add(geo('pBootShaft', () => new THREE.CylinderGeometry(0.03, 0.028, 0.045, 8)), BOOT, 0, -0.124, 0)
-    .add(geo('pBootToe', () => new THREE.CapsuleGeometry(0.023, 0.04, 3, 8)), BOOT, 0, -0.146, 0.016, new THREE.Euler(Math.PI / 2, 0, 0), 1.1, 1, 0.82)
+  // legs, pivoted at the hip, with a knee half way down: breeches above it, the shin and the boot below
+  const thighGeo = new Parts().add(geo('pThigh', () => new THREE.CapsuleGeometry(0.027, 0.05, 3, 8)), pants, 0, -0.04, 0).bake();
+  const shinGeo = new Parts()
+    .add(geo('pShin', () => new THREE.CapsuleGeometry(0.025, 0.03, 3, 8)), pants, 0, -0.02, 0)
+    .add(geo('pBootShaft', () => new THREE.CylinderGeometry(0.03, 0.028, 0.045, 8)), BOOT, 0, -0.044, 0)
+    .add(geo('pBootToe', () => new THREE.CapsuleGeometry(0.023, 0.04, 3, 8)), BOOT, 0, -0.066, 0.016, new THREE.Euler(Math.PI / 2, 0, 0), 1.1, 1, 0.82)
     .bake();
-  const mkLeg = (x: number): THREE.Group => {
+  const mkLeg = (x: number): [THREE.Group, THREE.Group] => {
     const g = new THREE.Group();
     g.position.set(x * W, LEG, 0);
-    g.add(owned(legGeo));
-    return g;
+    g.add(owned(thighGeo));
+    const knee = new THREE.Group();
+    knee.position.y = -KNEE;
+    knee.add(owned(shinGeo));
+    g.add(knee);
+    return [g, knee];
   };
-  const legL = mkLeg(-0.034);
-  const legR = mkLeg(0.034);
+  const [legL, kneeL] = mkLeg(-0.034);
+  const [legR, kneeR] = mkLeg(0.034);
   body.add(legL, legR);
 
   // the hem of the tunic, or the gown down to the ankles, pivoted at the waist
@@ -457,7 +466,7 @@ export function buildRig(v: SceneVillager): Rig {
   body.add(head);
 
   root.scale.setScalar(S * 1.05);
-  return { root, body, torso, skirt, head, armL, armR, legL, legR, scale: S, child, robe };
+  return { root, body, torso, skirt, head, armL, armR, legL, legR, kneeL, kneeR, scale: S, child, robe };
 }
 
 const MARKS = 160;
@@ -941,12 +950,16 @@ export class PeopleLayer implements Layer {
       const stride = Math.asin(Math.sin(legAmp) * reach);
       r.legL.rotation.x = stride;
       r.legR.rotation.x = -stride;
+      // the swinging leg bends at the knee and clears the ground (the left swings while cos(phase) < 0, the right while it is > 0); the leg
+      // in stance stays straight, and the hips ride only as high as it reaches, so both soles stay on or above the ground
+      r.kneeL.rotation.x = moving ? Math.max(0, -Math.cos(wk.phase)) * 0.95 : 0;
+      r.kneeR.rotation.x = moving ? Math.max(0, Math.cos(wk.phase)) * 0.95 : 0;
       r.skirt.rotation.x = moving && !reduced ? Math.sin(wk.phase * 2) * (r.robe ? 0.05 : 0.025) : 0;
       r.armL.rotation.x = -swing * 0.9;
       r.armR.rotation.x = swing * 0.9;
       r.armL.rotation.z = 0.08;
       r.armR.rotation.z = -0.08;
-      const bob = moving ? Math.abs(Math.sin(wk.phase)) * 0.018 : Math.sin(wk.phase * 0.8) * 0.004;
+      const bob = moving ? -LEG * (1 - Math.cos(stride)) : Math.sin(wk.phase * 0.8) * 0.004;
       r.body.position.y = bob;
       r.body.rotation.x = moving ? (urgent ? 0.18 : 0.06) : 0;
       r.torso.scale.y = 1 + (moving ? 0 : Math.sin(wk.phase * 0.8) * 0.02);
