@@ -79,7 +79,7 @@ export class TabletopCamera {
     const lim = (v: number, max: number): number => Math.min(Math.max(0, v), max);
     this.insetGoal = {
       left: lim(i.left, this.view.w * 0.25),
-      right: lim(i.right, this.view.w * 0.4),
+      right: lim(i.right, this.view.w * 0.46),
       top: lim(i.top, this.view.h * 0.3),
       bottom: lim(i.bottom, this.view.h * 0.58),
     };

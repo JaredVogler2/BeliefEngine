@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { allClaimDefs, firstName, getForecast, getLawViews, nightReport } from '../../engine/index.ts';
 import { setAmbience, setSceneAudio, setThreatIntensity, unlockAudio } from '../../audio/audio.ts';
 import { Icon, Modal, evIcon } from '../components.tsx';
@@ -102,6 +102,49 @@ function Toasts() {
   );
 }
 
+/**
+ * The handle on top of the sheet on a phone held upright. The sheet opens at half height so the village stays in view: a tap on the
+ * handle (or Enter) draws it up to full height and back, a swipe up draws it up, and a swipe down lowers it to half, then closes it.
+ */
+function SheetHandle({ full }: { full: boolean }) {
+  const start = useRef<number | null>(null);
+  const swiped = useRef(false);
+  return (
+    <button
+      className="grab"
+      aria-label={full ? 'Show less of the panel' : 'Show more of the panel'}
+      aria-expanded={full}
+      data-testid="sheet-handle"
+      onPointerDown={(e) => {
+        start.current = e.clientY;
+        // (a touch swipe is often followed by no click at all: whatever the last swipe left behind does not apply to this press)
+        swiped.current = false;
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+      }}
+      onPointerUp={(e) => {
+        const y0 = start.current;
+        start.current = null;
+        if (y0 === null || Math.abs(e.clientY - y0) < 24) return;
+        // a swipe, not a tap: the click that follows it is not a second request
+        swiped.current = true;
+        if (e.clientY < y0) store.set({ sheetFull: true });
+        else if (full) store.set({ sheetFull: false });
+        else store.set({ sheetOpen: false });
+      }}
+      onPointerCancel={() => {
+        start.current = null;
+      }}
+      onClick={() => {
+        if (swiped.current) {
+          swiped.current = false;
+          return;
+        }
+        store.set({ sheetFull: !full });
+      }}
+    />
+  );
+}
+
 export function Play() {
   const state = useStore((s) => s.state);
   const ui = useStore((s) => s.ui);
@@ -187,8 +230,8 @@ export function Play() {
       <Modes />
       <Coach />
       <SelectionPopover />
-      <aside className={`side ${ui.sheetOpen ? 'open' : ''}`} aria-label="Details">
-        <button className="grab" aria-label={ui.sheetOpen ? 'Collapse panel' : 'Expand panel'} onClick={() => store.set({ sheetOpen: !ui.sheetOpen })} />
+      <aside className={`side ${ui.sheetOpen ? 'open' : ''} ${ui.sheetFull ? 'full' : ''}`} aria-label="Details">
+        <SheetHandle full={ui.sheetFull} />
         <div className="tabs-row">
           <div className="tabs" role="tablist">
             {TABS.map((t) => (

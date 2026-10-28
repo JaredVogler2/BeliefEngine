@@ -31,6 +31,8 @@ export interface UiState {
   lens: Lens;
   tab: SideTab;
   sheetOpen: boolean;
+  /** on a phone held upright the sheet opens at half height, so the village stays in view; drawn up to full height only when asked */
+  sheetFull: boolean;
   digest: Resolution | null;
   confirmEnd: boolean;
   /** the Write-a-belief dialog is open (Inventor runs) */
@@ -67,7 +69,7 @@ export class GameStore {
     const settings = loadSettings();
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : new URLSearchParams();
     this.ui = {
-      screen: 'title', selection: null, activeClaim: null, lens: 'none', tab: 'selected', sheetOpen: false, digest: null, confirmEnd: false, composing: false,
+      screen: 'title', selection: null, activeClaim: null, lens: 'none', tab: 'selected', sheetOpen: false, sheetFull: false, digest: null, confirmEnd: false, composing: false,
       settings, toasts: [], loadError: null, tutorialDone: !settings.tutorial, debug: params.get('debug') === '1', announce: '', showFlood: settings.showFlood,
       scenarioId: 'redbank', notes: [], reward: null, lastAction: null,
     };
@@ -90,7 +92,10 @@ export class GameStore {
   }
 
   set(patch: Partial<UiState>): void {
-    this.ui = { ...this.ui, ...patch };
+    const next = { ...this.ui, ...patch };
+    // every time the sheet opens or closes it goes back to half height: full height is asked for each time
+    if (next.sheetOpen !== this.ui.sheetOpen && patch.sheetFull === undefined) next.sheetFull = false;
+    this.ui = next;
     this.emit();
   }
 

@@ -268,7 +268,7 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 .panel { flex: 1; overflow: auto; padding: 0.8rem; min-height: 0; }
 .panel h3 { font-size: 1.05rem; margin: 0.9rem 0 0.4rem; color: var(--gold); }
 .panel h3:first-child { margin-top: 0; }
-.grab { display: none; flex: none; width: 100%; height: 28px; background: #0f1a31; border: 0; border-radius: 18px 18px 0 0; position: relative; }
+.grab { display: none; flex: none; width: 100%; height: 28px; background: #0f1a31; border: 0; border-radius: 18px 18px 0 0; position: relative; touch-action: none; cursor: ns-resize; }
 .grab::after { content: ''; position: absolute; left: 50%; top: 11px; width: 46px; height: 5px; border-radius: 3px; background: var(--muted); transform: translateX(-50%); }
 
 /* panels */
@@ -371,10 +371,11 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   .play.sheet-open .tray { left: 8px; right: 8px; }
   .hand.chips { order: -1; flex: 1 0 100%; }
   .tray .ap { margin-right: auto; }
-  .side { top: auto; left: 0; right: 0; width: auto; bottom: calc(var(--tray-h) + 8px + var(--safe-b)); max-height: min(58dvh, calc(100dvh - var(--tray-h) - 200px - var(--safe-b))); border-left: 0; border-top: 2px solid var(--gold); border-radius: 18px 18px 0 0; box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.6); transform: translateY(110%); }
-  .side.open { transform: none; }
+  /* a sheet from the bottom that opens at half height, so the village stays in view above it; its handle draws it up to full height */
+  .side { top: auto; left: 0; right: 0; width: auto; bottom: calc(var(--tray-h) + 8px + var(--safe-b)); max-height: min(36dvh, calc(100dvh - var(--tray-h) - 200px - var(--safe-b))); border-left: 0; border-top: 2px solid var(--gold); border-radius: 18px 18px 0 0; box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.6); transform: translateY(110%); transition: transform 0.22s ease, max-height 0.22s ease, visibility 0s linear 0.22s; }
+  .side.open { transform: none; transition: transform 0.22s ease, max-height 0.22s ease, visibility 0s; }
+  .side.full { max-height: min(58dvh, calc(100dvh - var(--tray-h) - 200px - var(--safe-b))); }
   .side .grab { display: block; }
-  .side-x { display: none; }
   /* the sheet covers the map on a phone: its own controls are enough while it is open */
   .play.sheet-open .modes, .play.sheet-open .map-tools, .play.sheet-open .coach { visibility: hidden; }
   .plan-list { bottom: calc(100% + 6px); }
@@ -458,6 +459,11 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   .claim .c-line { display: none; }
   .hand.choosing .claim .c-line, .hand.drawer .claim .c-line { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .hand.choosing .claim .c-line + .c-line, .hand.drawer .claim .c-line + .c-line { display: none; }
+  /* the details stand at the right, under the top bar and over the bottom bar, as on a wide screen: a strip along the bottom of a
+     screen this short held a line of text and hid the village behind it */
+  .side { top: calc(74px + var(--safe-t)); bottom: calc(var(--tray-h) + 16px + var(--safe-b)); left: auto; right: 8px; width: min(360px, 44vw); max-height: none; border: 1px solid var(--glass-line); border-radius: 16px; box-shadow: -10px 0 32px rgba(0, 0, 0, 0.5); transform: translateX(calc(100% + 24px)); }
+  .side.open, .side.full { transform: none; max-height: none; }
+  .side .grab { display: none; }
   /* the view controls fold into one button and the tip into one line, as on a phone held upright */
   .map-tools { top: calc(66px + var(--safe-t)); }
   .map-tools .btn { width: 44px; height: 44px; min-height: 44px; }

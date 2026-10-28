@@ -303,7 +303,9 @@ export function MapView({ children }: { children?: React.ReactNode }) {
       // on a phone the card for the selection and the open sheet sit above the tray: the village is framed in what is left above them
       const dock = q(".pop[data-dock='1'][data-ready='1']");
       const wide = sr.width > 900;
-      const sheetH = !wide && side ? sr.bottom - side.top : 0;
+      // the sheet stands along the bottom on a phone held upright, and at the right on a wide screen or a phone on its side
+      const sheetAtBottom = !!side && side.width > sr.width * 0.8;
+      const sheetH = side && sheetAtBottom ? sr.bottom - side.top : 0;
       const dockTop = dock && dock.top > sr.top + sr.height * 0.25 ? sr.bottom - dock.top : 0;
       // while the opening choice is up the card docks under the rail instead (the cards need the bottom)
       const dockHigh = dock && dock.top <= sr.top + sr.height * 0.25 ? dock.bottom - sr.top : 0;
@@ -313,7 +315,7 @@ export function MapView({ children }: { children?: React.ReactNode }) {
         top: Math.max(top ? top.bottom - sr.top + 8 : 0, dockHigh + 8),
         bottom: Math.max(tray ? sr.bottom - tray.top + 8 : 0, dockTop + 8, sheetH + 8),
         left: wide && modes ? Math.max(0, modes.right - sr.left + 8) : 0,
-        right: Math.max(wide && side ? sr.right - side.left : 0, wide && tools ? sr.right - tools.left + 6 : 0),
+        right: Math.max(side && !sheetAtBottom ? sr.right - side.left : 0, wide && tools ? sr.right - tools.left + 6 : 0),
       });
     };
     apply();

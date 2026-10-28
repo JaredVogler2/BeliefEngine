@@ -458,6 +458,63 @@ test.describe('the 3D world', () => {
     expect((await browserState(page)).hash).toBe(hash0);
   });
 
+  test('on a phone one finger pans the village and two fingers pinch it nearer and farther, through real touch events, within the camera limits, never touching the run', async ({ page }, info) => {
+    test.skip(!info.project.name.startsWith('phone'), 'touch gestures: the phone project');
+    await startRedbank(page, 1, 'normal', URL3D);
+    await ready(page);
+    const view = (): Promise<{ x: number; z: number; dist: number }> =>
+      page.evaluate(() => (window as unknown as { __beRenderer: { describeView: () => { x: number; z: number; dist: number } } }).__beRenderer.describeView());
+    const hash0 = (await browserState(page)).hash;
+    await page.waitForTimeout(1200);
+    await page.evaluate(() => (window as unknown as { __beRenderer: { advance: (s: number) => void } }).__beRenderer.advance(4));
+    // touches go in through the browser's own input pipeline (the DevTools protocol), as a phone's would, and reach the page as touch
+    // pointers: Playwright's touchscreen only taps
+    const cdp = await page.context().newCDPSession(page);
+    const touch = (type: 'touchStart' | 'touchMove' | 'touchEnd', points: { x: number; y: number }[]): Promise<unknown> =>
+      cdp.send('Input.dispatchTouchEvent', { type, touchPoints: points.map((p, id) => ({ x: Math.round(p.x), y: Math.round(p.y), id, radiusX: 8, radiusY: 8, force: 1 })) });
+    const box = (await page.locator('canvas').boundingBox())!;
+    const cx = box.x + box.width / 2;
+    const cy = box.y + box.height / 2;
+    const selection = (): Promise<unknown> => page.evaluate(() => (window as unknown as { __belief: { store: { ui: { selection: unknown } } } }).__belief.store.ui.selection);
+
+    // one finger drags the ground along with it, and is not a selection
+    const home = await view();
+    await touch('touchStart', [{ x: cx, y: cy }]);
+    for (let i = 1; i <= 8; i++) await touch('touchMove', [{ x: cx + i * 15, y: cy + i * 8 }]);
+    await touch('touchEnd', []);
+    const panned = await view();
+    expect(Math.hypot(panned.x - home.x, panned.z - home.z), 'a one-finger drag pans').toBeGreaterThan(0.3);
+    expect(panned.dist).toBeCloseTo(home.dist, 3);
+    expect(await selection()).toBeNull();
+
+    // two fingers spread apart bring the village nearer, by about how far they spread
+    const spread = async (from: number, to: number): Promise<void> => {
+      await touch('touchStart', [{ x: cx - from / 2, y: cy }]);
+      await touch('touchStart', [{ x: cx - from / 2, y: cy }, { x: cx + from / 2, y: cy }]);
+      for (let i = 1; i <= 10; i++) {
+        const d = from + ((to - from) * i) / 10;
+        await touch('touchMove', [{ x: cx - d / 2, y: cy }, { x: cx + d / 2, y: cy }]);
+      }
+      await touch('touchEnd', []);
+    };
+    await spread(60, 180);
+    const near = await view();
+    expect(near.dist, 'spreading two fingers zooms in').toBeLessThan(panned.dist * 0.6);
+    expect(near.dist).toBeGreaterThanOrEqual(4.2 - 1e-6);
+    expect(await selection(), 'a pinch is not a tap').toBeNull();
+    // and pinched together they take it away again
+    await spread(180, 60);
+    const far = await view();
+    expect(far.dist, 'pinching two fingers zooms out').toBeGreaterThan(near.dist * 2);
+    // as far as the camera allows and no farther, however far the fingers pinch
+    await spread(240, 40);
+    await spread(240, 40);
+    const farthest = await view();
+    expect(farthest.dist).toBeLessThanOrEqual(home.dist * 1.5);
+    expect(await selection()).toBeNull();
+    expect((await browserState(page)).hash).toBe(hash0);
+  });
+
   test('a selected house says what the water tonight does at its door and draws the way to the nearest shelter over walkable ground', async ({ page }) => {
     await page.goto(URL3D);
     await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
@@ -482,6 +539,61 @@ test.describe('the 3D world', () => {
     const res = await new AxeBuilder({ page: page as unknown as ConstructorParameters<typeof AxeBuilder>[0]['page'] }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
     const bad = res.violations.filter((v) => v.impact === 'critical' || v.impact === 'serious');
     expect(bad.map((v) => `${v.id}: ${v.nodes.slice(0, 2).map((n) => n.target.join(' ')).join(' | ')}`)).toEqual([]);
+  });
+
+  test('on a phone the sheet opens at half height with the village framed above it; its handle draws it up and back, and a swipe down puts it away', async ({ page }, info) => {
+    test.skip(!info.project.name.startsWith('phone'), 'the bottom sheet: the phone project');
+    await startRedbank(page, 1, 'normal', URL3D);
+    await ready(page);
+    await chooseClaim(page, 'river_fears_fire');
+    const vh = page.viewportSize()!.height;
+    const rects = (): Promise<{ top: number; sheetTop: number; sheetH: number; full: boolean }> =>
+      page.evaluate(() => {
+        const side = document.querySelector('.side.open')?.getBoundingClientRect();
+        return { top: document.querySelector('.topbar')!.getBoundingClientRect().bottom, sheetTop: side?.top ?? -1, sheetH: side?.height ?? 0, full: !!document.querySelector('.side.full') };
+      });
+    await page.getByRole('button', { name: 'Laws: open the law ledger' }).tap();
+    await expect(page.locator('.side.open')).toBeVisible();
+    await page.waitForTimeout(400);
+    const half = await rects();
+    expect(half.full).toBe(false);
+    expect(half.sheetH, 'the sheet opens at no more than four tenths of the screen').toBeLessThanOrEqual(vh * 0.4);
+    expect(half.sheetTop - half.top, 'and leaves at least three tenths of it to the village').toBeGreaterThanOrEqual(vh * 0.3);
+    // the camera frames the village in what is left: the bridge, in the middle of it, is drawn between the top bar and the sheet
+    await page.waitForTimeout(800);
+    await page.evaluate(() => (window as unknown as { __beRenderer: { advance: (s: number) => void } }).__beRenderer.advance(4));
+    const bridge = await page.evaluate(() => (window as unknown as { __beRenderer: { entityScreen: (k: string, i: string) => { x: number; y: number } | null } }).__beRenderer.entityScreen('landmark', 'br'));
+    expect(bridge).not.toBeNull();
+    expect(bridge!.y).toBeGreaterThan(half.top);
+    expect(bridge!.y).toBeLessThan(half.sheetTop);
+    // a tap on the handle draws the sheet up to full height, and another lowers it again
+    const handle = page.getByTestId('sheet-handle');
+    await expect(handle).toHaveAttribute('aria-expanded', 'false');
+    await handle.tap();
+    await expect(page.locator('.side.full')).toBeVisible();
+    await expect(handle).toHaveAttribute('aria-expanded', 'true');
+    await page.waitForTimeout(400);
+    expect((await rects()).sheetH).toBeGreaterThan(half.sheetH * 1.3);
+    await handle.tap();
+    await expect(page.locator('.side.full')).toHaveCount(0);
+    // a swipe down on the handle, through the browser's own touch input, puts the half sheet away
+    await page.waitForTimeout(400);
+    const hb = (await handle.boundingBox())!;
+    const cdp = await page.context().newCDPSession(page);
+    const at = (y: number) => [{ x: Math.round(hb.x + hb.width / 2), y: Math.round(y), id: 0, radiusX: 8, radiusY: 8, force: 1 }];
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: at(hb.y + hb.height / 2) });
+    for (let i = 1; i <= 6; i++) await cdp.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: at(hb.y + hb.height / 2 + i * 14) });
+    await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await expect(page.locator('.side.open')).toHaveCount(0);
+    // opened again, it is back at half height (a moment later: a tap on the heels of a swipe is taken by the browser as stopping the
+    // swipe, as a phone's is, and makes no click)
+    await page.waitForTimeout(600);
+    await page.getByRole('button', { name: 'Laws: open the law ledger' }).tap();
+    await expect(page.locator('.side.open')).toBeVisible();
+    await expect(page.locator('.side.full')).toHaveCount(0);
+    // and the handle still answers a tap after a swipe
+    await handle.tap();
+    await expect(page.locator('.side.full')).toBeVisible();
   });
 
   test('the interface leaves most of the screen to the world', async ({ page }) => {
@@ -544,6 +656,17 @@ test.describe('the 3D world', () => {
       expect(m.small, `${at}: every control is at least 44x44`).toEqual([]);
       await expect(page.getByTestId('end-day'), at).toBeInViewport();
       expect(m.world, `${at}: the share of the screen left to the world`).toBeGreaterThan(w >= 900 ? 0.75 : 0.6);
+      // with the law ledger open the village still has room: above a half-height sheet on a phone held upright, beside the sheet on a
+      // phone on its side and on a wide screen
+      await page.evaluate(() => (window as unknown as { __belief: { store: { set: (p: unknown) => void } } }).__belief.store.set({ tab: 'laws', sheetOpen: true }));
+      await page.waitForTimeout(400);
+      const sheet = await page.evaluate(() => {
+        const r = document.querySelector('.side.open')!.getBoundingClientRect();
+        return { left: r.left, top: r.top, width: r.width, topbar: document.querySelector('.topbar')!.getBoundingClientRect().bottom };
+      });
+      if (sheet.width > w * 0.8) expect(sheet.top - sheet.topbar, `${at}: the band left above the sheet`).toBeGreaterThanOrEqual(h * 0.3);
+      else expect(sheet.left, `${at}: the width left beside the sheet`).toBeGreaterThanOrEqual(w * 0.5);
+      await expect(page.getByTestId('end-day'), `${at}, with the sheet open`).toBeInViewport();
     }
   });
 });
