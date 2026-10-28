@@ -109,6 +109,8 @@ export class World3D implements WorldRenderer {
   private hover: HitResult | null = null;
   private ray = new THREE.Raycaster();
   private contextLost = false;
+  /** how many times the GPU took the graphics context away (each one rebuilds the world when it comes back) */
+  private contextLosses = 0;
   /** how long drawing a frame takes on this machine (smoothed, ms): the frame pacing and the quality monitor both read it */
   private drawMs = 0;
   /** render resolution as a fraction of the canvas, stepped down when even the lowest tier is too slow */
@@ -218,6 +220,7 @@ export class World3D implements WorldRenderer {
   private onLost = (e: Event): void => {
     e.preventDefault();
     this.contextLost = true;
+    this.contextLosses++;
     this.lastError = 'The graphics context was lost.';
   };
   private onRestored = (): void => {
@@ -916,6 +919,7 @@ export class World3D implements WorldRenderer {
   info(): {
     calls: number; triangles: number; geometries: number; textures: number; programs: number; fps: number; tier: Quality; capFps: number; frames: number; scale: number; drawMs: number; software: boolean;
     buildMs: number; builds: number; firstDrawMs: number; worstDrawMs: number; hitches: number; frameP50Ms: number; frameP95Ms: number; post: PostProfile | null; env: boolean;
+    contextLosses: number;
   } {
     const i = this.renderer.info;
     const r1 = (v: number): number => Math.round(v * 10) / 10;
@@ -925,7 +929,7 @@ export class World3D implements WorldRenderer {
       calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, programs: i.programs?.length ?? 0, fps: this.fps, tier: this.quality, capFps: this.capFps,
       frames: this.frameCount, scale: this.scale, drawMs: r1(this.drawMs), software: this.software, buildMs: Math.round(this.buildMs), builds: this.builds, firstDrawMs: r1(Math.max(0, this.stalls.first)),
       worstDrawMs: r1(this.stalls.worst), hitches: this.stalls.hitches, frameP50Ms: pct(0.5), frameP95Ms: pct(0.95), post: this.post && !this.postOff ? { ...this.post.settings } : null,
-      env: !!this.envRT,
+      env: !!this.envRT, contextLosses: this.contextLosses,
     };
   }
 

@@ -9,7 +9,7 @@ export const PERF_MONITOR = typeof window !== 'undefined' && new URLSearchParams
 
 interface Info {
   fps: number; frameP50Ms: number; frameP95Ms: number; drawMs: number; calls: number; triangles: number; geometries: number; textures: number; programs: number;
-  tier: string; capFps: number; scale: number; buildMs: number; firstDrawMs: number; worstDrawMs: number; hitches: number;
+  tier: string; capFps: number; scale: number; buildMs: number; firstDrawMs: number; worstDrawMs: number; hitches: number; contextLosses?: number;
 }
 interface Memory { textureMB: number; targetMB: number; people: { near: number; far: number }; standIns: string[] }
 
@@ -29,7 +29,7 @@ export function PerfMonitor({ renderer }: { renderer: () => WorldRenderer | null
         // (the cap: a phone's tier rests at 30 a second while the view is still and draws up to 60 while it moves)
         `${i.tier} ×${i.scale}  ${Math.round(i.fps)} fps (cap ${i.capFps})  frame p50 ${i.frameP50Ms} / p95 ${i.frameP95Ms} ms  draw ${i.drawMs} ms`,
         `calls ${i.calls}  tris ${k(i.triangles)}  geoms ${i.geometries}  tex ${i.textures}  programs ${i.programs}`,
-        `build ${i.buildMs} ms  first draw ${i.firstDrawMs} ms  worst ${i.worstDrawMs} ms  hitches ${i.hitches}`,
+        `build ${i.buildMs} ms  first draw ${i.firstDrawMs} ms  worst ${i.worstDrawMs} ms  hitches ${i.hitches}${i.contextLosses ? `  CONTEXT LOST ${i.contextLosses}×` : ''}`,
         ...(mem ? [`video ≈ ${mem.textureMB} MB textures + ${mem.targetMB} MB targets  people ${mem.people.near} close / ${mem.people.far} far${mem.standIns.length ? `  STAND-INS ${mem.standIns.join(', ')}` : ''}`] : []),
       ]);
     }, 500);

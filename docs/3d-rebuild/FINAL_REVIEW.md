@@ -76,7 +76,9 @@ the cut. Both are fixed: the cut is painted strata with relief and a ragged rock
 cloud sea and rises among boulders at its source. The runs also found two pacing faults that cost players smoothness (an average
 seeded by the first frames, and a phone frame cap a 60 Hz screen could only show as 30), both fixed and measured again, and one fault
 of size: every point sprite (mist, smoke, the gold markers, the coach's call-out) drew at half its size on a screen of pixel ratio 2,
-fixed after run 5.
+fixed after run 5 and seen fixed on the GPU in run 6 (`screenshots/real-hw/sprites-before-after-run5-run6.jpg`). Run 6's close-up of
+the waterfall showed one more fault: the ink of the cliff's lip and the island's underside was drawn straight through the falling water.
+The sheet is now a veil to the finishing chain, and that ink fades under it (`screenshots/wc/falls-ink-veil-before-after.jpg`).
 
 ### The scorecard, round 9
 
@@ -91,13 +93,13 @@ fixed after run 5.
 | Citizens | 4 | Unchanged | Arms without elbows; faces tiny at the overview |
 | Magical causality | 4 | Unchanged | Legible rather than lavish |
 | UI discipline | 4 | Unchanged | The opening story cards cover the lower village for a moment |
-| Phone usability | 4 | Touch tests at seven sizes; on a real GPU at an iPhone's size and pixel ratio, 30 frames a second at rest (frame p50 33 ms, p95 50 ms) and a median of 60 while the view turns (p50 17 ms, p95 64 ms); Mobile Safari draws and runs the world in the iOS Simulator | **A physical phone is UNVERIFIED** |
+| Phone usability | 4 | Touch tests at seven sizes; on a real GPU at an iPhone's size and pixel ratio, 30 frames a second at rest (frame p50 33 ms, p95 50 ms) and a median of 60 while the view turns (p50 17 ms; p95 64 ms in run 5, 17.7 ms in run 6); Mobile Safari draws and runs the world in the iOS Simulator | **A physical phone is UNVERIFIED** |
 | No faux completion | — | Every frame a bot-played engine state; every number from a named run; nothing deployed and none claimed | — |
 
 **Verdict, round 9.** Phase 09 asks for 4 or more in every area before "premium". Every area scores 4 in this review. The area that held
 the claim back in round 6 was phone usability ("3D readable and smooth"). It now rests on three things:
 
-- the real GPU at an iPhone's size and pixel ratio: 30 frames a second at rest (frame p50 33 ms, p95 50 ms), and the display's 60 at the median while the view turns (p50 17 ms, p95 64 ms, 47 a second on average);
+- the real GPU at an iPhone's size and pixel ratio: 30 frames a second at rest (frame p50 33 ms, p95 50 ms), and the display's 60 at the median while the view turns (p50 17 ms; run 5: p95 64 ms, 47 a second on average; run 6: p95 17.7 ms, 60 a second);
 - Mobile Safari drawing and running the world in the iOS Simulator;
 - the touch tests at seven sizes.
 

@@ -147,6 +147,9 @@ describe('the river falls where it leaves the plate and rises among boulders whe
     falls.update(snap, getSceneChanges(null, snap), ctx);
     const sheets = falls.group.children.filter((o) => o.name === 'waterfall') as THREE.Mesh[];
     expect(sheets).toHaveLength(1);
+    // a veil to the finishing chain: what is behind it keeps its code scaled by what the water lets through, so its ink fades under it
+    const m = sheets[0].material as THREE.Material;
+    expect([m.blending, m.blendSrcAlpha, m.blendDstAlpha]).toEqual([THREE.CustomBlending, THREE.ZeroFactor, THREE.OneMinusSrcAlphaFactor]);
     const g = sheets[0].geometry;
     const pos = g.getAttribute('position');
     const t = g.getAttribute('aT');

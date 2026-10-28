@@ -264,7 +264,7 @@ had just looked at, on desktop and in phone emulation; `docs/PLAYTHROUGH_NOTES.m
 Every frame before this one came from a software rasteriser at half resolution, whose softness hid small things. The real-hardware
 workflow (`docs/3d-rebuild/PERFORMANCE.md`, "Real hardware") photographs the art director's Day 1 frame on an Apple GPU at 2880×1800 at
 the high tier. Looked at full size, two things were wrong that no earlier frame had shown clearly, both at the front of the opening view;
-a third showed in the next run's frames:
+two more showed in the next runs' frames:
 
 * **The plate's cut sides were a slice of cake.** They were seven bands of vertex colour, which the GPU blends into one smooth
   green-to-brown gradient: no material, no edge, a straight ruled base. The cut is now painted from the seed like the ground (a turf lip
@@ -280,7 +280,13 @@ a third showed in the next run's frames:
   pixels, so it drew at half its size at a pixel ratio of 2, and at two thirds on a phone's medium tier (a ratio of 1.5). It was in this
   report's phone frames too (a pixel ratio of 2), where the gold rings were smaller than on a desktop; nobody noticed until the mist made
   it plain. Sprites are now sized in CSS pixels and scaled by the renderer's pixel ratio each frame
-  (`src/render3d/particles.ts`, `pixelRatio`), and the phone frames were captured again after the fix (I, L, `wc/phone-*.jpg`).
+  (`src/render3d/particles.ts`, `pixelRatio`), and the phone frames were captured again after the fix (I, L, `wc/phone-*.jpg`). Run 6
+  shows the fix on the GPU (`docs/3d-rebuild/screenshots/real-hw/sprites-before-after-run5-run6.jpg`).
+* **Ink through the water.** Run 6's close-up of the falls at a pixel ratio of 2 showed the cliff's lip and the island's underside
+  outlined straight through the falling water, a thin dark line in mid-air: the chain inks from the depth of opaque things and lays the
+  ink over everything, the water included. The sheet is now a veil to the chain, which fades the ink and the hollows of what is behind it
+  where the water is thick (`src/render3d/post.ts`, `markVeil`; `wc/falls-ink-veil-before-after.jpg`). Every frame that shows the falls
+  was captured again after it.
 
 Checked by `tests/unit/render3d-edge.test.ts` (the faces close the plate edge to edge with the ground above and the root below, with no
 gap at a corner; the painted face repeats without a seam; the falls pour from the water's surface at the lip, swell with a flood, and

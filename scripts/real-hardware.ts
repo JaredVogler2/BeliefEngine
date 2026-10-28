@@ -85,9 +85,9 @@ type Reading = { renderer: string | null; info: Record<string, unknown> | null; 
 const brief = (r: Reading): string => {
   if (!r) return 'no world';
   if (!r.info) return `the game chose the ${r.renderer === '2d' ? 'classic map' : `renderer "${r.renderer}"`}`;
-  const i = r.info as { tier: string; capFps?: number; scale: number; fps: number; frameP50Ms: number; frameP95Ms: number; drawMs: number; calls: number; triangles: number; programs: number; firstDrawMs: number; worstDrawMs: number; hitches: number; software: boolean };
+  const i = r.info as { tier: string; capFps?: number; scale: number; fps: number; frameP50Ms: number; frameP95Ms: number; drawMs: number; calls: number; triangles: number; programs: number; firstDrawMs: number; worstDrawMs: number; hitches: number; software: boolean; contextLosses?: number };
   const m = r.memory as { textureMB: number; targetMB: number; people: { near: number; far: number } } | null;
-  return `${r.renderer} · ${i.software ? 'SOFTWARE GL' : 'hardware GL'} · tier ${i.tier} ×${i.scale}${i.capFps ? ` (cap ${i.capFps})` : ''} · ${Math.round(i.fps)} fps, frame p50 ${i.frameP50Ms} / p95 ${i.frameP95Ms} ms, draw ${i.drawMs} ms · ${i.calls} calls, ${i.triangles} triangles, ${i.programs} programs · first draw ${i.firstDrawMs} ms, worst ${i.worstDrawMs} ms, ${i.hitches} hitches${m ? ` · video ≈ ${m.textureMB} + ${m.targetMB} MB · people ${m.people.far}/${m.people.near + m.people.far} far` : ''}`;
+  return `${r.renderer} · ${i.software ? 'SOFTWARE GL' : 'hardware GL'} · tier ${i.tier} ×${i.scale}${i.capFps ? ` (cap ${i.capFps})` : ''} · ${Math.round(i.fps)} fps, frame p50 ${i.frameP50Ms} / p95 ${i.frameP95Ms} ms, draw ${i.drawMs} ms · ${i.calls} calls, ${i.triangles} triangles, ${i.programs} programs · first draw ${i.firstDrawMs} ms, worst ${i.worstDrawMs} ms, ${i.hitches} hitches${i.contextLosses ? ` · graphics context lost ${i.contextLosses}×` : ''}${m ? ` · video ≈ ${m.textureMB} + ${m.targetMB} MB · people ${m.people.far}/${m.people.near + m.people.far} far` : ''}`;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------------- chrome
@@ -179,7 +179,10 @@ async function chrome(): Promise<void> {
           note(`${view.name} ${scene} cost by part (median ms back to back): ${Object.entries(parts as Record<string, { medianMs: number }>).map(([k, v]) => `${k} ${v.medianMs}`).join(', ')}`);
         }
         rows[scene] = { live, moving, bench, timeline, parts, beforeNight };
-        if (beforeNight?.info && live?.info) note(`${view.name} night: ${String(beforeNight.info.programs)} shader programs before it ended, ${String(live.info.programs)} after`);
+        if (beforeNight?.info && live?.info) {
+          const [b, a] = [beforeNight.info, live.info];
+          note(`${view.name} night: shader programs ${String(b.programs)} before it ended, ${String(a.programs)} after; world builds ${String(b.builds)} → ${String(a.builds)}; graphics context lost ${String(a.contextLosses ?? 0)}× in all`);
+        }
         note(`${view.name} ${scene}: ${brief(live)}${bench ? ` · back to back: ${JSON.stringify(bench)}` : ''}`);
         note(`${view.name} ${scene} tier every 2 s: ${timeline.map((x) => `${(x as { tier: string }).tier}×${(x as { scale: number }).scale}`).join(' ')}`);
       }

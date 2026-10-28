@@ -440,6 +440,28 @@ test.describe('the 3D world', () => {
     expect(late, `heap ${early.toFixed(1)} MB after loads 5-7, ${late.toFixed(1)} MB after loads 8-10`).toBeLessThan(early * 1.08 + 1);
   });
 
+  test('a lost graphics context is survived: when it comes back the world is built again and draws, and the record counts the loss', async ({ page }) => {
+    const errors = watchConsole(page);
+    await page.goto(URL3D);
+    await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
+    await loadRun(page, played(1, 'evidence-first', 1));
+    type Rec = { builds: number; frames: number; programs: number; contextLosses: number };
+    const rec = (): Promise<Rec> => renderer(page, (r) => r.info() as unknown as Rec);
+    const before = await rec();
+    expect(before.contextLosses).toBe(0);
+    // what a driver reset or a GPU short of memory does: the context goes, and the browser gives it back a moment later
+    await page.evaluate(`(() => { window.__lose = window.__beRenderer.renderer.getContext().getExtension('WEBGL_lose_context'); window.__lose.loseContext(); })()`);
+    await expect.poll(async () => (await rec()).contextLosses, { timeout: 30_000 }).toBe(1);
+    await page.waitForTimeout(300);
+    await page.evaluate('window.__lose.restoreContext()');
+    await expect.poll(async () => (await rec()).builds, { timeout: 60_000 }).toBe(before.builds + 1);
+    const back = await rec();
+    await expect.poll(async () => (await rec()).frames, { timeout: 60_000 }).toBeGreaterThan(back.frames);
+    expect((await rec()).programs).toBeGreaterThan(0);
+    await expect(page.locator('.stage[data-renderer="3d"]')).toBeVisible();
+    expect(errors.filter((e) => !/GL Driver Message|GPU stall|CONTEXT_LOST|context lost/i.test(e))).toEqual([]);
+  });
+
   test('the developer quality monitor shows only when the address asks for it', async ({ page }) => {
     await page.goto(`${URL3D}&perf=1`);
     await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);

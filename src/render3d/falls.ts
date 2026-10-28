@@ -4,6 +4,7 @@ import { PLATE_BASE } from './cliff.ts';
 import type { Layer, WorldContext } from './context.ts';
 import { rockGeometry } from './foliage.ts';
 import { Particles } from './particles.ts';
+import { markVeil } from './post.ts';
 import type { Rng } from './rand.ts';
 import type { SceneChanges, SceneSnapshot } from './snapshot.ts';
 import { SUB, TERRAIN } from './terrain.ts';
@@ -170,15 +171,18 @@ export class FallsLayer implements Layer {
     const down = f.x > 0.5 ? runs.E : runs.S;
     const up = f.x > 0.5 ? runs.W : runs.N;
     if (down.length) {
-      this.mat = new THREE.ShaderMaterial({
-        vertexShader: VERT,
-        fragmentShader: FRAG,
-        transparent: true,
-        depthWrite: false,
-        side: THREE.DoubleSide,
-        fog: true,
-        uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog]),
-      });
+      // a veil to the finishing chain: the ink of the cliff's lip and the island's underside behind it fades where the water is thick
+      this.mat = markVeil(
+        new THREE.ShaderMaterial({
+          vertexShader: VERT,
+          fragmentShader: FRAG,
+          transparent: true,
+          depthWrite: false,
+          side: THREE.DoubleSide,
+          fog: true,
+          uniforms: THREE.UniformsUtils.merge([THREE.UniformsLib.fog]),
+        }),
+      );
       // the river's own uniforms, the same objects: one clock, one colour, one light
       const shared = ctx.water.sharedUniforms();
       Object.assign(this.mat.uniforms, shared);
