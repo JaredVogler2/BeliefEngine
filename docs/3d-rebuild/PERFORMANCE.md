@@ -30,7 +30,7 @@ world. It did, in both browsers, in every run:
 | Safari 26.6.1 (through safaridriver) | Apple GPU | 3D, hardware GL | none |
 | Mobile Safari, iOS 26.2 Simulator (iPhone 17) | (not readable without a debugger) | 3D, by its screenshot | — |
 
-Seven runs so far. The GPU is a virtual machine's paravirtualised device on a shared machine, and its speed varies from run to run
+Eight runs so far. The GPU is a virtual machine's paravirtualised device on a shared machine, and its speed varies from run to run
 (the same window and tier: 34 ms a frame in run 3, 82 ms in run 4), so the runs are read together. The measurement files of every run
 are in `data/real-hardware/`.
 
@@ -61,6 +61,10 @@ whose shaders it then found compiled.)
 | Chrome 1440×900 at 2× | the tier the game chose (medium, high, medium), cap 60 | 33.3 / 67 ms, 29 | 34.3 / 81 ms, 26 | 33.4 / 76 ms, 26 |
 | Chrome 1440×900 at 2×, the high tier held | high | 35 / 101 ms, 22 | 33.4 / 67 ms, 29 | 34.2 / 98 ms, 24 |
 | Safari 1440×848 at 1× | high | 26 / 61 ms, 32 | 17 / 29 ms, 56 | 17 / 24 ms, 55 |
+
+Run 8 (`bc88a00`, after the last fix, started by hand) gave the same picture and is kept in `data/real-hardware/run8-bc88a00/`: the
+iPhone-sized window at rest at 29 frames a second and turning the view at 43 (frame p50 17.7 ms); 2880×1800 on the medium tier at 22–26;
+Safari at 41–52 at rest and 49 turning.
 
 Held at the high tier instead (pinned), the 2880×1800 window runs the calm village at p50 34–82 ms and the flood night at 50–67 ms
 (12–18 fps) across the runs: that is what the monitor saw and stepped away from.
@@ -96,7 +100,8 @@ Reading it:
   just built, so the next state it was given, a player's action or the night, was taken for a new village and built from scratch: a
   second stall after every automatic step down, on any machine whose tier the monitor lowers. Fixed (`World3D.rebuild` records the
   snapshot it builds from); a browser test changes the tier and checks that the next day only updates the world (before the fix it
-  built it a third time). The count of lost contexts stays, with a browser test that loses the context on purpose and checks that the
+  built it a third time). Run 8, after the fix, built the world no more often than its loads and tier steps asked, but its one tier
+  step came before the night was loaded, so it did not put the fix to the test on the GPU; the browser test does. The count of lost contexts stays, with a browser test that loses the context on purpose and checks that the
   world comes back, built again and drawing. Recorded in `KNOWN_ISSUES.md`.
 * **Video memory** (estimated): textures 7.2 MB in runs 3–4 and 8.9 MB in run 5 (the plate's painted cut, 1.7 MB with its mipmaps);
   render targets 28 MB at the iPhone size (medium), 62 MB at 2880×1800 on medium and 146 MB on high (66 MB for Safari's 1440×848 window

@@ -1,0 +1,10 @@
+{
+  "device": "iPhone 17",
+  "runtime": "com.apple.CoreSimulator.SimRuntime.iOS-26-2",
+  "link": "http://127.0.0.1:4173/?mode=story&scn=redbank&seed=1&play=1&perf=1",
+  "shots": [
+    "ios-after-1-minute.png",
+    "ios-after-2-minutes.png"
+  ],
+  "openError": null
+}
