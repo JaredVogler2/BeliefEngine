@@ -62,7 +62,7 @@ export function Avatar({ look, faction, label }: { look: { hue: number; skin: nu
   const hair = HAIR[look.hair % HAIR.length];
   const garment = FACTION_COLORS[faction] ?? '#999';
   return (
-    <svg className="avatar" viewBox="0 0 56 56" role="img" aria-label={label}>
+    <svg className="avatar" viewBox="0 0 56 56" {...(label ? { role: 'img', 'aria-label': label } : { 'aria-hidden': true })}>
       <rect width="56" height="56" rx="12" fill={`hsl(${look.hue} 35% 22%)`} />
       <path d="M8 56c2-14 10-18 20-18s18 4 20 18z" fill={garment} />
       <circle cx="28" cy="26" r="11" fill={skin} />

@@ -714,6 +714,41 @@ export class World3D implements WorldRenderer {
     return near ? { kind: 'villager', id: near.id } : null;
   }
 
+  /**
+   * Everyone a tap could mean, nearest first, when that is more than one person: figures standing so close on screen that a fingertip
+   * (or a pointer) on one also covers another, as a group at a doorway does from afar. Empty when the tap lands on one person alone,
+   * so they are selected at once; up close the same group spreads apart and each is picked directly.
+   */
+  crowdAt(sx: number, sy: number): string[] {
+    const coarse = this.W < 700 || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+    // how far off a fingertip or a pointer may land, and the least a tiny figure is given
+    const slack = coarse ? 12 : 4;
+    const least = coarse ? 14 : 7;
+    const right = new THREE.Vector3().setFromMatrixColumn(this.cam.camera.matrixWorld, 0);
+    const near: { id: string; d: number }[] = [];
+    for (const l of this.layers) {
+      for (const o of l.pickables?.() ?? []) {
+        const e = o.userData.entity as { kind: 'villager' | 'landmark'; id: string } | undefined;
+        if (e?.kind !== 'villager') continue;
+        const p = this.locate('villager', e.id);
+        if (!p) continue;
+        const a = p.clone().project(this.cam.camera);
+        if (a.z > 1) continue;
+        // pixels per world unit at their depth: a body is about a quarter of a unit across (a little more at the overview, where people
+        // are drawn larger)
+        const b = p.clone().addScaledVector(right, 1).project(this.cam.camera);
+        const perUnit = Math.hypot((b.x - a.x) * this.W, (b.y - a.y) * this.H) / 2;
+        const d = Math.hypot(((a.x + 1) / 2) * this.W - sx, ((1 - a.y) / 2) * this.H - sy);
+        if (d <= Math.max(least, 0.13 * perUnit) + slack) near.push({ id: e.id, d });
+      }
+    }
+    if (near.length < 2) return [];
+    return near
+      .sort((p, q) => p.d - q.d)
+      .slice(0, 6)
+      .map((p) => p.id);
+  }
+
   setHover(h: HitResult | null): void {
     this.hover = h;
     for (const l of this.layers) (l as Layer & { setHover?: (h: HitResult | null) => void }).setHover?.(h);

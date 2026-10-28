@@ -185,7 +185,7 @@ test.describe('the 3D world', () => {
     });
   }
 
-  test('beacons, the bridge and a villager in a crowd are each picked by their own tap (mouse or touch)', async ({ page }, info) => {
+  test('beacons, the bridge and a villager in a crowd are each picked by their own tap (mouse or touch), through the who-did-you-mean list where a fingertip covers several people', async ({ page }, info) => {
     await startRedbank(page, 1, 'normal', URL3D);
     await ready(page);
     // a tall phone screen opens turned a quarter-turn from the desktop view, where a home stands in front of a beacon; the crowd and the
@@ -221,6 +221,15 @@ test.describe('the 3D world', () => {
       expect(p, `${kind} ${id} is on screen`).not.toBeNull();
       if (touch) await page.touchscreen.tap(p!.x, p!.y);
       else await page.mouse.click(p!.x, p!.y);
+      // people standing closer together than a fingertip is wide are offered as a list, nearest first: the one tapped heads it
+      if (kind !== 'villager') return;
+      const menu = page.getByTestId('crowd-picker');
+      await expect.poll(async () => (await selected()) === id || (await menu.count()) > 0, { message: `${id}: picked, or offered in a list` }).toBe(true);
+      if (await menu.count()) {
+        await expect(menu.locator('.crowd-pick').first()).toHaveAttribute('data-id', id);
+        if (touch) await menu.locator(`[data-id="${id}"]`).tap();
+        else await menu.locator(`[data-id="${id}"]`).click();
+      }
     };
     const selected = (): Promise<string> => page.evaluate(() => (window as unknown as { __belief: { store: { ui: { selection: { id: string } | null } } } }).__belief.store.ui.selection?.id ?? '');
     for (const [kind, id] of [['landmark', 'b_c'], ['landmark', 'bell'], ['villager', 'pip'], ['villager', 'tilly'], ['villager', 'ivo']] as const) {
@@ -233,6 +242,60 @@ test.describe('the 3D world', () => {
     await expect.poll(selected).toBe('mara');
     await tap('landmark', 'br', -30);
     await expect.poll(selected, { message: 'the bridge, tapped beside its keeper' }).toBe('br');
+  });
+
+  test('a tap on a knot of people seen from afar asks who was meant, nearest first, and selects only the one chosen; Escape puts the question away', async ({ page }, info) => {
+    await startRedbank(page, 1, 'normal', URL3D);
+    await ready(page);
+    const touch = info.project.name.startsWith('phone');
+    const selected = (): Promise<string> => page.evaluate(() => (window as unknown as { __belief: { store: { ui: { selection: { id: string } | null } } } }).__belief.store.ui.selection?.id ?? '');
+    // the opening view, at one fixed angle in both projects (a tall phone screen opens a quarter-turn round): the three who came to the
+    // chapel wait shoulder to shoulder outside it, a few pixels apart from this far
+    const pip = async (): Promise<{ x: number; y: number }> => {
+      await page.waitForTimeout(600);
+      const p = await page.evaluate(() => {
+        const r = (window as unknown as { __beRenderer: { advance: (s: number) => void; entityScreen: (k: string, i: string) => { x: number; y: number } | null } }).__beRenderer;
+        r.advance(2);
+        const q = r.entityScreen('villager', 'pip');
+        const b = document.querySelector('canvas')!.getBoundingClientRect();
+        return q ? { x: q.x + b.left, y: q.y + b.top } : null;
+      });
+      expect(p, 'Pip is on screen').not.toBeNull();
+      return p!;
+    };
+    const tapAt = async (p: { x: number; y: number }): Promise<void> => (touch ? page.touchscreen.tap(p.x, p.y) : page.mouse.click(p.x, p.y));
+    await page.evaluate(() => (window as unknown as { __beRenderer: { setView: (v: { azimuthDeg: number }) => void } }).__beRenderer.setView({ azimuthDeg: 28 }));
+    await tapAt(await pip());
+    const menu = page.getByTestId('crowd-picker');
+    await expect(menu).toBeVisible();
+    await expect(menu.getByRole('heading')).toHaveText('Who did you mean?');
+    await expect(menu).toHaveAttribute('role', 'dialog');
+    const ids = await menu.locator('.crowd-pick').evaluateAll((els) => els.map((e) => e.getAttribute('data-id')));
+    expect(ids[0], 'the one under the tap comes first').toBe('pip');
+    expect(ids).toEqual(expect.arrayContaining(['pip', 'ivo']));
+    await expect(menu.locator('.crowd-pick[data-id="pip"]')).toContainText('Pip');
+    // each name is a finger-sized button, and the list sits wholly on screen
+    for (const h of await menu.locator('.crowd-pick').evaluateAll((els) => els.map((e) => e.getBoundingClientRect().height))) expect(h).toBeGreaterThanOrEqual(44);
+    const box = (await menu.boundingBox())!;
+    const vp = page.viewportSize()!;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(vp.width);
+    expect(box.y + box.height).toBeLessThanOrEqual(vp.height);
+    // nobody is chosen for the player: the selection waits for their answer
+    expect(await selected()).toBe('');
+    const other = ids[1]!;
+    if (touch) await menu.locator(`[data-id="${other}"]`).tap();
+    else await menu.locator(`[data-id="${other}"]`).click();
+    await expect.poll(selected).toBe(other);
+    await expect(menu).toHaveCount(0);
+    await expect(page.getByTestId('selection-pop')).toBeVisible();
+    // asked again, Escape puts the list away and chooses no one
+    await tapAt(await pip());
+    await expect(menu).toBeVisible();
+    await page.keyboard.press('Escape');
+    await expect(menu).toHaveCount(0);
+    expect(await selected()).toBe('');
   });
 
   test('a mid-day save resumes with the same plan and a rebuilt 3D world', async ({ page }) => {

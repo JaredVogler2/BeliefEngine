@@ -1,9 +1,9 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { predictedWater } from '../../engine/index.ts';
 import { MapRenderer } from '../../render/MapRenderer.ts';
 import type { WorldRenderer } from '../../render/types.ts';
 import { chooseRenderer, loadWorld3D, rememberRenderer } from '../../render/choose.ts';
-import { Icon } from '../components.tsx';
+import { Avatar, Icon } from '../components.tsx';
 import { store, useStore } from '../store.ts';
 import { getTutorial } from '../tutorial.ts';
 import { useNarrow } from '../useNarrow.ts';
@@ -26,6 +26,14 @@ export function MapView({ children }: { children?: React.ReactNode }) {
   const narrow = useNarrow();
   const [toolsOpen, setToolsOpen] = useState(false);
   const showTools = !narrow || toolsOpen;
+  /** a tap on a knot of people who cannot be told apart there: where it landed, who it could mean (nearest first), and in which moment
+   * of the run (the people move on when the run does, and a list of who was standing there would be stale) */
+  const [crowd, setCrowd] = useState<{ x: number; y: number; ids: string[]; run: unknown } | null>(null);
+  const crowdDone = useCallback((id: string | null, refocus: boolean) => {
+    setCrowd(null);
+    if (id) store.select({ kind: 'villager', id });
+    if (refocus) wrapRef.current?.querySelector('canvas')?.focus({ preventScroll: true });
+  }, []);
 
   // when the classic map is showing and the player did not ask for it, say why, once, and offer the way to 3D
   const [noteShown, setNoteShown] = useState(() => !!mode.reason && !mode.reason.startsWith('classic map chosen') && !announcedReason);
@@ -149,6 +157,13 @@ export function MapView({ children }: { children?: React.ReactNode }) {
         if (pts.size < 2) pinch = 0;
         if (wasSingle && drag.moved <= 8 && e.button !== 2) {
           const hit = r?.hitTest(p.x, p.y) ?? null;
+          // several people under the tap who cannot be told apart there: ask who was meant rather than guess
+          const many = hit?.kind === 'villager' ? (r?.crowdAt?.(p.x, p.y) ?? []) : [];
+          if (many.length > 1) {
+            store.select(null);
+            setCrowd({ x: p.x, y: p.y, ids: many, run: store.state });
+            return;
+          }
           store.select(hit ? { kind: hit.kind, id: hit.id } : null);
           // the river is not a person or a place, but tapping it is asking about tonight's water
           const st = store.state;
@@ -165,6 +180,7 @@ export function MapView({ children }: { children?: React.ReactNode }) {
       };
       const wheel = (e: WheelEvent) => {
         e.preventDefault();
+        setCrowd(null);
         const p = local(e);
         // follow how far the wheel or trackpad moved (a mouse notch is about 100 px, about 12%), so a trackpad glides instead of jumping
         const px = e.deltaY * (e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1);
@@ -175,7 +191,9 @@ export function MapView({ children }: { children?: React.ReactNode }) {
         showTip(null, 0, 0);
       };
       const menu = (e: Event) => e.preventDefault();
-      const key = (e: KeyboardEvent) => onMapKey(renderer, e);
+      const key = (e: KeyboardEvent) => {
+        if (onMapKey(renderer, e)) setCrowd(null);
+      };
       canvas.addEventListener('pointerdown', down);
       canvas.addEventListener('pointermove', move);
       canvas.addEventListener('pointerup', up);
@@ -347,6 +365,7 @@ export function MapView({ children }: { children?: React.ReactNode }) {
         </div>
       )}
       <div className="hover-tip" ref={tipRef} hidden aria-hidden="true" />
+      {crowd && crowd.run === state && <CrowdPicker at={crowd} onDone={crowdDone} />}
       <div className={`map-tools ${narrow ? 'narrow' : ''} ${toolsOpen ? 'open' : ''}`}>
         {narrow && (
           <button className="btn icon-btn tools-toggle" aria-label="View controls: zoom, rotate, fit and the 2D or 3D switch" aria-expanded={toolsOpen} onClick={() => setToolsOpen(!toolsOpen)} data-testid="tools-toggle">
@@ -385,8 +404,91 @@ export function MapView({ children }: { children?: React.ReactNode }) {
   );
 }
 
-/** keyboard camera control, attached to whichever canvas is current */
-function onMapKey(r: WorldRenderer, e: KeyboardEvent): void {
+/**
+ * Who did you mean? The people under a tap who stand too close together to tell apart there, nearest first, in a short list beside
+ * the tap. Choosing one selects them; Escape, a tap anywhere else or moving the camera closes it.
+ */
+function CrowdPicker({ at, onDone }: { at: { x: number; y: number; ids: string[] }; onDone: (id: string | null, refocus: boolean) => void }) {
+  const state = useStore((s) => s.state);
+  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState<{ left: number; top: number; maxHeight: number } | null>(null);
+
+  // beside the tap, below it when there is room and above it when not, always between the top rail and the bottom bar (or an open sheet)
+  useLayoutEffect(() => {
+    const el = ref.current;
+    const stage = el?.parentElement;
+    if (!el || !stage) return;
+    const sr = stage.getBoundingClientRect();
+    const q = (sel: string): DOMRect | null => document.querySelector(sel)?.getBoundingClientRect() ?? null;
+    const rail = q('.topbar');
+    const tray = q('.tray');
+    const sheet = q('.side.open');
+    const minY = (rail ? rail.bottom - sr.top : 0) + 8;
+    let maxY = (tray ? tray.top - sr.top : sr.height) - 8;
+    if (sheet && sheet.top > sr.top + sr.height * 0.3) maxY = Math.min(maxY, sheet.top - sr.top - 8);
+    const room = Math.max(120, maxY - minY);
+    const h = Math.min(el.scrollHeight, room);
+    const w = el.offsetWidth;
+    const left = Math.min(Math.max(8, at.x - w / 2), sr.width - w - 8);
+    let top = at.y + 20;
+    if (top + h > maxY) top = at.y - 20 - h;
+    top = Math.min(Math.max(minY, top), maxY - h);
+    setPos({ left: Math.round(left), top: Math.round(top), maxHeight: Math.round(room) });
+  }, [at]);
+
+  useEffect(() => {
+    const el = ref.current;
+    const away = (e: PointerEvent) => {
+      if (!el?.contains(e.target as Node)) onDone(null, false);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      e.stopPropagation();
+      onDone(null, true);
+    };
+    document.addEventListener('pointerdown', away, true);
+    document.addEventListener('keydown', key, true);
+    el?.querySelector('button')?.focus({ preventScroll: true });
+    return () => {
+      document.removeEventListener('pointerdown', away, true);
+      document.removeEventListener('keydown', key, true);
+    };
+  }, [onDone]);
+
+  const people = at.ids.map((id) => state?.villagers.find((v) => v.id === id)).filter((v) => !!v);
+  return (
+    <div
+      ref={ref}
+      className="crowd"
+      role="dialog"
+      aria-labelledby="crowd-title"
+      data-testid="crowd-picker"
+      data-ready={pos ? '1' : '0'}
+      style={pos ? { left: pos.left, top: pos.top, maxHeight: pos.maxHeight } : undefined}
+    >
+      <h2 id="crowd-title">Who did you mean?</h2>
+      <ul>
+        {people.map((v) => (
+          <li key={v.id}>
+            <button className="crowd-pick" data-id={v.id} onClick={() => onDone(v.id, true)}>
+              <Avatar look={v.look} faction={v.faction} label="" />
+              <span>
+                <b>{v.name}</b>
+                <small>
+                  {v.role}
+                  {v.status === 'dead' ? ' · lost' : ''}
+                </small>
+              </span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** keyboard camera control, attached to whichever canvas is current; says whether the key moved the camera */
+function onMapKey(r: WorldRenderer, e: KeyboardEvent): boolean {
   const step = 70;
   switch (e.key) {
     case 'ArrowLeft':
@@ -428,9 +530,10 @@ function onMapKey(r: WorldRenderer, e: KeyboardEvent): void {
       r.fit();
       break;
     default:
-      return;
+      return false;
   }
   e.preventDefault();
+  return true;
 }
 
 export function getRenderer(): WorldRenderer | null {

@@ -238,6 +238,17 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 .pop .act { min-height: 44px; padding: 0.4rem 0.6rem; }
 .pop .act .a-sub { font-size: 0.72rem; }
 .pop-more { margin-top: 0.4rem; width: 100%; }
+/* who did you mean? the people under a tap who stand too close together to tell apart there, as a short list beside it */
+.crowd { position: absolute; z-index: 16; left: 0; top: 0; width: min(264px, calc(100% - 16px)); overflow: auto; padding: 0.45rem; border-radius: 16px; background: linear-gradient(180deg, rgba(30, 48, 84, 0.97), rgba(14, 22, 38, 0.98)); border: 1px solid #4a69ac; box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55); visibility: hidden; }
+.crowd[data-ready='1'] { visibility: visible; animation: popIn 0.16s ease-out; }
+.crowd h2 { font-size: 0.78rem; font-weight: 700; color: var(--muted); margin: 0.1rem 0.4rem 0.4rem; }
+.crowd ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+.crowd-pick { display: grid; grid-template-columns: auto 1fr; gap: 0.6rem; align-items: center; width: 100%; min-height: 48px; padding: 0.3rem 0.55rem; border-radius: 12px; background: rgba(27, 44, 77, 0.85); border: 1px solid var(--line); color: var(--ink); text-align: left; }
+.crowd-pick:hover { border-color: var(--gold); background: #22396a; }
+.crowd-pick .avatar { width: 36px; height: 36px; border-radius: 10px; border-width: 1px; }
+.crowd-pick b { display: block; font-size: 0.9rem; line-height: 1.15; }
+.crowd-pick small { display: block; font-size: 0.74rem; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .crowd[data-ready='1'] { animation: none; } }
 .hover-tip { position: absolute; z-index: 9; pointer-events: none; padding: 0.2rem 0.55rem; border-radius: 8px; background: rgba(10, 17, 30, 0.88); border: 1px solid var(--glass-line); font-size: 0.78rem; font-weight: 700; white-space: nowrap; transform: translate(-50%, -140%); }
 .hover-tip small { display: block; font-weight: 500; color: var(--muted); }
 
