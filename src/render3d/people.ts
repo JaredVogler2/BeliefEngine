@@ -677,21 +677,25 @@ export class PeopleLayer implements Layer {
         const c = engineToWorld(tx, ty);
         const sx = Math.cos(door.ry);
         const sz = -Math.sin(door.ry);
+        // three abreast, shoulder to shoulder without an arm through a neighbour (a body is about 0.3 across); a second row stands a
+        // step further out, half a place across, so the faces behind show between the ones in front
         arr.forEach((v, i) => {
-          const row = Math.floor(i / 4);
-          const inRow = Math.min(4, arr.length - row * 4);
-          const lat = ((i % 4) - (inRow - 1) / 2) * 0.17;
-          const fwd = row * 0.16;
+          const row = Math.floor(i / 3);
+          const inRow = Math.min(3, arr.length - row * 3);
+          const lat = ((i % 3) - (inRow - 1) / 2 + (row % 2) * 0.5) * 0.34;
+          const fwd = row * 0.3;
           out.set(v.id, new THREE.Vector2(door.x - c.x + sx * lat + Math.sin(door.ry) * fwd, door.z - c.z + sz * lat + Math.cos(door.ry) * fwd));
           this.rests.set(v.id, door.ry + (((seedFrom(v.id) % 60) - 30) / 100));
         });
         continue;
       }
+      // a ring that widens with the group, so neighbours keep a body's width apart
+      const ring = Math.max(0.24, (arr.length * 0.34) / (Math.PI * 2));
       arr.forEach((v, i) => {
         if (arr.length === 1) out.set(v.id, new THREE.Vector2(0, 0.06));
         else {
           const a = (i / arr.length) * Math.PI * 2 + 0.6;
-          out.set(v.id, new THREE.Vector2(Math.cos(a) * 0.24, Math.sin(a) * 0.2));
+          out.set(v.id, new THREE.Vector2(Math.cos(a) * ring, Math.sin(a) * ring * 0.85));
         }
       });
     }

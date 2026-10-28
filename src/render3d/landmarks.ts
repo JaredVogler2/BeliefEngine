@@ -227,7 +227,8 @@ export class LandmarksLayer implements Layer {
         const score = wx * seenX + wz * seenZ + pref;
         if (score > best.score) best = { wx, wz, reach, score };
       }
-      const d = best.reach * (BUILD_SCALE[l.kind] ?? 1) + 0.1;
+      // clear of the eaves by more than a robe's hem
+      const d = best.reach * (BUILD_SCALE[l.kind] ?? 1) + 0.18;
       view.visit = { x: cx + best.wx * d, z: cz + best.wz * d, ry: Math.atan2(best.wx, best.wz) };
     }
     for (const ex of built.extras ?? []) {

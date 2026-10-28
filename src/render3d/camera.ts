@@ -245,9 +245,14 @@ export class TabletopCamera {
     else this.snapIfReduced(false);
   }
 
-  /** a distance that frames something close up without losing the surroundings */
+  /**
+   * a distance that frames something close up without losing the surroundings. On a tall phone screen the whole-plate fit is far off (the
+   * plate is wider than the screen), so close up there means about seven and a half units across the screen instead, which keeps a
+   * person a person rather than a speck
+   */
   closeDist(): number {
-    return Math.max(this.minDist, this.fitDist * 0.45);
+    const across = this.aspect < 0.9 ? 7.5 / (2 * Math.tan((this.camera.fov * DEG) / 2) * this.aspect) : Infinity;
+    return Math.max(this.minDist, Math.min(this.fitDist * 0.45, across));
   }
 
   /** how far the camera is from what it looks at, as it is drawn now */

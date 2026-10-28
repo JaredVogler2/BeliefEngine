@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { DEFAULT_AZIMUTH } from './camera.ts';
 import type { Layer, WorldContext } from './context.ts';
 import { mergeByMaterial } from './geom.ts';
 import { add, cyl, fence, type Parts } from './kit.ts';
@@ -235,10 +236,10 @@ export class FoliageLayer implements Layer {
     const gw = w * G;
     const gh = h * G;
     const blocked = new Uint8Array(gw * gh);
-    const mark = (cx: number, cz: number, rad: number, v = 1): void => {
+    const mark = (cx: number, cz: number, rad: number, v = 1, grid = blocked): void => {
       for (let j = Math.max(0, Math.floor((cz - rad) * G)); j <= Math.min(gh - 1, Math.ceil((cz + rad) * G)); j++) {
         for (let i = Math.max(0, Math.floor((cx - rad) * G)); i <= Math.min(gw - 1, Math.ceil((cx + rad) * G)); i++) {
-          if (Math.hypot((i + 0.5) / G - cx, (j + 0.5) / G - cz) <= rad) blocked[j * gw + i] = Math.max(blocked[j * gw + i], v);
+          if (Math.hypot((i + 0.5) / G - cx, (j + 0.5) / G - cz) <= rad) grid[j * gw + i] = Math.max(grid[j * gw + i], v);
         }
       }
     };
@@ -254,6 +255,17 @@ export class FoliageLayer implements Layer {
       if (rad) mark(l.x + 0.5, l.y + 0.5, rad, 1);
       if (l.kind === 'field') for (const [tx, ty] of l.tiles) mark(tx + 0.5, ty + 0.5, 0.8, 1);
       if (l.kind === 'bridge') for (const [tx, ty] of l.tiles) mark(tx + 0.5, ty + 0.5, 1.2, 1);
+    }
+    // people who come to a building wait outside it where the opening view sees them (a wide window's, and a tall phone screen's, which
+    // looks a quarter-turn round): no tall tree stands on that spot or in the line from it to either view. Shrubs and grass still do
+    const sight = new Uint8Array(gw * gh);
+    for (const l of snap.landmarks) {
+      const v = ctx.visitSpot?.(l.id);
+      if (!v) continue;
+      mark(v.x, v.z, 0.7, 1, sight);
+      for (const az of [DEFAULT_AZIMUTH, DEFAULT_AZIMUTH - Math.PI / 2]) {
+        for (const [k, rad] of [[0.6, 0.55], [1.15, 0.55], [1.7, 0.5]]) mark(v.x + Math.sin(az) * k, v.z + Math.cos(az) * k, rad, 1, sight);
+      }
     }
     const free = (x: number, z: number): boolean => {
       const i = Math.floor(x * G);
@@ -291,7 +303,10 @@ export class FoliageLayer implements Layer {
     const trees: Record<TreeKind, Inst[]> = { oak: [], pine: [], birch: [], willow: [], apple: [], shrub: [], stump: [], blossom: [], autumn: [], cypress: [] };
     const plant = (kind: TreeKind, x: number, z: number, scale: number): void => {
       const y = ctx.heightAt(x, z) - 0.012;
-      trees[kind].push({ x, y, z, s: scale * (0.82 + r() * 0.4), ry: r() * Math.PI * 2, color: new THREE.Color(1 - r() * 0.14, 1 - r() * 0.1, 1 - r() * 0.18) });
+      const inst = { x, y, z, s: scale * (0.82 + r() * 0.4), ry: r() * Math.PI * 2, color: new THREE.Color(1 - r() * 0.14, 1 - r() * 0.1, 1 - r() * 0.18) };
+      // (drawn either way, so the rest of the woods grow where they always have)
+      if (kind !== 'shrub' && kind !== 'stump' && sight[Math.floor(z * G) * gw + Math.floor(x * G)]) return;
+      trees[kind].push(inst);
     };
     // ---- forests: dense, mixed, shaped by the engine's forest tiles
     const forestMix = (n: number): TreeKind => (n < 0.48 ? 'pine' : n < 0.6 ? 'cypress' : n < 0.86 ? 'oak' : 'birch');
