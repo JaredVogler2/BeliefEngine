@@ -15,6 +15,8 @@ claimed to be "premium": three scorecard areas sit at 3 of 5, nothing has been r
 > * phone and landscape layout fixes.
 >
 > The verdicts below are kept as they were when written. Where that pass changed one, the row says so.
+>
+> **Round 9** ran the game on a real GPU for the first time and closes this review: its verdict is in "Round 9" below.
 
 ## Round 6: the phase 09 scorecard, redone
 
@@ -64,6 +66,51 @@ tested", remain **UNVERIFIED**: no GPU or phone has run the game.
 2. Open it on a real iPhone and a mid-range Android phone with `?perf=1`.
 3. Record the monitor's frame p50/p95 at the overview and during a flood night in `PERFORMANCE.md`.
 
+## Round 9: real hardware, and the art director's frame seen on it
+
+Everything before this round was seen on a software rasteriser. Round 9 ran the game on a real GPU: an Apple GPU, reached through
+the CI's macOS virtual machine, in Chrome and in Safari, plus Mobile Safari in the iOS Simulator (`STATUS.md`, "Round 9";
+`PERFORMANCE.md`, "Real hardware"). Seen there at full resolution, the Day 1 frame showed two things the software frames had hidden
+in their softness: the plate's cut sides were a smeared gradient (the island read as a slice of cake), and the river stopped dead at
+the cut. Both are fixed: the cut is painted strata with relief and a ragged rocky base, and the river falls off the island into the
+cloud sea and rises among boulders at its source. The runs also found two pacing faults that cost players smoothness (an average
+seeded by the first frames, and a phone frame cap a 60 Hz screen could only show as 30), both fixed and measured again, and one fault
+of size: every point sprite (mist, smoke, the gold markers, the coach's call-out) drew at half its size on a screen of pixel ratio 2,
+fixed after run 5.
+
+### The scorecard, round 9
+
+| Area (phase 09) | Score | Rests on | What still holds it back |
+|---|---:|---|---|
+| Three-dimensional depth | 4 | As round 6, and now the island itself: strata with relief and a ragged base, an overhanging turf lip (`run5` Day 1 frame) | No bounced light |
+| Art coherence | 4 | The strata painted in the meadow's palette, inked like everything else | Ink has one weight |
+| Environmental life | 4 | As round 6, plus a waterfall and its mist at the front of every opening view | Seen as clips on a software rasteriser; live on the GPU only as frames and frame times |
+| Lighting and material | 4 | Soft shadows, ambient occlusion and glow seen on the real GPU at the high tier (`run3`/`run5` frames) | Plain plaster up close |
+| River | 4 | As round 6, and now it leaves the island: a falling sheet on the river's own clock and colour that widens in a flood | No reflection or refraction |
+| Architecture | 4 | Unchanged | Repeated variants at a distance |
+| Citizens | 4 | Unchanged | Arms without elbows; faces tiny at the overview |
+| Magical causality | 4 | Unchanged | Legible rather than lavish |
+| UI discipline | 4 | Unchanged | The opening story cards cover the lower village for a moment |
+| Phone usability | 4 | Touch tests at seven sizes; on a real GPU at an iPhone's size and pixel ratio, 30 frames a second at rest (frame p50 33 ms, p95 50 ms) and a median of 60 while the view turns (p50 17 ms, p95 64 ms); Mobile Safari draws and runs the world in the iOS Simulator | **A physical phone is UNVERIFIED** |
+| No faux completion | — | Every frame a bot-played engine state; every number from a named run; nothing deployed and none claimed | — |
+
+**Verdict, round 9.** Phase 09 asks for 4 or more in every area before "premium". Every area scores 4 in this review. The area that held
+the claim back in round 6 was phone usability ("3D readable and smooth"). It now rests on three things:
+
+- the real GPU at an iPhone's size and pixel ratio: 30 frames a second at rest (frame p50 33 ms, p95 50 ms), and the display's 60 at the median while the view turns (p50 17 ms, p95 64 ms, 47 a second on average);
+- Mobile Safari drawing and running the world in the iOS Simulator;
+- the touch tests at seven sizes.
+
+**So, by the phase 09 rubric, the 3D world is premium, and that claim is held to what was seen and measured.** Phase 10 forbids asserting
+premium on missing evidence, so here is what stays outside the claim:
+
+- **UNVERIFIED:** a physical phone (frame rate, heat, battery, a finger on glass).
+- **UNVERIFIED:** a Mac's GPU used directly (not through a virtual machine), and Windows and Linux GPUs.
+- **UNVERIFIED:** a human player.
+- **FAIL on the one GPU measured:** phase 08's desktop target of a stable 60 frames a second at the default camera (about 30 at 2880×1800).
+
+These are one reviewer's internal scores, not players' ratings, as phase 09 says.
+
 ## What was reviewed, and how
 
 * **Source and commits.** Branch `claude/gracious-gates-95kmda`. Pull request 1 (merged at `15257dc`) carried the first Three.js world; pull request 2 carries everything after it. The 3D work is in `7b5bfa0` (Three.js world behind a renderer interface, belief-magic effects), `6416850` (immersive HUD, aftermath scene, forecast overlay, batching, 3D browser tests), `ebde29e` (side-sheet focus race), `1809880` (this review's repairs, scripts and the 16 frames) and `7a5ea63` (forecast overlay over standing water, the camera-control test, recaptured frames). `git log --oneline` names the rest; the docs-only commit after `7a5ea63` carries this file.
@@ -82,7 +129,7 @@ tested", remain **UNVERIFIED**: no GPU or phone has run the game.
 | HUD so large the village does not dominate | **Not true.** At least 75% of a desktop screen and 60% of a phone's stays world at rest (asserted). One exception named: the opening story cards cover the lower fifth for a moment (A2) |
 | A fancy screenshot that cannot play, or mock states | **Not true.** Every frame is a bot-played engine state loaded through the save format; the 3D world is played with real clicks and taps in tests |
 | Mechanics, replay, saves or MCP broken by the migration | **Not true.** See the runs below: recorded traces reach identical hashes through the 3D world; `npm test` 364 of 364; `git diff 1077522 HEAD -- src/engine mcp server` is empty (that merge is the last commit before the 3D work) |
-| Mobile graphical path blank or unplayably slow | **Not shown either way.** On an emulated Pixel 7 with software WebGL it draws and plays (slowly: that is a CPU rasteriser). A real phone is **UNVERIFIED** |
+| Mobile graphical path blank or unplayably slow | **Not shown either way.** On an emulated Pixel 7 with software WebGL it draws and plays (slowly: that is a CPU rasteriser). A real phone is **UNVERIFIED**. *Since round 9: not true on the evidence there is. iOS WebKit chooses, compiles and draws the 3D world in the iOS Simulator, and an iPhone-sized window on a real GPU holds about 30 frames a second at rest and a median of 60 while the view turns. A physical phone is still **UNVERIFIED**.* |
 | No visual evidence captured, yet declared complete | **Not true.** 16 real frames, reviewed |
 
 ## The ten steps of the review loop
@@ -123,7 +170,7 @@ passed on a clean re-run. A camera-control test I added failed once on the phone
 | Phase | Verdict | The honest reason |
 |---|---|---|
 | 3D-01 Source audit and migration | **PASS** | Audit, adapter, flag, baseline frames, engine untouched |
-| 3D-02 Renderer, camera, lighting | **PASS** | Works and is tested on software WebGL. Feel and shadow quality on a real GPU: **UNVERIFIED** |
+| 3D-02 Renderer, camera, lighting | **PASS** | Works and is tested on software WebGL. Feel and shadow quality on a real GPU: **UNVERIFIED** (*since round 9: shadows, ambient occlusion and glow seen on a real GPU at full resolution, frame times measured while the view turns; a physical phone still UNVERIFIED*) |
 | 3D-03 Terrain, water, weather | **PASS** | Engine-derived, asserted tile for tile. No refraction or reflection |
 | 3D-04 Architecture and environment | **PASS** | Detailed procedural kit. No glTF/Blender pipeline: a deliberate choice recorded in `ASSET_LICENSES.md` |
 | 3D-05 Villagers and life | **PARTIAL** | Present, animated, pickable; small and blocky; motion not reviewed as video |
@@ -131,7 +178,7 @@ passed on a clean re-run. A camera-control test I added failed once on the phone
 | 3D-07 Immersive HUD and controls | **PASS** | Tested with real pointer events (3D projects) and axe, including on the live 3D page. A real phone and a real screen reader: **UNVERIFIED**. Evacuation routes are not drawn (*since drawn: see the quality report*) |
 | 3D-08 Asset pipeline and optimisation | **PARTIAL** | Budgets met and measured on software GL only; GPU and phone frame rate **UNVERIFIED**; no in-world loading scene (*since added*). *Since: PASS in round 8 (manifest, validation, per-asset fallback, people LOD, shader warm-up, ten-cycle leak check); real-device frame rate still **UNVERIFIED*** |
 | 3D-09 Visual QA and gameplay regression | **PASS** | Frames, scorecard, defects, regression table. No automated pixel-diff baseline (the phase allows structural tests plus inspection) |
-| 3D-10 Final art direction and release | **PARTIAL** | Reviewed and repaired. Not premium by its own rubric; nothing deployed |
+| 3D-10 Final art direction and release | **PARTIAL** | Reviewed and repaired. Not premium by its own rubric; nothing deployed (*since round 9: **PASS**, premium by the rubric and held to what was seen and measured; a physical phone and a human player UNVERIFIED ("Round 9", above)*) |
 
 ## Final artist's test (Day 1, no interface)
 
@@ -141,9 +188,18 @@ bridge, tower, mill and market have silhouettes, the light is warm and the shado
 floats on a plain gradient with nothing beyond it; up close the surfaces are matte and a little too clean; the people are specks until you zoom. I did not
 declare it finished on this test; I list those three as the next work.
 
+**Since round 9: the same test on a real GPU.** The Day 1 frame with no interface, photographed on an Apple GPU at 2880×1800 at the
+high tier (`screenshots/real-hw/run5-apple-gpu-chrome-day1-no-interface-high-tier.jpg`), against the same frame before this round's
+work (`edge-before-after-run4-run5.jpg`). Would it sit on the front page of a polished indie game collection? **Yes, with reservations.**
+It reads at once as a fantasy village on an island in the sky: the island has a cut of turf, soil and rock with weight to it, the river
+runs under the bridge and pours off the front edge into the clouds, the roofs, the tower, the mill and the market have silhouettes, and
+the light is warm with long soft shadows. The reservations: the meadows are broad and plain between the clusters; the people are
+specks until you zoom; plaster is plain up close; the islet in the corner is cut by the frame. None of them makes it read as a map editor
+or a dashboard.
+
 ## What I would do next, in order
 
-1. Put the game in front of a real GPU and a real phone and record the numbers `PERFORMANCE.md` has to leave as UNVERIFIED (including thermal behaviour).
+1. Put the game in front of a real GPU and a real phone and record the numbers `PERFORMANCE.md` has to leave as UNVERIFIED (including thermal behaviour). *(Since round 9: done for one real GPU, an Apple GPU through CI's macOS virtual machine; a physical phone, other GPUs and heat are still to do.)*
 2. Give the plate a world: a horizon of hills in haze, a ground it sits on, drifting cloud shadows.
 3. Lift the surfaces: textured plaster, a roof texture without the colour noise, a few more tree and cottage variants, a bigger villager silhouette at the overview.
 4. Review motion as video; add the ambient life that survives that review.

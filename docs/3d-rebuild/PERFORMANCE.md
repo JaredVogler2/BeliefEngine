@@ -21,7 +21,7 @@ There are two sets of numbers here:
 
 `.github/workflows/real-hardware.yml` runs `scripts/real-hardware.ts` on GitHub's `macos-15` runner. The production build is served
 locally and opened by the game's own default route: no `?renderer=3d`, so the game decides for itself whether this machine gets the 3D
-world. It did, in both browsers:
+world. It did, in both browsers, in every run:
 
 | Browser | GPU WebGL reports | Renderer the game chose | Console errors |
 |---|---|---|---|
@@ -29,52 +29,83 @@ world. It did, in both browsers:
 | Safari 26.6.1 (through safaridriver) | Apple GPU | 3D, hardware GL | none |
 | Mobile Safari, iOS 26.2 Simulator (iPhone 17) | (not readable without a debugger) | 3D, by its screenshot | — |
 
-**What a player's browser settles on** (run 3, `0513f9a`, `?quality=auto`: an automated browser otherwise starts on the low tier on
-purpose, to keep test suites quick; with `auto` it chooses as a player's browser would, and the quality monitor is free). Each scene
-was left in the live loop, with the game's own frame pacing, for 12 s:
+Five runs so far. The GPU is a virtual machine's paravirtualised device on a shared machine, and its speed varies from run to run
+(the same window and tier: 34 ms a frame in run 3, 82 ms in run 4), so the runs are read together. The measurement files of every run
+are in `data/real-hardware/`.
 
-| Window | Scene | Tier the game settled on | Frame p50 / p95 | fps | Draw on the main thread | Back to back, median |
-|---|---|---|---:|---:|---:|---:|
-| Chrome 1440×900 at 2× (2880×1800) | calm Day 1 | high, held | 34 / 67 ms | 27 | 3–9 ms | 32 ms |
-| Chrome 1440×900 at 2× | flood night | medium (stepped down from high within a second: frames came late) | 33.5 / 53.5 ms | 27 | 3–8 ms | 22 ms |
-| Chrome 1440×900 at 2× | a night of effects (end of day 4) | medium | 33.4 / 67.5 ms | 25 | 5–8 ms | — |
-| Chrome 390×844 at 3× (iPhone-sized, touch) | calm Day 1 | medium, held | 33.4 / 50 ms | 29 | 2–4 ms | 12 ms |
-| Chrome 390×844 at 3× | flood night | medium, held | 33.4 / 50 ms | 29 | 3 ms | 14 ms |
-| Chrome 390×844 at 3× | a night of effects | medium, held | 33.4 / 50 ms | 29 | 3–6 ms | — |
-| Safari 1440×848 at 1× | calm Day 1 | high, held | 21 / 36 ms | 45 | 4 ms | — |
-| Safari 1440×848 at 1× | flood night | high, held | 24 / 47 ms | 35 | 5 ms | — |
+**What a player's browser settles on** (`?quality=auto`: an automated browser otherwise starts on the low tier on purpose, to keep test
+suites quick; with `auto` it chooses as a player's browser would, and the quality monitor is free). Each scene was left in the live
+loop, with the game's own frame pacing, for 12 s; the tier it ended on and the frame times of its last seconds:
 
-Held at the high tier instead (pinned), the same desktop window runs the calm village at p50 34 / p95 82 ms and the flood night at
-p50 66 / p95 132 ms (17 fps): that is what the monitor saw and stepped away from.
+| Window | Scene | Run 3 (`0513f9a`) | Run 4 (`0455c2a`) | Run 5 (`f951751`) |
+|---|---|---|---|---|
+| Chrome 1440×900 at 2× (2880×1800) | calm Day 1 | high, 34 / 67 ms | medium (from 6 s), 33.5 / 73 ms | medium (from 2 s), 33.4 / 51 ms |
+| Chrome 1440×900 at 2× | flood night | medium, 33.5 / 53.5 ms | medium, 33.7 / 57 ms | medium, 33.4 / 50 ms |
+| Chrome 1440×900 at 2× | a night of effects (end of day 4) | medium, 33.4 / 67.5 ms | low, 33.4 / 50 ms | medium, 33.4 / 50 ms |
+| Chrome 390×844 at 3× (iPhone-sized, touch) | calm Day 1 | medium, 33.4 / 50 ms | medium, 33.3 / 50 ms | medium, 33.3 / 50 ms |
+| Chrome 390×844 at 3× | flood night | medium, 33.4 / 50 ms | low (from 4 s), 33.6 / 50 ms | medium, 33.4 / 50 ms |
+| Chrome 390×844 at 3× | a night of effects | medium, 33.4 / 50 ms | low, 33.4 / 50 ms | medium, 33.5 / 50 ms |
+| Safari 1440×848 at 1× | calm Day 1 | high, 21 / 36 ms | high, 19 / 33 ms | high, 25 / 48 ms |
+| Safari 1440×848 at 1× | flood night | high, 24 / 47 ms | high, 18 / 29 ms | high, 27 / 39 ms |
+
+(frame p50 / p95: the median and the 95th percentile of the intervals between frames.)
+
+**While the view turns** (run 5, the calm village, five seconds of a slow orbit through the camera's own controls), the same windows:
+
+| Window | Tier and frame cap | Frame p50 / p95 | fps |
+|---|---|---:|---:|
+| Chrome 390×844 at 3× (iPhone-sized) | medium, cap 60 while moving | **17 / 64 ms** | 47 |
+| Chrome 1440×900 at 2× | medium, cap 60 while moving | 33.3 / 67 ms | 29 |
+| Chrome 1440×900 at 2×, the high tier held | high | 35 / 101 ms | 22 |
+| Safari 1440×848 at 1× | high | 26 / 61 ms | 32 |
+
+Held at the high tier instead (pinned), the 2880×1800 window runs the calm village at p50 34–82 ms and the flood night at 50–67 ms
+(12–18 fps) across the runs: that is what the monitor saw and stepped away from.
 
 Reading it:
 
-* **Steady about 30 frames a second at the settled tier, at both sizes, in Chrome; 35–45 in Safari at 1×.** The high and medium tiers
-  cap at 60 and 45; on a 60 Hz display a frame that misses a beat waits for the next, so a GPU that needs 17–33 ms a frame gives 30.
-  The back-to-back medians say how far each window is from the next step: 12–14 ms at the iPhone size (room to spare), 22–32 ms at the
-  2880×1800 desktop (not enough for 60).
-* **The phase file's targets.** Mobile, median 30 fps or more at a suitable quality: met at the iPhone-sized window on this GPU (29–30).
-  Desktop, a stable 60 fps at the default camera: **not met on this GPU** (about 30 at 2880×1800; 45 in Safari at 1440×848). A virtual
-  machine's paravirtualised device is slower than the same chip used directly; a native Mac, a discrete GPU or a phone has not been
-  measured, so how far each is from these figures is **UNVERIFIED**.
-* **Stalls.** A village's first frame (shaders and uploads) took 0.33–1.1 s in Chrome, and 1.3 s (calm) and 4.8 s (flood) in Safari. It
-  is drawn under the loading veil, which lifts after it. One of the frames just after it can be slow too: up to 0.65 s in Chrome. After
-  those, the calm village and the flood ran with no hitch at either size; a hitch is a frame over 50 ms and four times the usual. The
-  night's resolution brings one to three: the worst frame was 79 ms at the iPhone size and 349 ms at 2880×1800, the moment the night's
-  changes reach the GPU. Recorded in `KNOWN_ISSUES.md`.
-* **Video memory** (estimated): 7.2 MB of textures in every case; render targets 28 MB at the iPhone size (medium), 62 MB at 2880×1800 on
-  medium and 146 MB on high, most of it the finishing chain's half-float buffers at full resolution.
-* **Where the high tier's time goes** (run 4, the calm village held at the high tier at 2880×1800, 90 frames back to back with parts of
-  the finishing chain switched off in turn; medians): the whole chain 45.6 ms; without ambient occlusion 30.2 ms; without ambient
-  occlusion and glow 24.7 ms; with no chain at all 22.3 ms. Ambient occlusion (four pairs of depth samples a pixel, at full resolution)
-  is the largest single cost, about a third of the frame. It was not made cheaper in this round: on this GPU even the bare scene at that
-  size needs 22 ms, so no change to the chain alone would bring it to 60 frames a second; the quality monitor's step to the medium tier
-  (two pairs, no glow, a pixel ratio of 1.5) is the lever, and it takes it when frames come late.
+* **At rest, a steady 30 frames a second at the settled tier, at both sizes, in Chrome; 32–50 in Safari at 1×.** On a 60 Hz display a
+  frame that misses a beat waits for the next, so a GPU that needs 17–33 ms a frame gives 30.
+* **A phone got 30 a second however fast its GPU, until run 5.** The medium tier (phones' tier) was capped at 45 frames a second, and a
+  60 Hz display can only show 45 on alternate beats: 30. At the iPhone size the GPU drew a frame in 12–14 ms back to back (run 3) and
+  the game still showed 30. Since `f951751` each tier has a cap while the view moves and one at rest, both dividing 60: the medium tier
+  draws up to 60 a second while the player pans, zooms, orbits or the camera glides, and rests at 30 while the view is still (battery
+  and heat). Run 5 measured it: at the iPhone size, frames 17 ms apart (the 60 Hz beat) at the median while the view turned, 47 a second
+  on average; at 2880×1800 the same tier stays at 30 (its frames need 17–20 ms there, back to back).
+* **The phase file's targets.** Mobile, median 30 fps or more at a suitable quality: **met** at the iPhone-sized window on this GPU (30
+  at rest, a median of 60 while the view turns). Desktop, a stable 60 fps at the default camera: **not met on this GPU** (about 30 at
+  2880×1800, on the high tier or a step down; 32–50 in Safari at 1440×848). A virtual machine's paravirtualised device is slower than the
+  same chip used directly; a native Mac, a discrete GPU and a physical phone have not been measured, so how far each is from these
+  figures is **UNVERIFIED**.
+* **Stalls.** A village's first frame (shaders and uploads) took 0.33–1.24 s in Chrome (3.3–3.4 s for the flood night at 2880×1800 in
+  runs 4 and 5), and 1.0–1.3 s (calm) and 3.8–4.8 s (flood) in Safari. It is drawn under the loading veil, which lifts after it. A later
+  frame of the first seconds can be slow too, up to 0.95 s (the flood night held at the high tier). After those, the calm village ran
+  without a hitch at the tier the game chose, at both sizes, in every run (a hitch is a frame over 50 ms and four times the usual). A
+  night's resolution brings up to four, the worst frame from 79 ms to 1.08 s at the iPhone size and 191–439 ms at 2880×1800 across the
+  runs: the moment the night's changes reach the GPU. No shader was compiled then (the programs count did not change, in a page that had
+  drawn a flood night just before; a player's first night in a fresh page was not measured). Recorded in
+  `KNOWN_ISSUES.md`.
+* **Video memory** (estimated): textures 7.2 MB in runs 3–4 and 8.9 MB in run 5 (the plate's painted cut, 1.7 MB with its mipmaps);
+  render targets 28 MB at the iPhone size (medium), 62 MB at 2880×1800 on medium and 146 MB on high (66 MB for Safari's 1440×848 window
+  at the high tier), most of it the finishing chain's half-float buffers at full resolution.
+* **Where the high tier's time goes** (the calm village held at the high tier at 2880×1800, 90 frames back to back with parts of the
+  finishing chain switched off in turn; medians, runs 4 and 5): the whole chain 45.6 / 39.3 ms; without ambient occlusion 30.2 / 32.4 ms;
+  without ambient occlusion and glow 24.7 / 27.6 ms; with no chain at all 22.3 / 23.5 ms. Ambient occlusion (four pairs of depth samples a
+  pixel, at full resolution) is the largest single cost, a sixth to a third of the frame. It was not made cheaper: on this GPU even the
+  bare scene at that size needs 22–24 ms, so no change to the chain alone would bring it to 60 frames a second; the quality monitor's step
+  to the medium tier (two pairs, no glow, a pixel ratio of 1.5) is the lever, and it takes it when frames come late.
+* **Sprites were half-size on a screen of pixel ratio 2** (found in run 5's frames: the waterfall's mist drew as a scatter of dots).
+  Every point sprite (smoke, flame, mist, the gold proof markers, the coach's call-out, the route dots) was sized in the drawing buffer's
+  pixels, so its size on screen fell with the pixel ratio. It was in the software rasteriser's phone frames too (a pixel ratio of 2,
+  where the gold rings were smaller than on a desktop), unnoticed until the mist made it plain.
+  They are now sized in CSS pixels and scaled by the renderer's pixel ratio each frame (`src/render3d/particles.ts`, `pixelRatio`).
 
-**The iOS Simulator** opened a link that goes straight into the first day (`&play=1&perf=1`). Mobile Safari drew the 3D world, and its
-monitor read 13–16 fps (run 2: low tier at half resolution, frame p50 55–58 ms, draws of 3.4–3.9 ms). The Simulator renders through an
-emulated graphics path inside the virtual machine, so that frame rate says nothing about an iPhone's. What the run does show is iOS
-WebKit choosing, compiling and drawing the 3D world, laid out as on a phone (`screenshots/real-hw/run2-ios-simulator-mobile-safari.jpg`).
+**The iOS Simulator** opens a link that goes straight into the first day (`&play=1&perf=1`). Mobile Safari draws the 3D world there,
+and its monitor read 13–17 fps (runs 2 and 5: the low tier at half resolution, frame p50 55–58 ms, draws of 3.4–3.9 ms). The Simulator
+renders through an emulated graphics path inside the virtual machine, so that frame rate says nothing about an iPhone's. What the runs do
+show is iOS WebKit choosing, compiling and drawing the 3D world, laid out as on a phone (`screenshots/real-hw/run5-ios-simulator-mobile-safari.jpg`;
+a Safari tip of its own covers one corner). In runs 3 and 4 the link timed out while Mobile Safari did its first-run setup; since run 5
+Safari is launched first.
 
 **What the first runs found.** Run 1 (`9294f83`) measured only the low tier, because of the automation rule above (`chooseQuality`; an
 earlier commit message here put it down to the quality monitor, wrongly). It did show a real defect, in the Simulator, which is not
@@ -85,9 +116,11 @@ medians of the frames since the village was built or the setting changed, and la
 (`src/render3d/pacing.ts`, `tests/unit/render3d-pacing.test.ts`). In run 2 the Simulator's tier came down for a real reason, frames 55 ms
 apart even at the lowest setting.
 
-Frames from the GPU: `screenshots/real-hw/run3-apple-gpu-chrome-day1-no-interface-high-tier.jpg` (the art director's Day 1 frame at the high
-tier), `…-flood-night-high-tier.jpg`, `…-iphone-size-medium-tier.jpg`, `run3-apple-gpu-safari-calm-high-tier.jpg`; the low tier of run 1 for
-comparison, `run1-apple-gpu-chrome-day1-no-interface-low-tier.jpg`. The measurement files of every run are in `data/real-hardware/`.
+**Frames from the GPU** (`screenshots/real-hw/`): the art director's Day 1 frame at the high tier, before and after this round's work on
+the plate's edge and the river (`edge-before-after-run4-run5.jpg`, and its front edge at full resolution, `…-closeup.jpg`);
+`run5-apple-gpu-chrome-day1-no-interface-high-tier.jpg`; `run5-apple-gpu-chrome-iphone-size-medium-tier.jpg` (its monitor reads "cap 30" at
+rest); `run5-apple-gpu-safari-calm-high-tier.jpg`; from run 3, the flood night at the high tier and the iPhone-sized window; and the low
+tier of run 1 for comparison.
 
 ## The current build, with the finishing chain
 
@@ -102,41 +135,46 @@ comparison, `run1-apple-gpu-chrome-day1-no-interface-low-tier.jpg`. The measurem
 
 | Tier (chain) | Scene | Triangles | Draw calls | Shader programs | Video memory (textures + targets) | People drawn far | Load → first frame | of which the build | First draw | JS heap | Median frame | p95 frame | fps | 1% low fps | Median, chain off | Chain cost |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| low (ink) | calm Day 1 | 244,070 | 256 | 27 | 4.9 + 12.0 MB | 14 of 14 | 5.4 s | 0.96 s | 1.40 s | 34 MB | 309 ms | 357 ms | 3.2 | 2.8 | 320 ms | −11.4 ms |
-| low (ink) | flood night | 267,346 | 292 | 43 | 4.9 + 12.0 MB | 14 of 14 | 7.3 s | 0.81 s | 1.17 s | 48 MB | 335 ms | 393 ms | 3.0 | 2.5 | 311 ms | +24.2 ms |
-| medium (AO 2 + ink + FXAA) | calm Day 1 | 464,568 | 493 | 32 | 7.2 + 21.0 MB | 14 of 14 | 9.8 s | 1.43 s | 1.43 s | 34 MB | 454 ms | 592 ms | 2.2 | 1.6 | 422 ms | +31.3 ms |
-| medium (AO 2 + ink + FXAA) | flood night | 498,394 | 523 | 51 | 7.2 + 21.0 MB | 14 of 14 | 10.3 s | 0.87 s | 1.54 s | 48 MB | 474 ms | 589 ms | 2.1 | 1.7 | 443 ms | +30.9 ms |
-| high (AO 4 + ink + bloom + FXAA) | calm Day 1 | 580,683 | 498 | 35 | 7.2 + 46.3 MB | 14 of 14 | 10.9 s | 1.25 s | 1.37 s | 34 MB | 531 ms | 597 ms | 1.9 | 1.6 | 526 ms | +5.2 ms |
-| high (AO 4 + ink + bloom + FXAA) | flood night | 648,626 | 532 | 54 | 7.2 + 46.3 MB | 14 of 14 | 10.6 s | 1.04 s | 1.38 s | 34 MB | 567 ms | 618 ms | 1.8 | 1.6 | 539 ms | +27.9 ms |
+| low (ink) | calm Day 1 | 250,086 | 259 | 29 | 6.6 + 12.0 MB | 14 of 14 | 7.5 s | 1.08 s | 1.05 s | 30 MB | 323 ms | 378 ms | 3.1 | 2.5 | 302 ms | +20.1 ms |
+| low (ink) | flood night | 273,362 | 295 | 52 | 6.6 + 12.0 MB | 14 of 14 | 9.6 s | 0.94 s | 1.38 s | 36 MB | 362 ms | 458 ms | 2.8 | 1.9 | 334 ms | +27.8 ms |
+| medium (AO 2 + ink + FXAA) | calm Day 1 | 475,880 | 497 | 33 | 8.9 + 21.0 MB | 14 of 14 | 12.2 s | 1.13 s | 1.46 s | 34 MB | 480 ms | 530 ms | 2.1 | 1.8 | 482 ms | −1.4 ms |
+| medium (AO 2 + ink + FXAA) | flood night | 509,706 | 527 | 58 | 8.9 + 21.0 MB | 14 of 14 | 11.5 s | 1.15 s | 1.56 s | 36 MB | 478 ms | 573 ms | 2.1 | 1.1 | 473 ms | +5.1 ms |
+| high (AO 4 + ink + bloom + FXAA) | calm Day 1 | 591,995 | 502 | 36 | 8.9 + 46.3 MB | 14 of 14 | 11.6 s | 1.04 s | 1.30 s | 34 MB | 562 ms | 636 ms | 1.8 | 1.5 | 522 ms | +39.8 ms |
+| high (AO 4 + ink + bloom + FXAA) | flood night | 659,938 | 536 | 61 | 8.9 + 46.3 MB | 14 of 14 | 12.7 s | 1.13 s | 1.59 s | 36 MB | 604 ms | 736 ms | 1.7 | 1.3 | 571 ms | +32.9 ms |
 
-Measured on the round 8 build (`docs/3d-rebuild/data/perf-chain.json`). The build time now includes the shader warm-up; "first draw" is the
+Measured on the round 9 build, with the plate's painted cut and the falls (`docs/3d-rebuild/data/perf-chain.json`). The build time includes
+the shader warm-up; "first draw" is the
 first frame's own draw, which compiles what the warm-up cannot (the shadow pass, the chain's passes). The video memory is
 `World3D.memory()`'s estimate for this window's drawing buffer (683×384); on a full-resolution screen the targets are larger (see "Round 8"
 below: 59.7 MB at 1280×720 on high).
 
 **Reading it:**
 
-* **The people cost a third fewer draw calls, and now fewer triangles.** Rounds 6 and 7 dressed the fourteen people (garments, faces,
-  hair, a tool per role) and baked each into a few vertex-coloured meshes; round 8 gave each a distant version, which all fourteen use at
-  this window's overview:
+* **The people cost a third fewer draw calls than in the visual pass; the island's cut and the falls add a few.** Rounds 6 and 7
+  dressed the fourteen people (garments, faces, hair, a tool per role) and baked each into a few vertex-coloured meshes; round 8 gave each
+  a distant version, which all fourteen use at this window's overview. Round 9 painted the plate's cut and added the falls, the spring's
+  boulders and the mist: 3–4 draw calls and 6,000–11,300 triangles, by tier.
 
-  | Measure (calm Day 1) | Visual pass (`effadc8`) | Round 7 | Round 8 (current) |
-  |---|---:|---:|---:|
-  | Draw calls, high tier | 742 | 498 | 498 |
-  | Draw calls, medium tier | 735 | 493 | 493 |
-  | Draw calls, low tier | 376 | 256 | 256 |
-  | Triangles, high tier (every pass, the shadow pass included) | 597,483 | 628,775 | 580,683 |
-  | Triangles, medium tier | — | 512,660 | 464,568 |
-  | Triangles, low tier | 245,992 | 268,116 | 244,070 |
-  | Median frame, high tier, on this CPU rasteriser | 566 ms | 545 ms | 531 ms |
+  | Measure (calm Day 1) | Visual pass (`effadc8`) | Round 7 | Round 8 | Round 9 (current) |
+  |---|---:|---:|---:|---:|
+  | Draw calls, high tier | 742 | 498 | 498 | 502 |
+  | Draw calls, medium tier | 735 | 493 | 493 | 497 |
+  | Draw calls, low tier | 376 | 256 | 256 | 259 |
+  | Triangles, high tier (every pass, the shadow pass included) | 597,483 | 628,775 | 580,683 | 591,995 |
+  | Triangles, medium tier | — | 512,660 | 464,568 | 475,880 |
+  | Triangles, low tier | 245,992 | 268,116 | 244,070 | 250,086 |
+  | Median frame, high tier, on this CPU rasteriser | 566 ms | 545 ms | 531 ms | 562 ms |
 
-* **What the chain costs here.** On medium and high it cost 5–31 ms a frame in this run (round 7: 20–48 ms), against frames of
-  450–570 ms on this CPU rasteriser. On low, where the chain is only the ink line, it measured −11.4 and +24.2 ms: that is this machine's
-  noise, since medians move by tens of milliseconds between runs. What the chain costs on a GPU or a phone is **UNVERIFIED**.
-* **Load → first frame** is wall-clock time, from handing the page a saved run to its first drawn frame: 5.4–10.9 s here (round 7:
-  5.1–10.6 s; the medium calm row moved from 7.3 to 9.8 s, the others by under a second, and single runs vary by about that much).
-  * The world's own build (terrain, buildings, foliage and people made into meshes, and since round 8 the shader warm-up) is 0.8–1.4 s of
-    that, and the first frame's draw 1.2–1.5 s.
+* **What the chain costs here.** On medium and high it measured −1.4 to +39.8 ms a frame in this run (round 8: 5–31 ms), against
+  frames of 480–600 ms on this CPU rasteriser; on low, where the chain is only the ink line, +20.1 and +27.8 ms (round 8: −11.4 and
+  +24.2). Differences of this size are this machine's noise: medians move by tens of milliseconds between runs. What the chain costs on a
+  real GPU is in "Real hardware" above (an Apple GPU at 2880×1800); on a phone it is **UNVERIFIED**.
+* **Load → first frame** is wall-clock time, from handing the page a saved run to its first drawn frame: 7.5–12.7 s here (round 8:
+  5.4–10.9 s). That rise is this container, not the game: the same measurement, made on the build before this round's work (`0455c2a`)
+  and on this one, alternating between them four times each (the low tier, the calm village), gave medians of 8.5 s and 8.7 s with ranges
+  that overlap (7.6–9.0 s and 7.4–9.2 s).
+  * The world's own build (terrain, buildings, foliage and people made into meshes, and since round 8 the shader warm-up) is 0.9–1.2 s of
+    that, and the first frame's draw 1.1–1.6 s; both are as they were in round 8.
   * The rest is the page's other work before that frame: closing the title's village, creating the game's WebGL context and finishing
     chain, pre-filtering the sky light, and on this software rasteriser the frame pacing's wait between frames. It was not broken down
     further.
@@ -148,17 +186,27 @@ below: 59.7 MB at 1280×720 on high).
 
   | Measure | Earlier build (`1809880`) | Current build |
   |---|---:|---:|
-  | Triangles, high tier, calm | 494,863 | 580,683 |
-  | Draw calls, high tier, calm | 688 | 498 |
-  | Triangles, low tier, calm | 222,742 | 244,070 |
-  | Draw calls, low tier, calm | 352 | 256 |
-  | World build on this machine | 0.6 s | 0.8–1.4 s (with the shader warm-up) |
+  | Triangles, high tier, calm | 494,863 | 591,995 |
+  | Draw calls, high tier, calm | 688 | 502 |
+  | Triangles, low tier, calm | 222,742 | 250,086 |
+  | Draw calls, low tier, calm | 352 | 259 |
+  | World build on this machine | 0.6 s | 0.9–1.2 s (with the shader warm-up) |
+
+* **Shader programs and textures.** Round 9 added two programs, the falls' sheet and the spring's boulders (the mist shares the
+  particles' program, and the cut and its root share programs that already existed), and one texture, the cut's painted face (1.7 MB with
+  its mipmaps). Counted at the same moment of the same village in the build before this round and in this one, the programs went from 27
+  to 29 on a calm day and from 48 to 52 on a flood night, whose two others are variants tied to no object in the scene (a pass, a shadow
+  or a depth variant). Against round 8's table the flood rows rose by 7–9 (43–54 then, 52–61 now): four are this round's, and the rest
+  were already there in the build before it (48 at that moment of the flood night), which was not broken down further. On the real GPU,
+  a night's resolution compiled no new program in run 5 (the count stayed at 61 through it, in a page that had drawn a flood night
+  just before).
 
 * **Multisampling.** The first run of this measurement made the chain look *cheaper* than drawing without it.
   * The canvas was 4× multisampled even under the chain, so switching the chain off made the direct path pay for multisampling the scene.
   * The canvas now asks for multisampling only where the chain cannot run, so the comparison is like for like.
   * All the numbers above were measured after that change.
-* **The JS heap** varies between runs with garbage collection: 34–48 MB here, 30–45 MB in round 7, 28–40 MB in the visual pass.
+* **The JS heap** varies between runs with garbage collection: 30–36 MB here, 34–48 MB in round 8, 30–45 MB in round 7, 28–40 MB in the
+  visual pass.
 
 ## Round 8: level of detail, shader warm-up, video memory, stalls
 

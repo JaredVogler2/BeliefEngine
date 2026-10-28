@@ -6,7 +6,7 @@ import type { Layer, WorldContext } from './context.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mergeByMaterial, type Part } from './geom.ts';
 import type { MaterialLib } from './materials.ts';
-import { Particles, viewScale } from './particles.ts';
+import { Particles, pixelRatio, viewScale } from './particles.ts';
 import { DISPLAY_GLSL, displayUniforms } from './post.ts';
 import { seedFrom } from './rand.ts';
 import type { SceneChanges, SceneLandmark, SceneSnapshot } from './snapshot.ts';
@@ -51,12 +51,13 @@ const MAX_SITES = 12;
 const SITE_VERT = /* glsl */ `
   attribute float aSize;
   uniform float uScale;
+  uniform float uDpr;
   varying float vFade;
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
     float d = -mv.z;
-    gl_PointSize = clamp(aSize * uScale / d, 12.0, 24.0) * step(0.001, aSize);
+    gl_PointSize = clamp(aSize * uScale / d, 12.0, 24.0) * step(0.001, aSize) * uDpr;
     vFade = smoothstep(7.0, 13.0, d);
   }
 `;
@@ -143,7 +144,7 @@ export class LandmarksLayer implements Layer {
     const sg = new THREE.BufferGeometry();
     sg.setAttribute('position', new THREE.BufferAttribute(this.sitePos, 3).setUsage(THREE.DynamicDrawUsage));
     sg.setAttribute('aSize', new THREE.BufferAttribute(this.siteSize, 1).setUsage(THREE.DynamicDrawUsage));
-    this.sites = new THREE.Points(sg, new THREE.ShaderMaterial({ vertexShader: SITE_VERT, fragmentShader: SITE_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale, uTime: { value: 0 }, ...displayUniforms } }));
+    this.sites = new THREE.Points(sg, new THREE.ShaderMaterial({ vertexShader: SITE_VERT, fragmentShader: SITE_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale, uDpr: pixelRatio, uTime: { value: 0 }, ...displayUniforms } }));
     this.sites.frustumCulled = false;
     this.sites.renderOrder = 9;
     this.sites.name = 'proof-sites';

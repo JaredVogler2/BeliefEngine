@@ -7,17 +7,24 @@ import { DISPLAY_GLSL, displayUniforms } from './post.ts';
  * visual: nothing here is read by the simulation, and the random numbers are not the engine's.
  */
 export const viewScale = { value: 800 };
+/**
+ * Device pixels per CSS pixel of the drawing buffer (the renderer's pixel ratio, render scale included), set by the world before each
+ * frame. Every point sprite's size is worked out in CSS pixels and multiplied by it: a point size is in the drawing buffer's pixels, so
+ * without it a sprite drew at half its size on a screen of pixel ratio 2 (seen on a real GPU, where the waterfall's mist became dots).
+ */
+export const pixelRatio = { value: 1 };
 
 const VERT = /* glsl */ `
   attribute float aSize;
   attribute vec4 aColor;
   varying vec4 vColor;
   uniform float uScale;
+  uniform float uDpr;
   void main() {
     vColor = aColor;
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
-    gl_PointSize = max(0.0, aSize * uScale / -mv.z);
+    gl_PointSize = max(0.0, aSize * uScale / -mv.z) * uDpr;
   }
 `;
 const FRAG = /* glsl */ `
@@ -91,7 +98,7 @@ export class Particles {
       transparent: true,
       depthWrite: false,
       blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
-      uniforms: { uScale: { value: viewScale.value }, uSoft: { value: soft ? 1 : 0 }, ...displayUniforms },
+      uniforms: { uScale: { value: viewScale.value }, uDpr: pixelRatio, uSoft: { value: soft ? 1 : 0 }, ...displayUniforms },
     });
     this.points = new THREE.Points(this.geo, this.mat);
     this.points.frustumCulled = false;

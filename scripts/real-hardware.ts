@@ -4,11 +4,12 @@
  * graphics device. That is a real GPU, not a software rasteriser, but it is not a phone, and nothing written here claims to be one.
  *
  *   chrome  Chrome (Playwright's Chromium, headed) on the machine's GPU, through the default route (no ?renderer=3d): which renderer the
- *           game chooses there, which GPU WebGL reports, then for a desktop window and an iPhone-sized one, the calm village, the flood
- *           night and a night of effects, each left running in the live loop with its own frame pacing and quality monitor; the frame
- *           times it reports (median and 95th percentile), the tier it settles on, the scene counts, stalls and video memory, the
- *           frame times again while the view turns (the calm village), a back-to-back benchmark, and a screenshot of each (and the
- *           desktop village with no interface, for the art director's test).
+ *           game chooses there, which GPU WebGL reports, then for a desktop window and an iPhone-sized one, the calm village, a night
+ *           of effects (shader programs counted before and after it) and the flood night, each left running in the live loop with its
+ *           own frame pacing and quality monitor; the frame times it reports (median and 95th percentile), the tier it settles on, the
+ *           scene counts, stalls and video memory, the frame times again while the view turns (the calm village), a back-to-back
+ *           benchmark, and a screenshot of each (and the desktop village with no interface, for the art director's test, and its
+ *           waterfall close up).
  *   safari  Safari itself, driven through safaridriver (WebDriver; `sudo safaridriver --enable` first): the same calm village and flood
  *           night in a desktop window, the same numbers and screenshots.
  *   ios     Mobile Safari in the iOS Simulator: an iPhone is booted, the game is opened with a link that goes straight into the first day
@@ -101,12 +102,15 @@ async function chrome(): Promise<void> {
     let software = false;
     const desktop = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 };
     // quality=auto: the tier a player's browser would start on (an automated one otherwise starts low) with the quality monitor free to
-    // step down; quality=high: the high tier held, for what it costs on this GPU and for the art director's frame
-    for (const view of [
-      { name: 'desktop', opts: desktop, quality: 'auto', scenes: ['calm', 'flood', 'night'] },
-      { name: 'phone', opts: { ...devices['iPhone 14'], viewport: { width: 390, height: 844 } }, quality: 'auto', scenes: ['calm', 'flood', 'night'] },
+    // step down; quality=high: the high tier held, for what it costs on this GPU and for the art director's frame. The night comes before
+    // the flood night (since run 6), so it resolves in a page that has drawn only the calm village, as a player's first night does, and
+    // not in one whose shaders the flood night has already compiled
+    const views: { name: string; opts: object; quality: string; scenes: (keyof typeof scenes)[] }[] = [
+      { name: 'desktop', opts: desktop, quality: 'auto', scenes: ['calm', 'night', 'flood'] },
+      { name: 'phone', opts: { ...devices['iPhone 14'], viewport: { width: 390, height: 844 } }, quality: 'auto', scenes: ['calm', 'night', 'flood'] },
       { name: 'desktop-high', opts: desktop, quality: 'high', scenes: ['calm', 'flood'] },
-    ]) {
+    ];
+    for (const view of views) {
       const ctx = await browser.newContext(view.opts as never);
       const page = await ctx.newPage();
       const errors: string[] = [];
@@ -118,12 +122,15 @@ async function chrome(): Promise<void> {
       software ||= !gpu.webgl2 || SOFT.test(gpu.renderer ?? '');
       const rows: Record<string, unknown> = { gpu };
       note(`${label} ${version}, ${view.name} (quality=${view.quality}): WebGL2 ${gpu.webgl2 ? 'yes' : 'no'}, GPU "${gpu.renderer}"`);
-      for (const [scene, json] of Object.entries(scenes).filter(([k]) => view.scenes.includes(k))) {
-        await page.evaluate((j) => (window as unknown as { __belief: { load: (s: string) => boolean } }).__belief.load(j), json);
+      for (const scene of view.scenes) {
+        await page.evaluate((j) => (window as unknown as { __belief: { load: (s: string) => boolean } }).__belief.load(j), scenes[scene]);
         await page.waitForSelector('.stage[data-ready="1"]', { timeout: 120_000 });
+        // the world's record just before the night ends, so what the night itself compiles (shader programs) shows
+        let beforeNight: Reading = null;
         if (scene === 'night') {
           // the night itself: what the engine does at the end of the day, with its effects, in the live loop
           await sleep(4000);
+          beforeNight = (await page.evaluate(READ)) as Reading;
           await page.evaluate(() => (window as unknown as { __belief: { store: { endDay: () => void } } }).__belief.store.endDay());
         }
         // the live loop, with its frame pacing and the quality monitor free to step down: what a player on this machine would get. The
@@ -171,7 +178,8 @@ async function chrome(): Promise<void> {
           })()`);
           note(`${view.name} ${scene} cost by part (median ms back to back): ${Object.entries(parts as Record<string, { medianMs: number }>).map(([k, v]) => `${k} ${v.medianMs}`).join(', ')}`);
         }
-        rows[scene] = { live, moving, bench, timeline, parts };
+        rows[scene] = { live, moving, bench, timeline, parts, beforeNight };
+        if (beforeNight?.info && live?.info) note(`${view.name} night: ${String(beforeNight.info.programs)} shader programs before it ended, ${String(live.info.programs)} after`);
         note(`${view.name} ${scene}: ${brief(live)}${bench ? ` · back to back: ${JSON.stringify(bench)}` : ''}`);
         note(`${view.name} ${scene} tier every 2 s: ${timeline.map((x) => `${(x as { tier: string }).tier}×${(x as { scale: number }).scale}`).join(' ')}`);
       }
@@ -183,6 +191,11 @@ async function chrome(): Promise<void> {
         await page.addStyleTag({ content: 'body * { visibility: hidden !important; } .stage, .stage > canvas { visibility: visible !important; } .stage { position: fixed !important; inset: 0 !important; }' });
         await sleep(6000);
         await page.screenshot({ path: `${out}/${label.replace(/\W+/g, '-')}-desktop-day1-no-interface.png` });
+        // the waterfall close up: its mist is point sprites, which drew at half their size at this pixel ratio until they were sized in
+        // CSS pixels (run 5's frames showed the mist as dots)
+        await page.evaluate('window.__beRenderer.setView({ azimuthDeg: 28, elevationDeg: 30, dist: 9, x: 13.5, z: 17 })');
+        await sleep(4000);
+        await page.screenshot({ path: `${out}/${label.replace(/\W+/g, '-')}-desktop-falls-close-up.png` });
       }
       rows.errors = errors;
       if (errors.length) note(`${view.name}: console errors: ${errors.slice(0, 3).join(' | ')}`);

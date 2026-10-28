@@ -19,6 +19,7 @@ import { lagOf, pacedGap, qualityStep, typicalOf } from './pacing.ts';
 import { EffectsLayer } from './effects.ts';
 import { MagicField, attachMagicToStandard } from './magic.ts';
 import { PostChain, displayUniforms, preCompensate, type PostLook, type PostProfile } from './post.ts';
+import { pixelRatio } from './particles.ts';
 import { makeEnvironment } from './env.ts';
 
 const DEFAULT_OPTS: RenderOpts = {
@@ -679,6 +680,8 @@ export class World3D implements WorldRenderer {
       this.renderer.info.reset();
       displayUniforms.uDisplayComp.value = this.postActive() ? 1 : 0;
       displayUniforms.uPostExposure.value = this.renderer.toneMappingExposure;
+      // point sprites are sized in CSS pixels and drawn in the drawing buffer's (a menu's world and the game's may differ)
+      pixelRatio.value = this.renderer.getPixelRatio();
       if (this.post && !this.postOff) {
         // the ink is for the village and what is near it; it fades out over the far clouds and islands
         const d = this.cam.distance;

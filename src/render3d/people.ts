@@ -3,7 +3,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import { bridgeSpecOf, deckHeight, type BridgeSpec } from './civic.ts';
 import type { Layer, WorldContext } from './context.ts';
 import { engineToWorld } from './coords.ts';
-import { viewScale } from './particles.ts';
+import { pixelRatio, viewScale } from './particles.ts';
 import { DISPLAY_GLSL, displayUniforms } from './post.ts';
 import { seedFrom } from './rand.ts';
 import type { SceneChanges, SceneSnapshot, SceneVillager } from './snapshot.ts';
@@ -567,13 +567,14 @@ const ROUTE_VERT = /* glsl */ `
   attribute float aIdx;
   varying float vPulse;
   uniform float uScale;
+  uniform float uDpr;
   uniform float uTime;
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
     float d = -mv.z;
     vPulse = pow(0.5 + 0.5 * sin(aIdx * 0.55 - uTime * 5.0), 2.0);
-    gl_PointSize = clamp(0.2 * uScale / d, 5.0, 12.0) * (0.6 + 0.6 * vPulse);
+    gl_PointSize = clamp(0.2 * uScale / d, 5.0, 12.0) * (0.6 + 0.6 * vPulse) * uDpr;
   }
 `;
 const ROUTE_FRAG = /* glsl */ `
@@ -595,13 +596,14 @@ const MARK_VERT = /* glsl */ `
   varying vec3 vColor;
   varying float vFade;
   uniform float uScale;
+  uniform float uDpr;
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
     float d = -mv.z;
     // a call-out (the person the coach asks the player to tap) is drawn larger, and close up as well as from afar
     float callout = step(0.7, aSize);
-    gl_PointSize = clamp(aSize * uScale / d, 6.0, 20.0 + 14.0 * callout) * step(0.001, aSize);
+    gl_PointSize = clamp(aSize * uScale / d, 6.0, 20.0 + 14.0 * callout) * step(0.001, aSize) * uDpr;
     vFade = max(smoothstep(8.0, 17.0, d), callout);
     vColor = aColor;
   }
@@ -677,7 +679,7 @@ export class PeopleLayer implements Layer {
     mg.setAttribute('position', new THREE.BufferAttribute(this.markPos, 3).setUsage(THREE.DynamicDrawUsage));
     mg.setAttribute('aColor', new THREE.BufferAttribute(this.markCol, 3).setUsage(THREE.DynamicDrawUsage));
     mg.setAttribute('aSize', new THREE.BufferAttribute(this.markSize, 1).setUsage(THREE.DynamicDrawUsage));
-    this.marks = new THREE.Points(mg, new THREE.ShaderMaterial({ vertexShader: MARK_VERT, fragmentShader: MARK_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale, ...displayUniforms } }));
+    this.marks = new THREE.Points(mg, new THREE.ShaderMaterial({ vertexShader: MARK_VERT, fragmentShader: MARK_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale, uDpr: pixelRatio, ...displayUniforms } }));
     this.marks.frustumCulled = false;
     this.marks.renderOrder = 9;
     this.marks.name = 'people-marks';
@@ -686,7 +688,7 @@ export class PeopleLayer implements Layer {
     rg.setAttribute('position', new THREE.BufferAttribute(this.routePos, 3).setUsage(THREE.DynamicDrawUsage));
     rg.setAttribute('aIdx', new THREE.BufferAttribute(this.routeIdx, 1));
     rg.setDrawRange(0, 0);
-    this.routeDots = new THREE.Points(rg, new THREE.ShaderMaterial({ vertexShader: ROUTE_VERT, fragmentShader: ROUTE_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale, uTime: { value: 0 }, ...displayUniforms } }));
+    this.routeDots = new THREE.Points(rg, new THREE.ShaderMaterial({ vertexShader: ROUTE_VERT, fragmentShader: ROUTE_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale, uDpr: pixelRatio, uTime: { value: 0 }, ...displayUniforms } }));
     this.routeDots.frustumCulled = false;
     this.routeDots.renderOrder = 9;
     this.routeDots.name = 'evacuation-route';
