@@ -464,6 +464,54 @@ export class EffectsLayer implements Layer {
         if (g && !reduced) this.onFocus?.(g.x, g.z);
         break;
     }
+    this.react(p);
+  }
+
+  /**
+   * The people an event touched react to it for a moment: a new believer nods with a hand to the heart, a listener who refuses the story
+   * shakes their head with hands on hips, a rival argues with a jabbing hand, a listener pressed by a counter-story stops to think, the
+   * people who saw a staged proof nod (or, if it failed, shake their heads), people in reach of a law that wakes cheer, and people near a
+   * fire or a breaking bridge raise the alarm. A pose, never a change to the run, and only ever from an effect the engine's event started.
+   */
+  private react(p: EffectPlan): void {
+    const a = this.ctx.actors;
+    if (!a) return;
+    switch (p.kind) {
+      case 'rune':
+        if (p.to && p.code === 'BELIEVER_GAINED') a.gesture(p.to, 'nod', 1.6);
+        break;
+      case 'arc':
+        if (p.vocab === 'rival' && p.from) a.gesture(p.from, 'point', 1.6);
+        if (p.vocab === 'resist' && p.to) a.gesture(p.to, 'doubt', 1.8);
+        break;
+      case 'ring':
+        if (p.vocab === 'rival' && p.to) a.gesture(p.to, 'think', 1.6);
+        break;
+      case 'eyes':
+        if (p.to && p.vocab === 'trust') a.gesture(p.to, 'nod', 1.4);
+        else if (p.to && p.vocab === 'danger') a.gesture(p.to, 'doubt', 1.6);
+        break;
+      case 'glyph':
+        if (p.code === 'LAW_ACTIVATED') this.near(p, (id) => a.gesture(id, 'cheer', 1.8));
+        break;
+      case 'burst':
+      case 'dust':
+      case 'splash':
+        this.near(p, (id) => a.gesture(id, 'alarm', 1.8));
+        break;
+    }
+  }
+
+  /** everyone alive standing within an effect's ground radius (and a step beyond it) */
+  private near(p: EffectPlan, fn: (id: string) => void): void {
+    const g = this.ground(p);
+    if (!g || !this.snap) return;
+    const reach = (p.radius ?? 2) + 0.5;
+    for (const v of this.snap.villagers) {
+      if (v.status === 'dead') continue;
+      const at = this.ctx.locate?.('villager', v.id);
+      if (at && Math.hypot(at.x - g.x, at.z - g.z) <= reach) fn(v.id);
+    }
   }
 
   // ------------------------------------------------------------------------------------------------------ pieces

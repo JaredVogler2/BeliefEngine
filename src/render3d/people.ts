@@ -18,6 +18,8 @@ import type { SceneChanges, SceneSnapshot, SceneVillager } from './snapshot.ts';
 const SKIN = [0xf1c9a5, 0xe0ac85, 0xc68a62, 0x8d5a3c];
 const HAIR = [0x2b1d14, 0x6b4226, 0xb5783a, 0xd8c9a8, 0x9a9a9a];
 const PANTS = [0x4a3c2e, 0x3a4252, 0x5a4a3a, 0x3c3a36];
+/** hip height, which is also the length of a leg from the hip pivot to the sole */
+const LEG = 0.16;
 const SHIRT = 0xece4d2;
 const LEATHER = 0x4a3426;
 const BOOT = 0x2e241c;
@@ -63,6 +65,8 @@ interface Walker {
   dead: boolean;
   /** the way they face when they have nothing to look at (out from the building they wait at), or null */
   rest: number | null;
+  /** seconds to stand before setting off along the path (the morning walk to work starts at a different moment for each person) */
+  wait: number;
 }
 
 /** template shapes, shared by every figure; they are only ever copied into a figure's own geometry, never drawn */
@@ -225,7 +229,7 @@ export function buildRig(v: SceneVillager): Rig {
     .bake();
   const mkLeg = (x: number): THREE.Group => {
     const g = new THREE.Group();
-    g.position.set(x * W, 0.16, 0);
+    g.position.set(x * W, LEG, 0);
     g.add(owned(legGeo));
     return g;
   };
@@ -548,6 +552,8 @@ export class PeopleLayer implements Layer {
   private routeIdx = new Float32Array(ROUTE_DOTS);
   private routeFor = '';
   private snapRef: SceneSnapshot | null = null;
+  /** the day the people were last laid out for: a new morning, seen live, sends them from home to their work */
+  private day: number | null = null;
 
   constructor(ctx: WorldContext) {
     this.ctx = ctx;
@@ -710,6 +716,8 @@ export class PeopleLayer implements Layer {
     this.bridgeStanding = !!bridge && bridge.hp > 0;
     this.celebrating = snap.outcome === 'victory';
     if (changes.rebuild) this.clear();
+    const dawn = !changes.rebuild && this.day !== null && snap.day > this.day && !snap.outcome && !ctx.reducedMotion;
+    this.day = snap.day;
     const slots = this.slots(snap, ctx);
     const live = new Set<string>();
     for (const v of snap.villagers) {
@@ -736,6 +744,8 @@ export class PeopleLayer implements Layer {
             if (route.length) route.push(new THREE.Vector3(center.x + slot.x, 0, center.z + slot.y));
             else wk.path = [new THREE.Vector3(center.x + slot.x, 0, center.z + slot.y)];
           }
+        } else if (dawn && v.duty === 'work' && v.status !== 'dead') {
+          this.walkToWork(wk, v, slot, snap, ctx);
         }
         wk.tile = { x: Math.round(v.x), y: Math.round(v.y) };
         if (v.status === 'dead' && !wk.dead) this.bury(wk);
@@ -752,6 +762,25 @@ export class PeopleLayer implements Layer {
       }
     }
     this.proxyList = [...this.walkers.values()].map((w) => w.proxy);
+  }
+
+  /**
+   * A new morning: someone whose day is work again sets out from their own front door and walks to it, by the engine's walkable tiles
+   * (over the bridge only while it stands), each at their own moment. The engine has them at work all day; this is only the way there,
+   * between two places the engine puts them, and nobody whose home is out of reach or who works at home goes anywhere.
+   */
+  private walkToWork(wk: Walker, v: SceneVillager, slot: THREE.Vector2, snap: SceneSnapshot, ctx: WorldContext): void {
+    const home = snap.landmarks.find((l) => l.id === v.homeId && l.hp > 0);
+    if (!home || (home.x === Math.round(v.x) && home.y === Math.round(v.y))) return;
+    const door = ctx.visitSpot?.(home.id);
+    const start = door ?? engineToWorld(home.x, home.y);
+    const route = this.route({ x: home.x, y: home.y }, { x: v.x, y: v.y }, snap);
+    if (!route.length) return;
+    const center = engineToWorld(v.x, v.y);
+    wk.pos.set(start.x, 0, start.z);
+    wk.path = [...route, new THREE.Vector3(center.x + slot.x, 0, center.z + slot.y)];
+    wk.wait = (seedFrom(v.id, `dawn${snap.day}`) % 50) / 10;
+    if (door) wk.heading = door.ry;
   }
 
   private clear(): void {
@@ -787,6 +816,7 @@ export class PeopleLayer implements Layer {
     const wk: Walker = {
       v, rig, pos, path: [], tile: { x: Math.round(v.x), y: Math.round(v.y) }, slot: slot.clone(), heading: ((seedFrom(v.id) % 628) / 100) - 3.14, phase: (seedFrom(v.id) % 100) / 16,
       speed: 0.75 + (seedFrom(v.id, 'sp') % 40) / 100, gesture: null, look: null, lookUntil: 0, marker: null, proxy, alarm: 0, dead: false, rest: this.rests.get(v.id) ?? null,
+      wait: 0,
     };
     if (wk.rest !== null) wk.heading = wk.rest;
     rig.root.rotation.y = wk.heading;
@@ -818,7 +848,7 @@ export class PeopleLayer implements Layer {
     }
   }
 
-  /** a small, readable gesture driven by a real event: "talk", "point", "alarm", "cheer" */
+  /** a small, readable gesture driven by a real event: talk, listen, nod, doubt, point, think, cheer or alarm */
   gesture(id: string, kind: string, seconds = 1.6): void {
     const wk = this.walkers.get(id);
     if (wk && !wk.dead) wk.gesture = { kind, until: this.time + seconds };
@@ -856,21 +886,26 @@ export class PeopleLayer implements Layer {
       root.scale.setScalar(wk.rig.scale * 1.05 * legible);
       // ---- movement along the route
       let moving = false;
-      if (wk.path.length) {
+      let moved = 0;
+      if (wk.wait > 0) wk.wait -= dt;
+      else if (wk.path.length) {
         const next = wk.path[0];
         const dx = next.x - wk.pos.x;
         const dz = next.z - wk.pos.z;
         const d = Math.hypot(dx, dz);
         const urgent = v.duty === 'evacuate' || v.duty === 'hide' || v.duty === 'trapped';
-        const sp = (urgent ? 1.9 : 1.1) * wk.speed * (v.status === 'injured' || v.status === 'sick' ? 0.7 : 1);
+        // a walk, or a run when the water is coming (slower when hurt or ill)
+        const sp = (urgent ? 1.25 : 0.62) * wk.speed * (v.status === 'injured' || v.status === 'sick' ? 0.7 : 1);
         const step = sp * dt;
         if (d <= step) {
           wk.pos.x = next.x;
           wk.pos.z = next.z;
           wk.path.shift();
+          moved = d;
         } else {
           wk.pos.x += (dx / d) * step;
           wk.pos.z += (dz / d) * step;
+          moved = step;
         }
         if (d > 0.02) {
           const want = Math.atan2(dx, dz);
@@ -892,11 +927,18 @@ export class PeopleLayer implements Layer {
       const r = wk.rig;
       const urgent = v.duty === 'evacuate' || v.duty === 'hide' || v.duty === 'trapped';
       wk.alarm += ((urgent || (wk.gesture?.kind === 'alarm' && time < wk.gesture.until) ? 1 : 0) - wk.alarm) * Math.min(1, dt * 3);
-      const gait = moving ? (urgent ? 13 : 8.5) * wk.speed : 0;
-      wk.phase += dt * (moving ? gait : 1.6);
-      const swing = moving ? Math.sin(wk.phase) * (urgent ? 0.95 : 0.6) : 0;
-      // under a gown the stride is shorter, and the skirt swings a little with each step
-      const stride = r.robe ? swing * 0.55 : swing;
+      // the legs cycle with the ground covered, one step for each stride's length, so a planted foot stays where it was put (a stride is
+      // what two legs a hip-height long cover swinging through the angle, at the size the person is drawn); under a gown the stride is
+      // shorter, and the skirt swings a little with each step
+      const amp = urgent ? 0.95 : 0.7;
+      const legAmp = r.robe ? amp * 0.75 : amp;
+      const strideLen = 2 * LEG * Math.sin(legAmp) * root.scale.x;
+      wk.phase += moving ? (moved / strideLen) * Math.PI : dt * 1.6;
+      const swing = moving ? Math.sin(wk.phase) * amp : 0;
+      // the foot's reach ahead of the hip runs almost straight through the step (mostly a triangle wave, a little rounded), so the
+      // planted foot keeps pace with the ground instead of sliding as a pure sine swing makes it do
+      const reach = moving ? 0.7 * (2 / Math.PI) * Math.asin(Math.sin(wk.phase)) + 0.3 * Math.sin(wk.phase) : 0;
+      const stride = Math.asin(Math.sin(legAmp) * reach);
       r.legL.rotation.x = stride;
       r.legR.rotation.x = -stride;
       r.skirt.rotation.x = moving && !reduced ? Math.sin(wk.phase * 2) * (r.robe ? 0.05 : 0.025) : 0;
@@ -952,16 +994,36 @@ export class PeopleLayer implements Layer {
       const g = wk.gesture;
       if (g && time < g.until) {
         const k = Math.sin(((g.until - time) * 7));
+        // (each pose answers what an event did to this person: see EffectsLayer.react; under reduced motion it is held, not shaken)
+        const w = reduced ? 0.5 : k;
         if (g.kind === 'talk') {
-          r.armR.rotation.x = -0.9 + k * 0.4;
-          r.head.rotation.x = 0.1 + Math.abs(k) * 0.1;
+          r.armR.rotation.x = -0.9 + w * 0.4;
+          r.head.rotation.x = 0.1 + Math.abs(w) * 0.1;
+        } else if (g.kind === 'listen') {
+          // listening: the head tilted toward the speaker
+          r.head.rotation.z = 0.16;
+          r.head.rotation.x = 0.06;
+        } else if (g.kind === 'nod') {
+          // convinced: a nod, a hand raised to the heart
+          r.head.rotation.x = 0.1 + Math.max(0, w) * 0.3;
+          r.armR.rotation.x = -1.05;
+          r.armR.rotation.z = 0.55;
+        } else if (g.kind === 'doubt') {
+          // not having it: hands on hips and a shake of the head
+          r.head.rotation.y = reduced ? 0.3 : Math.sin((g.until - time) * 11) * 0.38;
+          r.armL.rotation.x = 0.15;
+          r.armR.rotation.x = 0.15;
+          r.armL.rotation.z = 0.5;
+          r.armR.rotation.z = -0.5;
         } else if (g.kind === 'point') {
-          r.armR.rotation.x = -1.5;
+          // arguing: a jabbing hand and a lean in
+          r.armR.rotation.x = -1.45 + w * 0.14;
           r.armR.rotation.z = -0.15;
+          r.body.rotation.x += 0.08;
         } else if (g.kind === 'cheer') {
-          r.armL.rotation.x = -2.8 + k * 0.2;
-          r.armR.rotation.x = -2.8 - k * 0.2;
-          r.body.position.y += Math.abs(k) * 0.03;
+          r.armL.rotation.x = -2.8 + w * 0.2;
+          r.armR.rotation.x = -2.8 - w * 0.2;
+          r.body.position.y += Math.abs(w) * 0.03;
         } else if (g.kind === 'think') {
           r.armR.rotation.x = -1.9;
           r.head.rotation.x = 0.2;
