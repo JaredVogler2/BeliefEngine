@@ -78,7 +78,10 @@ seeded by the first frames, and a phone frame cap a 60 Hz screen could only show
 of size: every point sprite (mist, smoke, the gold markers, the coach's call-out) drew at half its size on a screen of pixel ratio 2,
 fixed after run 5 and seen fixed on the GPU in run 6 (`screenshots/real-hw/sprites-before-after-run5-run6.jpg`). Run 6's close-up of
 the waterfall showed one more fault: the ink of the cliff's lip and the island's underside was drawn straight through the falling water.
-The sheet is now a veil to the finishing chain, and that ink fades under it (`screenshots/wc/falls-ink-veil-before-after.jpg`).
+The sheet is now a veil to the finishing chain, and that ink fades under it (`screenshots/wc/falls-ink-veil-before-after.jpg`; on the
+GPU in run 7, `screenshots/real-hw/veil-before-after-run6-run7.jpg`). And the runs' build counts showed a stall of the world's own making:
+after every automatic step down of the quality tier, the next action or night rebuilt the whole world (about 1.5 s on that GPU). Fixed,
+with a browser test that failed before the fix.
 
 ### The scorecard, round 9
 

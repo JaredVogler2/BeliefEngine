@@ -403,6 +403,9 @@ export class World3D implements WorldRenderer {
   /** a new village (or the same one reloaded): drop everything the old one owned and build again from the snapshot */
   private rebuild(snap: SceneSnapshot): void {
     const t0 = performance.now();
+    // the village this world now shows: what comes next is diffed against it. (A change of tier or a restored context builds from the
+    // snapshot it holds; without this the next state, a player's action or the night, was taken for a new village and built it all again)
+    this.snap = snap;
     this.disposeWorld();
     const seedNum = seedFrom(snap.scenarioId, snap.seed);
     const terrain = buildHeightField(snap, seedNum);

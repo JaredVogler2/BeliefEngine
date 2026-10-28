@@ -440,6 +440,24 @@ test.describe('the 3D world', () => {
     expect(late, `heap ${early.toFixed(1)} MB after loads 5-7, ${late.toFixed(1)} MB after loads 8-10`).toBeLessThan(early * 1.08 + 1);
   });
 
+  test('a change of quality tier builds the world once, and the next day only updates it', async ({ page }) => {
+    await page.goto(URL3D);
+    await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
+    await loadRun(page, played(1, 'evidence-first', 1));
+    type Rec = { builds: number; tier: string };
+    const rec = (): Promise<Rec> => renderer(page, (r) => r.info() as unknown as Rec);
+    const b0 = (await rec()).builds;
+    // what the quality monitor does when frames come late
+    await page.evaluate("window.__beRenderer.setQuality('medium')");
+    await expect.poll(async () => (await rec()).builds, { timeout: 60_000 }).toBe(b0 + 1);
+    expect((await rec()).tier).toBe('medium');
+    // the night that follows is an update to the same village. (It used to build the whole world again, because the world forgot which
+    // village it had just built: a second stall after every step of the quality monitor, seen on the real GPU in runs 4, 6 and 7.)
+    await drive(page, [{ type: 'END_DAY' }]);
+    await renderer(page, (r) => r.advance(1));
+    expect((await rec()).builds).toBe(b0 + 1);
+  });
+
   test('a lost graphics context is survived: when it comes back the world is built again and draws, and the record counts the loss', async ({ page }) => {
     const errors = watchConsole(page);
     await page.goto(URL3D);

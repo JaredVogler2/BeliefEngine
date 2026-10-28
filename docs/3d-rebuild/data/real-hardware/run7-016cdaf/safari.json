@@ -1,0 +1,154 @@
+{
+  "capabilities": {
+    "browserName": "Safari",
+    "browserVersion": "26.6.1",
+    "platformName": "macOS"
+  },
+  "gpu": {
+    "vendor": "Apple Inc.",
+    "webgl2": true,
+    "renderer": "Apple GPU"
+  },
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Safari/605.1.15",
+  "calm": {
+    "dpr": 1,
+    "renderer": "3d",
+    "info": {
+      "programs": 36,
+      "drawMs": 3.9,
+      "tier": "high",
+      "software": false,
+      "calls": 501,
+      "worstDrawMs": 43,
+      "hitches": 0,
+      "post": {
+        "bloom": true,
+        "fxaa": true,
+        "ao": 4
+      },
+      "triangles": 591974,
+      "geometries": 273,
+      "fps": 52.475247524752476,
+      "builds": 1,
+      "contextLosses": 0,
+      "firstDrawMs": 1184,
+      "frameP50Ms": 17,
+      "frameP95Ms": 29,
+      "buildMs": 1250,
+      "env": true,
+      "scale": 1,
+      "frames": 556,
+      "textures": 27,
+      "capFps": 60
+    },
+    "css": [
+      1440,
+      848
+    ],
+    "memory": {
+      "textures": 14,
+      "targets": 11,
+      "textureMB": 8.9,
+      "people": {
+        "far": 14,
+        "near": 0
+      },
+      "targetMB": 65.8,
+      "standIns": []
+    },
+    "moving": {
+      "dpr": 1,
+      "renderer": "3d",
+      "info": {
+        "programs": 36,
+        "drawMs": 3.9,
+        "tier": "high",
+        "software": false,
+        "calls": 499,
+        "worstDrawMs": 43,
+        "hitches": 0,
+        "post": {
+          "bloom": true,
+          "fxaa": true,
+          "ao": 4
+        },
+        "triangles": 590548,
+        "geometries": 273,
+        "fps": 55.445544554455445,
+        "builds": 1,
+        "contextLosses": 0,
+        "firstDrawMs": 1184,
+        "frameP50Ms": 17,
+        "frameP95Ms": 24,
+        "buildMs": 1250,
+        "env": true,
+        "scale": 1,
+        "frames": 846,
+        "textures": 27,
+        "capFps": 60
+      },
+      "css": [
+        1440,
+        848
+      ],
+      "memory": {
+        "textures": 14,
+        "targets": 11,
+        "textureMB": 8.9,
+        "people": {
+          "far": 14,
+          "near": 0
+        },
+        "targetMB": 65.8,
+        "standIns": []
+      }
+    }
+  },
+  "flood": {
+    "dpr": 1,
+    "renderer": "3d",
+    "info": {
+      "programs": 60,
+      "drawMs": 5.3,
+      "tier": "high",
+      "software": false,
+      "calls": 534,
+      "worstDrawMs": 42,
+      "hitches": 0,
+      "post": {
+        "bloom": true,
+        "fxaa": true,
+        "ao": 4
+      },
+      "triangles": 659917,
+      "geometries": 294,
+      "fps": 41.666666666666664,
+      "builds": 2,
+      "contextLosses": 0,
+      "firstDrawMs": 4083,
+      "frameP50Ms": 22,
+      "frameP95Ms": 32,
+      "buildMs": 837,
+      "env": true,
+      "scale": 1,
+      "frames": 1384,
+      "textures": 27,
+      "capFps": 60
+    },
+    "css": [
+      1440,
+      848
+    ],
+    "memory": {
+      "textures": 14,
+      "targets": 11,
+      "textureMB": 8.9,
+      "people": {
+        "far": 14,
+        "near": 0
+      },
+      "targetMB": 65.8,
+      "standIns": []
+    }
+  }
+}
