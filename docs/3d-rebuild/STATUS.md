@@ -86,6 +86,42 @@ below changes a rule: the renderer reads a copy of the run (`SceneSnapshot`) and
 | 09 Visual QA and regression | 16 real frames, a scorecard, ranked defects, a functional regression table | `VISUAL_QA.md`; `world3d.spec.ts` on `desktop-3d` and `phone-3d`; the classic specs on `desktop` and `phone` |
 | 10 Art-director review and release | Defects fixed and frames recaptured; honest per-phase verdicts | `FINAL_REVIEW.md` |
 
+## Round 6 — the ten phase files, read again against the build
+
+This round started from `prompts/3d-rebuild/00_MASTER_3D_REBUILD.md` and its ten phase files, read again in full, and from a review that
+named what was still short of them: the people were simple, blocky figures; a phone's sheet covered most of the village; motion had never
+been reviewed as moving pictures; open defects were listed but not fixed; no real GPU, phone or Safari had been used; no player had tried
+the game. What was done about each, phase by phase (details and frames in `docs/3D_QUALITY_REPORT.md`, iterations 5 and 6):
+
+| Phase file | What it asked for that was still short | Done this round | Evidence |
+|---|---|---|---|
+| 03 Terrain, water, weather | Banks with volume and a believable shoreline; flow that intensifies with the weather; a forecast that does not destroy material readability | The water uses the ground's own triangles (it stood up out of steep banks as a streaky sheet with a saw-toothed shoreline); steep banks are bare earth; the current follows the wind; the forecast's contour lines no longer light every tile of an even depth (a storm-dark district had turned to a pale haze) | Clips `docs/3d-rebuild/video/river.webp`, `storm.webp`, their frame strips and change images |
+| 05 Villagers and life | Recognisable silhouettes, outfits and props; no skating feet; "group overlap resolved by ordered pick menu near crowded targets"; state-driven poses (delighted, skeptical, alarmed, convinced, angry); people placed where they can be seen | Dressed people with faces, hair and a tool per role; visitors wait outside, a body's width apart, with no tall tree between them and the opening views; the who-did-you-mean list; a double tap goes to a person; a walk to work each morning; knees and planted feet; reactions to the events that touch them | `wc/people-compare.jpg`, `wc/group-waiting.jpg`, `wc/crowd-list.jpg`, `video/people.webp`; `render3d-gait.test.ts` (planted foot slides 13% of the body's travel, was 58%; one foot always down), `render3d-reactions.test.ts`; crowd and double-tap tests on both 3D projects |
+| 07 HUD and controls | "Bottom collapsible sheet"; the world stays visible; one-finger and two-finger touch | The sheet opens at half height with the village framed above it (324 px of a 390×844 screen, was 139 px) and a handle draws it up and down; a phone on its side gets a side sheet (it was a 126 px strip); pans and pinches tested with real touch events | `wc/phone-sheet-compare.jpg`, `wc/landscape-sheet-compare.jpg`; the sheet, pinch and every-size tests in `world3d.spec.ts` |
+| 08 Optimisation | The cost after the changes | Re-measured at the end of round 7: the people are baked into a few meshes each, so the village draws 498 calls at the high tier's overview against 742 in the visual pass (triangles 628,775, was 597,483) | `PERFORMANCE.md`, `data/perf-chain.json` (software rasteriser only) |
+| 09 Visual QA | The matrix recaptured; a scorecard with 4 or more per area before "premium" | Matrix and size frames recaptured on the final build and looked at; scorecard redone (`FINAL_REVIEW.md`) | `docs/3d-rebuild/screenshots/` |
+| 10 Release | PASS / FAIL / UNVERIFIED per phase | The table below | — |
+
+**Still not possible here, and not claimed:** a real GPU, a real phone, real Safari on iOS (WebKit was exercised as Playwright's Linux
+build, and it draws the 3D world; headless Firefox has no WebGL2 and falls back as designed), and a human player. An AI-driven
+playthrough of the 3D build through its own interface is recorded in `docs/PLAYTHROUGH_NOTES.md`; it is not a playtest.
+
+## Round 7 — the 3D build played to its end, and what that found
+
+The review after round 6 still named two things this container can act on: no player had tried the game, and defects were listed rather
+than fixed. Round 7 played Flood at Redbank from the title screen to a victory through the real interface (an automated agent clicking
+and tapping one move at a time and deciding from the screenshots, on desktop and in phone emulation, on software WebGL; **not a human
+playtest**), and fixed every defect it met. The run, move by move, is in `docs/PLAYTHROUGH_NOTES.md` ("Round 7").
+
+| Phase file | Found in the playthrough | Fixed | Evidence |
+|---|---|---|---|
+| 07 HUD and controls | The title showed the old flat 2D map; the chooser and the briefing were flat pages between a 3D title and a 3D game; two briefing buttons did one thing | The living village stays up behind every menu (built once, held still behind text); the briefing shows the village about to be played; one button | `screenshots/playthrough/desktop-run.jpg` frames 1–3, `phone-run.jpg` |
+| 05 Villagers and life, 07 | The coach's "Tap Mara Wells" pointed at a ring 14 px across from the overview, and both hinted people were marked although one is named | A gold call-out over the named person, the same size on screen at any distance | `tests/unit/render3d-guides.test.ts` (fails on the old marking) |
+| 06 Belief magic and feedback | Nothing pointed at where a story's proof can be staged (a cold beacon is a grey cairn from the overview), and one beacon could not be clicked behind a cottage | Gold markers over the active story's proof sites (none while the coach points at a person, none on a beacon already burning well); a click on a marker picks its place | `render3d-guides.test.ts`; frame 6 |
+| 07 | The morning report opened scrolled past its headline; costs said "1 AP" where everything else says Influence; "home(s)", "life/lives"; the ending caption repeated itself | The report is read from its headline with its buttons pinned; the cost wears the Influence pip; plurals; the ending left to the headline | the focus test in `a11y.spec.ts`; `render3d-guides.test.ts` |
+
+What the playthrough could not say is unchanged: how a person reads the game, and anything about smoothness on real hardware.
+
 ## Phase table
 
 Statuses are PASS / PARTIAL / FAIL / UNVERIFIED, re-checked in `FINAL_REVIEW.md`. "PARTIAL" names what is missing in the row. The later
@@ -96,11 +132,11 @@ world-class visual pass (finishing chain, art pass, phones and screens) is recor
 |---|---|---|
 | 3D-01 Source audit and migration | PASS | This document. |
 | 3D-02 Renderer, camera, lighting | PASS | Controls, picking and lighting work and are tested on software WebGL. **UNVERIFIED:** feel and shadow quality on a real GPU. |
-| 3D-03 Terrain, water, weather | PASS | Engine-derived heights and depths asserted tile for tile; floods cover exactly the engine's flooded tiles. Water has no refraction or reflection. |
+| 3D-03 Terrain, water, weather | PASS | Engine-derived heights and depths asserted tile for tile; floods cover exactly the engine's flooded tiles. Round 6: reviewed as clips rendered frame by frame; the shoreline, the banks, the current and the forecast overlay fixed. Water has no refraction or reflection. |
 | 3D-04 Architecture and environment | PASS | Detailed procedural kit; flaws listed in `VISUAL_QA.md` (plain plaster, repeated variants). No hand-modelled assets and no glTF pipeline (see below). |
-| 3D-05 Villagers and life | PARTIAL | 14 recognisable, animated, pickable people on the engine's tiles. They are simple, blocky figures, drawn up to a third larger at the overview so they stay legible. Motion was measured frame to frame (`docs/3D_QUALITY_REPORT.md`) but not watched as video. No level-of-detail rig (not needed at 14 people). |
+| 3D-05 Villagers and life | PASS | Round 6: 14 dressed, individually recognisable people with role props, seen outside the buildings they visit; an ordered pick list for crowds; a double tap goes to a person; a morning walk to work with knees and planted feet (measured); state-driven reactions to engine events (tested). Arms without elbows and tiny faces at the overview remain; "follow" is a camera focus, not a tracking camera. No level-of-detail rig (not needed at 14 people). |
 | 3D-06 Belief magic and feedback | PASS | Parity fixtures and the event-named-effect test; frames E, E2, F, F2. Effects are legible, not yet lavish. |
-| 3D-07 Immersive HUD and controls | PASS | Desktop and phone layouts tested with real pointer events on the 3D projects; keyboard flow and axe on the classic-map projects (same interface DOM). **UNVERIFIED:** a real phone, a real screen reader. A selected house now says what tonight's water does at its door and draws the way to the nearest shelter (`world3d.spec.ts`). |
+| 3D-07 Immersive HUD and controls | PASS | Desktop and phone layouts tested with real pointer events on the 3D projects, real touch for pans, pinches and the sheet's swipe; axe on the live 3D page. Round 6: a half-height phone sheet that leaves the village in view, and a side sheet on a phone on its side. **UNVERIFIED:** a real phone, a real screen reader. A selected house says what tonight's water does at its door and draws the way to the nearest shelter (`world3d.spec.ts`). |
 | 3D-08 Asset pipeline and optimisation | PARTIAL | Budgets met and measured on software GL; **UNVERIFIED** on any GPU or phone. The playbook's glTF/Blender path was not used: procedural by choice (`ASSET_LICENSES.md`). While the chunk arrives and the village is built, the stage shows a small sky with a floating island and a progress bar. |
 | 3D-09 Visual QA and gameplay regression | PASS | 16 real frames reviewed, 9 defects fixed, regression tables green (see `FINAL_REVIEW.md` for the exact runs). Automated pixel-diff baselines were not built; frames are reviewed by eye and by structural tests, as the phase allows. |
-| 3D-10 Final art direction and release | PARTIAL | Reviewed, repaired, recaptured. Scorecard has three areas at 3 of 5, so **premium is not claimed**. Nothing is deployed: there is no live URL and no Vercel deployment was made. |
+| 3D-10 Final art direction and release | PARTIAL | Reviewed, repaired, recaptured. Round 6 scorecard: every area 4 of 5 (one reviewer's scores, `FINAL_REVIEW.md`); **premium is not claimed**, because phase 09 asks for smoothness on a phone and no real phone or GPU was available. Round 7: played to a victory through the real interface by an automated agent and every defect it met fixed (`PLAYTHROUGH_NOTES.md`). Nothing is deployed: there is no live URL and no Vercel deployment was made. |

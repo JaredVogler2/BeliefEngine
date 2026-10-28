@@ -9,7 +9,8 @@
 
 There are two sets of numbers here:
 
-* the **current build**, with the finishing chain and the visual pass's art (next section, `docs/3d-rebuild/data/perf-chain.json`);
+* the **current build**, the one this work ends on: the finishing chain, the visual pass's art, and the dressed people of rounds 6 and 7
+  (next section, `docs/3d-rebuild/data/perf-chain.json`); the visual pass's own figures (commit `effadc8`) are kept beside them;
 * the **earlier build**, measured at commit `1809880`. That was before the cloud sea, the later art work and the chain. Its sections are
   kept below for comparison (`docs/3d-rebuild/data/perf.json`).
 
@@ -19,46 +20,61 @@ There are two sets of numbers here:
 
 1. `npm run build && npx vite preview --port 4173`, then `npx tsx scripts/perf-3d.ts --out docs/3d-rebuild/data/perf-chain.json`.
 2. The page runs in headless Chromium, in a 1366×768 window at render scale 0.5 (683×384 pixels drawn).
-3. For each tier, the script loads a calm Day-1 village and a flood night and waits for the first drawn frame.
+3. For each tier, the script waits for the title's own 3D village to be drawn (so its build is not counted), then loads a calm Day-1
+   village and a flood night and waits for the first drawn frame.
 4. It then draws 40 frames back to back, waiting for each one with a one-pixel read: first with the finishing chain, then without it.
 5. The chain's cost is the difference between the two medians.
 
 | Tier (chain) | Scene | Triangles | Draw calls | Load → first frame | of which the world build | JS heap | Median frame | fps | 1% low fps | Same frame, chain off | Chain cost |
 |---|---|---:|---:|---:|---:|---:|---:|---:|---:|---:|---:|
-| low (ink) | calm Day 1 | 245,992 | 376 | 4.9 s | 0.89 s | 34 MB | 324 ms | 3.1 | 2.8 | 312 ms | +11.9 ms |
-| low (ink) | flood night | 270,764 | 412 | 7.8 s | 0.89 s | 36 MB | 329 ms | 3 | 2.4 | 331 ms | -1.6 ms |
-| medium (AO 2 + ink + FXAA) | calm Day 1 | 465,680 | 735 | 9.4 s | 0.96 s | 38 MB | 454 ms | 2.2 | 1.9 | 435 ms | +19.2 ms |
-| medium (AO 2 + ink + FXAA) | flood night | 498,306 | 765 | 8.8 s | 1.12 s | 28 MB | 483 ms | 2.1 | 1.4 | 455 ms | +27.5 ms |
-| high (AO 4 + ink + bloom + FXAA) | calm Day 1 | 597,483 | 742 | 10.7 s | 1.09 s | 40 MB | 566 ms | 1.8 | 1.2 | 529 ms | +36.4 ms |
-| high (AO 4 + ink + bloom + FXAA) | flood night | 660,940 | 776 | 10.8 s | 1.22 s | 28 MB | 590 ms | 1.7 | 1.4 | 554 ms | +36.6 ms |
+| low (ink) | calm Day 1 | 268,116 | 256 | 5.1 s | 1.06 s | 45 MB | 296 ms | 3.4 | 2.9 | 304 ms | -8.0 ms |
+| low (ink) | flood night | 291,392 | 292 | 7.1 s | 1.21 s | 34 MB | 312 ms | 3.2 | 2.6 | 313 ms | -0.9 ms |
+| medium (AO 2 + ink + FXAA) | calm Day 1 | 512,660 | 493 | 7.3 s | 1.30 s | 30 MB | 443 ms | 2.3 | 1.5 | 423 ms | +19.7 ms |
+| medium (AO 2 + ink + FXAA) | flood night | 546,486 | 523 | 10.6 s | 0.88 s | 32 MB | 464 ms | 2.2 | 1.8 | 433 ms | +31.3 ms |
+| high (AO 4 + ink + bloom + FXAA) | calm Day 1 | 628,775 | 498 | 10.3 s | 0.79 s | 32 MB | 545 ms | 1.8 | 1.5 | 497 ms | +47.9 ms |
+| high (AO 4 + ink + bloom + FXAA) | flood night | 696,718 | 532 | 10.5 s | 0.99 s | 32 MB | 566 ms | 1.8 | 1.5 | 536 ms | +30.2 ms |
 
 **Reading it:**
 
-* **What the chain costs here.** The script was run three times while this work settled; the table is the last run, on the final build.
-  * On medium and high, the chain cost 19–37 ms a frame across the runs, against frames of 450–600 ms on this CPU rasteriser.
-  * On low, where the chain is only the ink line, it measured between −1.6 and +11.9 ms. That is this machine's noise: medians move by
-    about ±10 ms between runs.
-  * What the chain costs on a GPU or a phone is **UNVERIFIED**.
-* **Load → first frame** is wall-clock time, from handing the page a saved run to its first drawn frame: 4.9–10.8 s here.
-  * The world's own build (terrain, buildings, foliage and people made into meshes) is 0.9–1.2 s of that.
+* **The people cost a third fewer draw calls.** Rounds 6 and 7 dressed the fourteen people (garments, faces, hair, a tool per role) and
+  baked each into a few vertex-coloured meshes. The scene has more triangles and far fewer draw calls than the visual pass's:
+
+  | Measure (calm Day 1) | Visual pass (`effadc8`) | Current build |
+  |---|---:|---:|
+  | Draw calls, high tier | 742 | 498 |
+  | Draw calls, medium tier | 735 | 493 |
+  | Draw calls, low tier | 376 | 256 |
+  | Triangles, high tier | 597,483 | 628,775 |
+  | Triangles, low tier | 245,992 | 268,116 |
+  | Median frame, high tier, on this CPU rasteriser | 566 ms | 545 ms |
+
+* **What the chain costs here.** On medium and high it cost 20–48 ms a frame in this run, against frames of 440–570 ms on this CPU
+  rasteriser (the visual pass's three runs gave 19–37 ms). On low, where the chain is only the ink line, it measured −8.0 and −0.9 ms:
+  that is this machine's noise, since medians move by about ±10 ms between runs. What the chain costs on a GPU or a phone is
+  **UNVERIFIED**.
+* **Load → first frame** is wall-clock time, from handing the page a saved run to its first drawn frame: 5.1–10.6 s here.
+  * The world's own build (terrain, buildings, foliage and people made into meshes) is 0.8–1.3 s of that.
   * The rest is everything else before the first frame: compiling shaders (which SwiftShader does on the CPU), pre-filtering the sky
     light and drawing the first frame. It was not broken down further.
+  * The title now draws a 3D village of its own. The script waits for it to be drawn before it starts the clock, so these figures are
+    the game's own start, like the visual pass's.
   * A GPU driver compiles shaders much faster, but how fast this loads on a given phone is **UNVERIFIED**.
-* **The scene grew since the earlier tables**, with the cloud sea and islets, then this pass's denser forests, hedgerows and yard props.
+* **The scene grew since the earlier tables**, with the cloud sea and islets, the visual pass's denser forests, hedgerows and yard
+  props, and the dressed people.
 
-  | Measure | Earlier build | Current build |
+  | Measure | Earlier build (`1809880`) | Current build |
   |---|---:|---:|
-  | Triangles, high tier, calm | 494,863 | 597,483 |
-  | Draw calls, high tier, calm | 688 | 742 |
-  | Triangles, low tier, calm | 222,742 | 245,992 |
-  | Draw calls, low tier, calm | 352 | 376 |
-  | World build on this machine | 0.6 s | 0.9–1.2 s |
+  | Triangles, high tier, calm | 494,863 | 628,775 |
+  | Draw calls, high tier, calm | 688 | 498 |
+  | Triangles, low tier, calm | 222,742 | 268,116 |
+  | Draw calls, low tier, calm | 352 | 256 |
+  | World build on this machine | 0.6 s | 0.8–1.3 s |
 
 * **Multisampling.** The first run of this measurement made the chain look *cheaper* than drawing without it.
   * The canvas was 4× multisampled even under the chain, so switching the chain off made the direct path pay for multisampling the scene.
   * The canvas now asks for multisampling only where the chain cannot run, so the comparison is like for like.
   * All the numbers above were measured after that change.
-* **The JS heap** varies between runs with garbage collection: 28–40 MB here, against 30–38 MB before.
+* **The JS heap** varies between runs with garbage collection: 30–45 MB here, against 28–40 MB in the visual pass and 30–38 MB before it.
 
 ## Earlier build: scene cost per quality tier (commit `1809880`)
 
@@ -120,9 +136,9 @@ merging per material and batching statics. The obvious next saving, if a real de
 
 | File | Size | Budget | Notes |
 |---|---:|---:|---|
-| entry JavaScript (`index-*.js`) | 232 KB | 260 KB | React app, engine, classic map. Loaded for every visitor. |
-| 3D chunk (`World3D-*.js`) | 211 KB | 270 KB | Three.js and `src/render3d/**`. **Lazy**: fetched only when the 3D world is chosen, never for the title screen. It was 197 KB before the visual pass's finishing chain and art pass. |
-| CSS | 8.5 KB | 12 KB | |
+| entry JavaScript (`index-*.js`) | 234 KB | 260 KB | React app, engine, classic map. Loaded for every visitor. |
+| 3D chunk (`World3D-*.js`) | 216 KB | 270 KB | Three.js and `src/render3d/**`. **Lazy**: fetched only where the 3D world is chosen (a machine with graphics acceleration, or `?renderer=3d`); there the title's 3D backdrop fetches it, so the game starts with it in hand. Never fetched on the classic-map path. It was 197 KB before the visual pass's finishing chain and art pass, 211 KB after it. |
+| CSS | 8.9 KB | 12 KB | |
 
 `npm run size` (also a CI step) fails the build over budget. There are **no art, texture, model or font files** in the build: everything is
 drawn by code at load (`docs/3d-rebuild/ASSET_LICENSES.md`), so there is nothing to compress, stream or lose. First-paint cost of the 3D
@@ -135,8 +151,8 @@ world is therefore *code + CPU time to paint the canvases and build the meshes* 
 
 | Engine | Result |
 |---|---|
-| Chromium 153 | **PASS**: 3D chosen, frames drawn, 376 draw calls, 245,992 triangles (low tier, current build), no console errors |
-| WebKit 26.6 | **PASS**: 3D chosen, frames drawn, same counts, no console errors (re-run after the canvas stopped asking for multisampling under the chain) |
+| Chromium 153 | **PASS**: 3D chosen, frames drawn, 256 draw calls, 268,116 triangles (low tier, current build), no console errors |
+| WebKit 26.6 | **PASS**: 3D chosen, frames drawn, the same counts, no console errors (Playwright's Linux build, not Safari on iOS) |
 | Firefox 155 (headless) | **FALLBACK**: the page chose the classic map because this build offers no usable WebGL2. That is the designed fallback, not a pass; whether desktop Firefox with a GPU runs the 3D world is **UNVERIFIED** |
 
 Real Safari on a Mac or an iPhone is **UNVERIFIED** (WebKit here is Playwright's Linux build; the iPhone profile is emulation).

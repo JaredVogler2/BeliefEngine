@@ -16,6 +16,30 @@ claimed to be "premium": three scorecard areas sit at 3 of 5, nothing has been r
 >
 > The verdicts below are kept as they were when written. Where that pass changed one, the row says so.
 
+## Round 6: the phase 09 scorecard, redone
+
+After round 6 (`STATUS.md`, "Round 6"; `docs/3D_QUALITY_REPORT.md`, iterations 5 and 6) the scorecard phase 09 asks for was given again,
+on the recaptured matrix, the size frames and the four clips rendered frame by frame. These are one reviewer's internal scores, not a
+player's; each names what it rests on.
+
+| Area (phase 09) | Score | Rests on | What still holds it back |
+|---|---:|---|---|
+| Three-dimensional depth | 4 | Sculpted terrain with banks of bare earth, roof volumes, foreshortening, ambient occlusion and ink (A, B, `video/river.webp`) | No bounced light |
+| Art coherence | 4 | One palette and one ink rule everywhere; procedural, so no clashing packs (A, B, D) | Ink has one weight |
+| Environmental life | 4 | Wind in trees and crops, a current that follows the weather, smoke, birds, a walk to work each morning, reactions to events (`video/*.webp` and their change images) | Seen only on a software rasteriser |
+| Lighting and material | 4 | Warm low sun, soft shadows, sky light, painted PBR materials (A, B, D) | Plain plaster up close |
+| River | 4 | A moving surface whose depth is the engine's on every tile, a smooth shoreline with foam, banks with volume, a flood that covers exactly the engine's flooded tiles (`video/river.webp`, `video/storm.webp`, D, E2) | No reflection or refraction |
+| Architecture | 4 | Five cottage types, civic buildings, the arched bridge, mill, tower, market (B, F) | Repeated variants at a distance |
+| Citizens | 4 | Dressed and recognisable, a tool and hat per role, standing where they can be seen, animated by duty, walking on knees with planted feet, pickable through a crowd list (`wc/people-compare.jpg`, `wc/crowd-list.jpg`, `video/people.webp`) | Arms without elbows; faces tiny at the overview |
+| Magical causality | 4 | Effects only from logged events, the law's reach the engine's, people reacting to what touched them (parity and reaction tests; E, F) | Legible rather than lavish |
+| UI discipline | 4 | The world keeps at least 75% of a desktop and 60% of a phone at rest; a card beside the selection; a half-height phone sheet (`world3d.spec.ts`; K, L) | The opening story cards cover the lower village for a moment |
+| Phone usability | 4 in emulation | Seven sizes, sheet open and shut, real touch for taps, pans, pinches and the sheet's swipe (`world3d.spec.ts`; I, J, L) | **No real phone.** Smoothness on one is unknown |
+| No faux completion | — | Every frame is a bot-played engine state through the save format; every claim names its test or frame; nothing is deployed and none is claimed | — |
+
+Every area now scores 4. **"Premium" is still not claimed:** phase 09 asks for a 3D world that is "readable and smooth" on a phone, and
+smoothness can only be shown on real hardware, which this container does not have; and these are one reviewer's scores. The verdicts
+below are updated in `STATUS.md`'s phase table (3D-05 is now PASS).
+
 ## What was reviewed, and how
 
 * **Source and commits.** Branch `claude/gracious-gates-95kmda`. Pull request 1 (merged at `15257dc`) carried the first Three.js world; pull request 2 carries everything after it. The 3D work is in `7b5bfa0` (Three.js world behind a renderer interface, belief-magic effects), `6416850` (immersive HUD, aftermath scene, forecast overlay, batching, 3D browser tests), `ebde29e` (side-sheet focus race), `1809880` (this review's repairs, scripts and the 16 frames) and `7a5ea63` (forecast overlay over standing water, the camera-control test, recaptured frames). `git log --oneline` names the rest; the docs-only commit after `7a5ea63` carries this file.

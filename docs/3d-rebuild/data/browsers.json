@@ -6,9 +6,9 @@
       "browser": "chromium",
       "version": "153.0.8010.12",
       "renderer": "3d",
-      "framesDrawn": 20,
-      "drawCalls": 376,
-      "triangles": 245992,
+      "framesDrawn": 19,
+      "drawCalls": 256,
+      "triangles": 268116,
       "consoleErrors": [],
       "verdict": "PASS: the 3D world drew frames"
     },
@@ -26,9 +26,9 @@
       "browser": "webkit",
       "version": "26.6",
       "renderer": "3d",
-      "framesDrawn": 7,
-      "drawCalls": 376,
-      "triangles": 245992,
+      "framesDrawn": 34,
+      "drawCalls": 256,
+      "triangles": 268116,
       "consoleErrors": [],
       "verdict": "PASS: the 3D world drew frames"
     }
