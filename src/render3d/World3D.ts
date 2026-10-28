@@ -40,14 +40,17 @@ function floatBuffersLikely(): boolean {
 
 /** which quality tier to start in: an explicit ?quality=, else the setting, with software-rendered and phone-sized windows stepped down */
 export function chooseQuality(setting: 'high' | 'low', w: number): Quality {
+  let asked: string | null = null;
   try {
-    const q = new URLSearchParams(window.location.search).get('quality');
-    if (q === 'high' || q === 'medium' || q === 'low') return q;
+    asked = new URLSearchParams(window.location.search).get('quality');
+    if (asked === 'high' || asked === 'medium' || asked === 'low') return asked;
   } catch {
     /* no window.location in some test environments */
   }
   if (setting === 'low') return 'low';
-  if (typeof navigator !== 'undefined' && navigator.webdriver) return 'low';
+  // an automated browser (a test suite) starts on the low tier to keep its runs quick, unless the address asks for the choice a player's
+  // browser would get (?quality=auto: how the real-hardware measurements see what a player sees)
+  if (asked !== 'auto' && typeof navigator !== 'undefined' && navigator.webdriver) return 'low';
   if (w < 700 || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches)) return 'medium';
   return 'high';
 }
@@ -161,7 +164,9 @@ export class World3D implements WorldRenderer {
     // a frame is several drawing passes: count them all, reset once per frame in draw()
     this.renderer.info.autoReset = false;
     try {
-      this.pinned = !!new URLSearchParams(window.location.search).get('quality');
+      // a tier named in the address is kept; ?quality=auto chooses as for a player and leaves the monitor free
+      const asked = new URLSearchParams(window.location.search).get('quality');
+      this.pinned = asked === 'high' || asked === 'medium' || asked === 'low';
     } catch {
       this.pinned = false;
     }

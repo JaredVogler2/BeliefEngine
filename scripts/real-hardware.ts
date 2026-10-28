@@ -98,22 +98,26 @@ async function chrome(): Promise<void> {
     const label = flags.length ? 'chrome (GPU blocklist ignored)' : 'chrome';
     const run: Record<string, unknown> = { version, flags };
     let software = false;
+    const desktop = { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 };
+    // quality=auto: the tier a player's browser would start on (an automated one otherwise starts low) with the quality monitor free to
+    // step down; quality=high: the high tier held, for what it costs on this GPU and for the art director's frame
     for (const view of [
-      { name: 'desktop', opts: { viewport: { width: 1440, height: 900 }, deviceScaleFactor: 2 } },
-      { name: 'phone', opts: { ...devices['iPhone 14'], viewport: { width: 390, height: 844 } } },
+      { name: 'desktop', opts: desktop, quality: 'auto', scenes: ['calm', 'flood', 'night'] },
+      { name: 'phone', opts: { ...devices['iPhone 14'], viewport: { width: 390, height: 844 } }, quality: 'auto', scenes: ['calm', 'flood', 'night'] },
+      { name: 'desktop-high', opts: desktop, quality: 'high', scenes: ['calm', 'flood'] },
     ]) {
       const ctx = await browser.newContext(view.opts as never);
       const page = await ctx.newPage();
       const errors: string[] = [];
       page.on('pageerror', (e) => errors.push(String(e)));
       page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-      await page.goto(`${base}/?${force}debug=1&perf=1`);
+      await page.goto(`${base}/?${force}debug=1&perf=1&quality=${view.quality}`);
       await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief, undefined, { timeout: 60_000 });
       const gpu = (await page.evaluate(GPU_PROBE)) as { webgl2: boolean; vendor: string | null; renderer: string | null };
       software ||= !gpu.webgl2 || SOFT.test(gpu.renderer ?? '');
       const rows: Record<string, unknown> = { gpu };
-      note(`${label} ${version}, ${view.name}: WebGL2 ${gpu.webgl2 ? 'yes' : 'no'}, GPU "${gpu.renderer}"`);
-      for (const [scene, json] of Object.entries(scenes)) {
+      note(`${label} ${version}, ${view.name} (quality=${view.quality}): WebGL2 ${gpu.webgl2 ? 'yes' : 'no'}, GPU "${gpu.renderer}"`);
+      for (const [scene, json] of Object.entries(scenes).filter(([k]) => view.scenes.includes(k))) {
         await page.evaluate((j) => (window as unknown as { __belief: { load: (s: string) => boolean } }).__belief.load(j), json);
         await page.waitForSelector('.stage[data-ready="1"]', { timeout: 120_000 });
         if (scene === 'night') {
@@ -124,11 +128,13 @@ async function chrome(): Promise<void> {
         // the live loop, with its frame pacing and the quality monitor free to step down: what a player on this machine would get. The
         // tier is read every two seconds, so a step down (and when it came) shows
         const timeline: unknown[] = [];
-        for (let t = 2; t <= 12; t += 2) {
-          await sleep(2000);
+        let at = 0;
+        for (const t of [0.5, 1, 1.5, 2, 3, 4, 6, 8, 10, 12]) {
+          await sleep((t - at) * 1000);
+          at = t;
           const r = (await page.evaluate(READ)) as Reading;
-          const i = r?.info as { tier: string; scale: number; fps: number; frameP50Ms: number; drawMs: number } | null | undefined;
-          if (i) timeline.push({ t, tier: i.tier, scale: i.scale, fps: Math.round(i.fps), p50: i.frameP50Ms, draw: i.drawMs });
+          const i = r?.info as { tier: string; scale: number; fps: number; frameP50Ms: number; frames: number; drawMs: number } | null | undefined;
+          if (i) timeline.push({ t, tier: i.tier, scale: i.scale, frames: i.frames, fps: Math.round(i.fps), p50: i.frameP50Ms, draw: i.drawMs });
         }
         const live = (await page.evaluate(READ)) as Reading;
         // (the night's morning report would cover the village in the picture)
@@ -140,8 +146,8 @@ async function chrome(): Promise<void> {
         note(`${view.name} ${scene}: ${brief(live)}${bench ? ` · back to back: ${JSON.stringify(bench)}` : ''}`);
         note(`${view.name} ${scene} tier every 2 s: ${timeline.map((x) => `${(x as { tier: string }).tier}×${(x as { scale: number }).scale}`).join(' ')}`);
       }
-      if (view.name === 'desktop') {
-        // the art director's test: Day 1 with no interface at all, on this GPU
+      if (view.name === 'desktop-high') {
+        // the art director's test: Day 1 with no interface at all, on this GPU, at the high tier
         await page.evaluate((j) => (window as unknown as { __belief: { load: (s: string) => boolean } }).__belief.load(j), scenes.calm);
         await page.waitForSelector('.stage[data-ready="1"]', { timeout: 120_000 });
         // everything but the world's canvas is hidden (visibility is inherited, so the canvas alone is shown again)
@@ -188,7 +194,7 @@ async function safari(): Promise<void> {
   try {
     results.capabilities = { browserName: created.capabilities.browserName, browserVersion: created.capabilities.browserVersion, platformName: created.capabilities.platformName };
     await wd('POST', `/session/${sid}/window/rect`, { x: 0, y: 0, width: 1440, height: 900 });
-    await wd('POST', `/session/${sid}/url`, { url: `${base}/?${force}debug=1&perf=1` });
+    await wd('POST', `/session/${sid}/url`, { url: `${base}/?${force}debug=1&perf=1&quality=auto` });
     for (let i = 0; i < 120 && !(await exec('return !!window.__belief')); i++) await sleep(500);
     const gpu = await exec(`return ${GPU_PROBE}`);
     results.gpu = gpu;
