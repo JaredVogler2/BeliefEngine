@@ -116,6 +116,16 @@ test.describe('game modes: expedition, daily village, share links', () => {
     expect(st.difficulty).toBe('hard');
   });
 
+  test('a chapter link with play=1 opens the first day itself, the briefing skipped, and the address is cleaned', async ({ page }) => {
+    await page.goto('/?debug=1&mode=story&scn=harvest&seed=5&play=1');
+    await expect(page.getByTestId('end-day')).toBeVisible();
+    await expect(page.getByTestId('briefing')).toHaveCount(0);
+    const st = await stateOf(page);
+    expect(st.scenarioId).toBe('harvest');
+    expect(st.seed).toBe(5);
+    expect(page.url()).not.toContain('play=');
+  });
+
   test('bad links are refused with an explanation and the title screen still works', async ({ page }) => {
     const errors = watchConsole(page);
     for (const bad of ['mode=expedition&seed=abc', 'mode=nope&seed=1', 'mode=expedition&seed=99999999999', 'mode=expedition&seed=5&gen=9', 'mode=story&scn=../../etc&seed=1', 'mode=daily&date=2026-99-99']) {

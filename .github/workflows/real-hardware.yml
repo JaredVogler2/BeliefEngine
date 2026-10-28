@@ -1,0 +1,59 @@
+name: Real hardware
+
+# The 3D world on hardware the main CI does not have: the Apple-silicon macOS runner's GPU (Apple's, through the virtual machine's
+# paravirtualised graphics device), Safari itself, and Mobile Safari in the iOS Simulator. It records what it sees
+# (scripts/real-hardware.ts) as an artifact and in the job summary; it is evidence, not a gate, so a part that cannot run here is
+# reported rather than failing the pull request. It runs when this workflow or its script changes, and by hand.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - '.github/workflows/real-hardware.yml'
+      - 'scripts/real-hardware.ts'
+
+concurrency:
+  group: real-hardware-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apple:
+    name: 3D world on an Apple GPU (Chrome, Safari, iOS Simulator)
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npx playwright install chromium
+      - name: Serve the production build
+        run: |
+          nohup npx vite preview --host 127.0.0.1 --port 4173 --strictPort > preview.log 2>&1 &
+          for i in $(seq 1 60); do curl -s -o /dev/null http://127.0.0.1:4173/ && break; sleep 1; done
+          curl -sI http://127.0.0.1:4173/ | head -1
+      - name: The machine
+        run: |
+          sw_vers
+          sysctl -n machdep.cpu.brand_string
+          system_profiler SPDisplaysDataType | head -30
+      - name: Chrome on the GPU (desktop and iPhone-sized windows)
+        continue-on-error: true
+        run: npx tsx scripts/real-hardware.ts chrome --out hw
+      - name: Safari
+        continue-on-error: true
+        run: |
+          sudo safaridriver --enable
+          npx tsx scripts/real-hardware.ts safari --out hw
+      - name: Mobile Safari in the iOS Simulator
+        continue-on-error: true
+        run: npx tsx scripts/real-hardware.ts ios --out hw
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: real-hardware
+          path: hw
+          retention-days: 30
