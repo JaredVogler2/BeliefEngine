@@ -75,6 +75,7 @@ function TitleWorld({ village, still, onFail }: { village: RunState | null; stil
     let cancelled = false;
     let r: WorldRenderer | null = null;
     let ro: ResizeObserver | null = null;
+    let raf = 0;
     loadWorld3D()
       .then((World3D) => {
         if (cancelled) return;
@@ -98,12 +99,22 @@ function TitleWorld({ village, still, onFail }: { village: RunState | null; stil
         r.setAmbient?.(!reduced);
         r.setFrozen?.(stillRef.current);
         worldRef.current = r;
+        // marked ready once the village itself has been drawn (scripts that time the game's own start wait for the backdrop first)
+        const frames = (): number => (r as unknown as { info?: () => { frames: number } }).info?.().frames ?? 0;
+        const f0 = frames();
+        const check = (): void => {
+          if (cancelled) return;
+          if (frames() > f0) host.dataset.ready = '1';
+          else raf = requestAnimationFrame(check);
+        };
+        raf = requestAnimationFrame(check);
       })
       .catch(() => {
         if (!cancelled) onFail();
       });
     return () => {
       cancelled = true;
+      cancelAnimationFrame(raf);
       worldRef.current = null;
       ro?.disconnect();
       r?.destroy();

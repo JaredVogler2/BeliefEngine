@@ -63,6 +63,8 @@ for (const tier of ['low', 'medium', 'high']) {
     const page = await ctx.newPage();
     await page.goto(`${base}/?debug=1&renderer=3d&quality=${tier}&scale=${scale}`);
     await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
+    // the title's own 3D village is built and drawn first, so its build is not counted in the game's start
+    await page.waitForSelector('.title-bg[data-ready="1"]', { timeout: 120000 }).catch(() => undefined);
     // startup: from handing the page a run to the first drawn frame of its world (the 3D chunk is already loaded by then)
     const t0 = Date.now();
     await page.evaluate((j) => (window as unknown as { __belief: { load: (s: string) => boolean } }).__belief.load(j), json);
