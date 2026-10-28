@@ -144,9 +144,42 @@ Every browser run below was made alone, in a container with no GPU (SwiftShader)
 | `npx tsx scripts/capture-motion.ts` (and `--dt 0`) | frame-to-frame change by region, about 2% per 2 s step; noise floor exactly 0: `docs/3D_QUALITY_REPORT.md` |
 | `npx tsx scripts/capture-matrix.ts` and `capture-3d.ts` at four screen sizes | 16 + 4 real frames, each one looked at: `docs/3d-rebuild/screenshots/`, `docs/3D_QUALITY_REPORT.md` |
 
+## Round 6 (people, crowds, phone sheets, motion)
+
+Every browser run below was made alone, in the same container (no GPU, SwiftShader), with fonts made to match the CI runner.
+
+| Command | Result |
+| --- | --- |
+| `npx tsc --noEmit`, `npx eslint .` | exit 0, exit 0 |
+| `npm test` | **31 files, 370 tests passed** (new: `render3d-reactions.test.ts`, `render3d-gait.test.ts`) |
+| `npm run test:e2e:classic` | **141 passed, 0 failed, 55 skipped** (project-specific), 10.2 min |
+| `npm run test:e2e:3d` | **43 of 44 passed** on the run before the last two round 6 commits. The one failure was the double tap under load (the page timed a tap by when it got to the event, not when the finger came up); fixed, it then passed **6 of 6** repeats. The full suite on the final commit is in round 7 below |
+| `BE_CROSS_BROWSER=1 npx playwright test tests/e2e/smoke.spec.ts --project=firefox --project=webkit --project=iphone -g "3D world boots"` | **3 passed**: WebKit and the iPhone profile booted the 3D world, drew a modelled village and picked a person by a tap; Firefox (headless, no WebGL2) said so and played on the classic map |
+| `npx tsx scripts/browser-3d-smoke.ts` | Chromium 153 **PASS** and WebKit 26.6 **PASS** (3D drew, 0 console errors); Firefox 155 **FALLBACK** (no WebGL2) |
+| `npx tsx scripts/capture-sequence.ts` (river, people, storm, village) | the review clips, rendered frame by frame and looked at; they found the river, bank, forecast, stillness and gait defects fixed this round. The final clips and their measures are in round 7 below |
+| Gait, measured in `render3d-gait.test.ts` | the planted foot slides **13%** of the body's travel (the old cycle: 58%, which the test fails); the lower sole never floats more than 0.012 above the ground (measured 0.005; the old hip bob: 0.061, which the test fails); the swinging foot clears the ground by 0.04 |
+
+## Round 7 (the 3D build played through its interface; the build this work ends on)
+
+Every browser run below was made alone, in the same container (no GPU, SwiftShader), with fonts made to match the CI runner.
+
+| Command | Result |
+| --- | --- |
+| A playthrough through the real interface (`docs/PLAYTHROUGH_NOTES.md`, "Round 7") | Flood at Redbank, seed 1, Normal, from the title screen to the debrief by real clicks (desktop) and taps (phone emulation, day 1): **victory, 14 of 14 alive, score 771**. Not a human playtest. Every defect it met was fixed (`4e6bb87`) |
+| `npx tsc --noEmit`, `npx eslint .` | exit 0, exit 0 |
+| `npm test` | **32 files, 374 tests passed** (new: `render3d-guides.test.ts`: the proof sites, the coach's call-out, which fails on the old marking, and the aftermath captions) |
+| `npm run build`, `npm run size` | exit 0. Entry 234 KB gzip (budget 260), 3D chunk 216 KB gzip (budget 270, lazy), CSS 8.9 KB gzip (budget 12) |
+| `npm run verify:hosting` | 19 checks ok, including the 3D world under the production Content-Security-Policy |
+| `npm run test:e2e:3d`, locally | **18 of 44 passed, 0 failed**, on the build just before the last two small edits, when the run was stopped to free the one browser this container may run for the evidence capture. The full browser suites (classic and 3D, with this round's proof-marker test) run in CI on the pull request |
+| `npx tsx scripts/capture-sequence.ts` (river, people, storm, village) | four clips, 48 frames each at 24 fps, rendered frame by frame on the final build; the worst neighbouring pair changed 1.05× (village), 1.06× (river, storm) and 1.19× (people, a following camera) as much as the median: no pops. Strips, change images and measures: `docs/3d-rebuild/video/` |
+| `npx tsx scripts/capture-matrix.ts --quality high` and `capture-3d.ts` at four screen sizes | 16 + 4 frames recaptured on the final build, each one looked at: `docs/3d-rebuild/screenshots/` |
+| `npx tsx scripts/perf-3d.ts --out docs/3d-rebuild/data/perf-chain.json` | high tier, calm: 498 draw calls (742 in the visual pass), 628,775 triangles, 545 ms a frame on the CPU rasteriser; the full table in `docs/3d-rebuild/PERFORMANCE.md` (**software rasteriser; no GPU or real device was measured**) |
+| `npx tsx scripts/browser-3d-smoke.ts` | Chromium 153 **PASS** and WebKit 26.6 **PASS** (3D drew, 256 calls, 268,116 triangles on the low tier, 0 console errors); Firefox 155 **FALLBACK** (no WebGL2 headless) |
+| People before and after (`wc/people-compare.jpg`) | six people from the opening view at `22b7b1c` (four of them inside the buildings they visited) and on the final build (all six outside, dressed, each with a role's hat or tool) |
+
 ## What is not covered, plainly
 
-* No human has played the game: no uncoached session, no fun or clarity claim (`docs/PLAYTEST_PROTOCOL.md`).
+* No human has played the game: no uncoached session, no fun or clarity claim (`docs/PLAYTEST_PROTOCOL.md`). An automated agent played the 3D build to a victory through its interface (round 7); that is not a playtest.
 * No real phone or tablet, no real Safari; WebKit here is Playwright's Linux build and the iPhone profile is emulation. **The 3D world has only ever run on software WebGL**: no real GPU, no real phone.
 * No deployed URL exists, so no live smoke test has been run (`docs/RELEASE_CHECKLIST.md`).
 * Audio was exercised against a fake Web Audio graph (voice caps, leak freedom, settings); nobody has listened to it.

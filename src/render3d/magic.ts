@@ -37,18 +37,39 @@ export const MAGIC_GLSL = /* glsl */ `
 
   // tonight's predicted flood, as the extra depth the engine expects over what is there now: slanted stripes inside it, and a contour
   // line at every step of depth, cool where it is shallow and warm where it is deep. Stripes and lines mean it reads without colour.
-  vec3 forecastGlow(vec2 xz) {
-    if (uForecastOn < 0.5) return vec3(0.0);
+  // The stripes are painted into the ground's own colour (forecastPaint), so they stay as dark or as lit as the ground is; only the
+  // contour lines give off light (forecastGlow). Added as light, the stripes washed a storm-dark district out to a pale haze.
+  vec4 forecastAt(vec2 xz, out float d) {
+    d = 0.0;
+    if (uForecastOn < 0.5) return vec4(0.0);
     vec4 f = texture2D(uForecast, xz / uMagicDim);
-    float d = f.r * 4.0;
+    d = f.r * 4.0;
     float wet = smoothstep(0.3, 0.7, d);
-    if (wet < 0.01) return vec3(0.0);
     // where water already stands the overlay is turned down: laid over the real flood it would only whiten it
     wet *= mix(1.0, 0.35, f.g);
-    float stripes = smoothstep(0.35, 0.5, abs(fract((xz.x + xz.y) * 2.4 - uMagicTime * 0.1) - 0.5));
-    float line = smoothstep(0.4, 0.5, abs(fract(d) - 0.5));
     vec3 c = mix(vec3(0.28, 0.72, 0.96), vec3(1.0, 0.46, 0.34), clamp((d - 1.0) / 2.0, 0.0, 1.0));
-    return c * wet * (0.10 + 0.16 * stripes + 0.5 * line);
+    return vec4(c, wet);
+  }
+  vec4 forecastPaint(vec2 xz) {
+    float d;
+    vec4 f = forecastAt(xz, d);
+    if (f.a < 0.01) return vec4(0.0);
+    float stripes = smoothstep(0.35, 0.5, abs(fract((xz.x + xz.y) * 2.4 - uMagicTime * 0.1) - 0.5));
+    return vec4(f.rgb * 0.75, f.a * (0.1 + 0.32 * stripes));
+  }
+  vec3 forecastGlow(vec2 xz) {
+    float d;
+    vec4 f = forecastAt(xz, d);
+    if (f.a < 0.01) return vec3(0.0);
+    // a line where the depth steps from one whole level to the next (half way, d = k + 0.5): the engine's depths are whole steps, so
+    // the old test (a line wherever d was near a whole number) lit every tile of an even depth solid, a pale wash over the district
+    float line = 1.0 - smoothstep(0.03, 0.09, abs(fract(d) - 0.5));
+#ifdef MAGIC_ON_WATER
+    float stripes = smoothstep(0.35, 0.5, abs(fract((xz.x + xz.y) * 2.4 - uMagicTime * 0.1) - 0.5));
+    return f.rgb * f.a * (0.06 + 0.12 * stripes + 0.5 * line);
+#else
+    return f.rgb * f.a * 0.5 * line;
+#endif
   }
 
   // patterns are drawn around a source and go out from it: rings and ticks for trust, a spiral closing in for a rival belief,
@@ -413,11 +434,11 @@ export function attachMagicToStandard(mat: THREE.MeshStandardMaterial, field: Ma
     shader.vertexShader = shader.vertexShader.replace('#include <common>', '#include <common>\nvarying vec2 vMagicXZ;').replace('#include <begin_vertex>', '#include <begin_vertex>\nvMagicXZ = position.xz;');
     shader.fragmentShader = shader.fragmentShader
       .replace('#include <common>', `#include <common>\nvarying vec2 vMagicXZ;\n${MAGIC_GLSL}`)
-      .replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.rgb *= mix(1.0, 0.7, groundWet(vMagicXZ));')
+      .replace('#include <map_fragment>', '#include <map_fragment>\ndiffuseColor.rgb *= mix(1.0, 0.7, groundWet(vMagicXZ));\nvec4 fcPaint = forecastPaint(vMagicXZ);\ndiffuseColor.rgb = mix(diffuseColor.rgb, fcPaint.rgb, fcPaint.a);')
       .replace('#include <roughnessmap_fragment>', '#include <roughnessmap_fragment>\nroughnessFactor *= mix(1.0, 0.5, groundWet(vMagicXZ));')
       .replace('#include <emissivemap_fragment>', '#include <emissivemap_fragment>\ntotalEmissiveRadiance += magicGlow(vMagicXZ);');
   };
-  mat.customProgramCacheKey = () => 'terrain-magic-2';
+  mat.customProgramCacheKey = () => 'terrain-magic-3';
   mat.needsUpdate = true;
 }
 

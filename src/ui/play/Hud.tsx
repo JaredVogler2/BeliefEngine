@@ -216,7 +216,8 @@ export function SelectionPopover() {
     };
   }, [hidden, sel]);
 
-  if (hidden || !sel) return null;
+  // docked on a phone, the card sits where an open sheet stands: the sheet has the same person (or the laws) in full, so it gives way
+  if (hidden || !sel || (pos?.dock && ui.sheetOpen)) return null;
   const style = pos && !pos.dock ? { left: pos.left, top: pos.top } : undefined;
   const claimId = ui.activeClaim;
 

@@ -4,6 +4,8 @@ import type { RunState } from '../engine/index.ts';
 import { MAX_SEED, optionsFromState, buildDebrief, catalogInfo, isVerifiedSeed, createRun, getModifier, getModifierViews, getScenarioDef, listScenarios, numberToDate } from '../engine/index.ts';
 import type { Difficulty } from '../engine/index.ts';
 import { MapRenderer } from '../render/MapRenderer.ts';
+import { chooseRenderer, loadWorld3D } from '../render/choose.ts';
+import type { WorldRenderer } from '../render/types.ts';
 import { unlockAudio, sfx } from '../audio/audio.ts';
 import { Icon } from './components.tsx';
 import { dailyBest, loadProgress, playedExpeditionSeeds } from './progress.ts';
@@ -15,7 +17,116 @@ import { store, useStore } from './store.ts';
 
 // ------------------------------------------------------------------ title
 
-function TitleBackdrop() {
+/**
+ * The menus' backdrop: Redbank itself, in 3D wherever the game itself will be in 3D, and on the classic map elsewhere. It stays up from the
+ * title through the other menus, so the world is built once; it moves on the title and is held still behind the pages of text.
+ */
+export function MenuBackdrop({ screen }: { screen: string }) {
+  const [mode] = useState(() => chooseRenderer());
+  const [failed, setFailed] = useState(false);
+  const s = useStore((x) => x.ui.settings);
+  const run = useStore((x) => x.state);
+  // the briefing shows the village the player is about to play; the other menus show Redbank
+  const village = screen === 'briefing' ? run : null;
+  return (
+    <div className="menu-bg" data-screen={screen}>
+      {mode.choice === '3d' && !failed ? <TitleWorld key={`${s.quality}-${s.reducedMotion}-${s.highContrast}`} village={village} still={screen !== 'title'} onFail={() => setFailed(true)} /> : <TitleMap village={village} />}
+    </div>
+  );
+}
+
+let titleState: RunState | null = null;
+
+/** the village a new game starts in, with the east bank's beacons lit, as the title's view */
+function titleRun(): RunState {
+  if (titleState) return titleState;
+  const s = createRun({ scenarioId: 'redbank', seed: 7 });
+  for (const l of s.world.landmarks) if (l.kind === 'beacon' && l.district === 'east') {
+    l.lit = true;
+    l.fuelNights = 3;
+  }
+  titleState = s;
+  return s;
+}
+
+/** the 3D village behind the menus: the first thing a player sees is the world they are about to play in, slowly circling on the title */
+function TitleWorld({ village, still, onFail }: { village: RunState | null; still: boolean; onFail: () => void }) {
+  const hostRef = useRef<HTMLDivElement>(null);
+  const worldRef = useRef<WorldRenderer | null>(null);
+  const stillRef = useRef(still);
+  const villageRef = useRef(village);
+  useEffect(() => {
+    stillRef.current = still;
+    worldRef.current?.setFrozen?.(still);
+  }, [still]);
+  useEffect(() => {
+    villageRef.current = village;
+    const r = worldRef.current;
+    if (!r) return;
+    r.setState(village ?? titleRun());
+    // a world held still draws the new village once, with the camera settled on it
+    if (stillRef.current) r.advance?.(2);
+  }, [village]);
+  useEffect(() => {
+    const host = hostRef.current;
+    if (!host) return;
+    const canvas = document.createElement('canvas');
+    host.appendChild(canvas);
+    let cancelled = false;
+    let r: WorldRenderer | null = null;
+    let ro: ResizeObserver | null = null;
+    let raf = 0;
+    loadWorld3D()
+      .then((World3D) => {
+        if (cancelled) return;
+        try {
+          r = new World3D(canvas);
+        } catch {
+          onFail();
+          return;
+        }
+        const size = (): void => {
+          const b = host.getBoundingClientRect();
+          r?.resize(b.width, b.height, window.devicePixelRatio || 1);
+        };
+        size();
+        ro = new ResizeObserver(size);
+        ro.observe(host);
+        const reduced = store.ui.settings.reducedMotion;
+        r.setState(villageRef.current ?? titleRun());
+        r.setOptions({ reducedMotion: reduced, lens: 'none', showFlood: false, activeClaim: null, selection: null, hints: [], forecast: null, highContrast: store.ui.settings.highContrast, quality: store.ui.settings.quality === 'low' ? 'low' : 'high', known: new Set() });
+        r.start();
+        r.setAmbient?.(!reduced);
+        r.setFrozen?.(stillRef.current);
+        worldRef.current = r;
+        // marked ready once the village itself has been drawn (scripts that time the game's own start wait for the backdrop first)
+        const frames = (): number => (r as unknown as { info?: () => { frames: number } }).info?.().frames ?? 0;
+        const f0 = frames();
+        const check = (): void => {
+          if (cancelled) return;
+          if (frames() > f0) host.dataset.ready = '1';
+          else raf = requestAnimationFrame(check);
+        };
+        raf = requestAnimationFrame(check);
+      })
+      .catch(() => {
+        if (!cancelled) onFail();
+      });
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(raf);
+      worldRef.current = null;
+      ro?.disconnect();
+      r?.destroy();
+      canvas.remove();
+    };
+    // the backdrop is built once (a changed quality or motion setting builds it again: see the key in MenuBackdrop)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return <div className="title-bg" aria-hidden="true" ref={hostRef} data-renderer="3d" />;
+}
+
+function TitleMap({ village }: { village: RunState | null }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const reduced = useStore((s) => s.ui.settings.reducedMotion);
   useEffect(() => {
@@ -27,12 +138,7 @@ function TitleBackdrop() {
     } catch {
       return;
     }
-    const s = createRun({ scenarioId: 'redbank', seed: 7 });
-    for (const l of s.world.landmarks) if (l.kind === 'beacon' && l.district === 'east') {
-      l.lit = true;
-      l.fuelNights = 3;
-    }
-    r.setState(s);
+    r.setState(village ?? titleRun());
     r.setOptions({ reducedMotion: reduced, showFlood: false, lens: 'none', quality: 'low', hints: [] });
     r.setLabels(false);
     const size = () => {
@@ -61,7 +167,7 @@ function TitleBackdrop() {
       ro.disconnect();
       r.destroy();
     };
-  }, [reduced]);
+  }, [reduced, village]);
   return (
     <div className="title-bg" aria-hidden="true">
       <canvas ref={ref} />
@@ -76,7 +182,6 @@ export function Title() {
   const atlasCount = Object.keys(loadProgress().achievements).length;
   return (
     <main className="screen title-screen" data-testid="title">
-      <TitleBackdrop />
       <div>
         <h1 className="logo">
           <small>THE KEEPER OF STORIES</small>
@@ -311,8 +416,7 @@ export function Briefing() {
         </div>
         <OptionsCard state={state} />
         <InventorCard state={state} />
-        <div className="row spread wrap sticky-cta">
-          <button className="btn" onClick={begin}>Skip briefing</button>
+        <div className="row wrap sticky-cta" style={{ justifyContent: 'flex-end' }}>
           <button className="btn primary big" onClick={begin} data-testid="begin">Begin the first day</button>
         </div>
       </div>
@@ -446,7 +550,7 @@ export function Debrief() {
         <h2>What you may have missed</h2>
         <ul>{d.missed.map((m, i) => <li key={i}>{m}</li>)}</ul>
         <h2>The village</h2>
-        <p>{d.saved} of {state.villagers.length} survived. {d.homesSpared} home(s) and {d.livesSpared} life/lives spared by laws.{d.lost.length ? ` Lost: ${d.lost.map((l) => `${l.name} (${l.cause}, day ${l.day})`).join('; ')}.` : ''}</p>
+        <p>{d.saved} of {state.villagers.length} survived. {d.homesSpared} {d.homesSpared === 1 ? 'home' : 'homes'} and {d.livesSpared} {d.livesSpared === 1 ? 'life' : 'lives'} spared by laws.{d.lost.length ? ` Lost: ${d.lost.map((l) => `${l.name} (${l.cause}, day ${l.day})`).join('; ')}.` : ''}</p>
         <h2>Score {d.score}</h2>
         <table className="breakdown"><tbody>{Object.entries(d.breakdown).map(([k, v]) => <tr key={k}><td>{k}</td><td>{v}</td></tr>)}</tbody></table>
         <p className="small muted" data-testid="seed-info">{d.seedInfo}{kind !== 'story' ? ` · village ${state.scenarioId}` : ''}{state.modifiers.length ? ` · twists: ${state.modifiers.join(', ')}` : ''}. Score is a rough guide only; the story above matters more.</p>

@@ -74,11 +74,14 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 .chip.violet { color: var(--violet); border-color: #54418a; background: rgba(180, 140, 255, 0.1); }
 .pill-cost { background: #0b1220; border: 1px solid var(--gold); color: var(--gold); border-radius: 999px; padding: 0 0.5rem; font-weight: 800; font-size: 0.8rem; min-width: 2.2rem; text-align: center; }
 .pill-cost.free { border-color: var(--good); color: var(--good); }
+.pill-cost .pip { display: inline-block; width: 9px; height: 9px; border-width: 1.5px; margin-left: 3px; vertical-align: -0.5px; box-shadow: none; }
 
 /* ------------ screens */
 .screen { height: 100%; overflow: auto; position: relative; }
 .title-screen { display: grid; place-items: center; text-align: center; padding: 1.5rem; isolation: isolate; }
+.menu-bg { position: fixed; inset: 0; z-index: 0; pointer-events: none; }
 .title-bg { position: absolute; inset: 0; z-index: -1; }
+.title-bg canvas { display: block; width: 100%; height: 100%; }
 .title-bg::after { content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at center, rgba(8, 12, 24, 0.3), rgba(8, 12, 24, 0.9)); }
 .logo { font-size: clamp(2.4rem, 8vw, 4.6rem); color: var(--gold); text-shadow: 0 3px 0 #6a4a10, 0 10px 40px rgba(242, 184, 75, 0.4); line-height: 1; }
 .logo small { display: block; font-size: 0.3em; letter-spacing: 0.35em; color: var(--ink); text-shadow: none; margin-bottom: 0.6rem; font-family: var(--sans); font-weight: 600; }
@@ -238,6 +241,17 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 .pop .act { min-height: 44px; padding: 0.4rem 0.6rem; }
 .pop .act .a-sub { font-size: 0.72rem; }
 .pop-more { margin-top: 0.4rem; width: 100%; }
+/* who did you mean? the people under a tap who stand too close together to tell apart there, as a short list beside it */
+.crowd { position: absolute; z-index: 16; left: 0; top: 0; width: min(264px, calc(100% - 16px)); overflow: auto; padding: 0.45rem; border-radius: 16px; background: linear-gradient(180deg, rgba(30, 48, 84, 0.97), rgba(14, 22, 38, 0.98)); border: 1px solid #4a69ac; box-shadow: 0 14px 44px rgba(0, 0, 0, 0.55); visibility: hidden; }
+.crowd[data-ready='1'] { visibility: visible; animation: popIn 0.16s ease-out; }
+.crowd h2 { font-size: 0.78rem; font-weight: 700; color: var(--muted); margin: 0.1rem 0.4rem 0.4rem; }
+.crowd ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+.crowd-pick { display: grid; grid-template-columns: auto 1fr; gap: 0.6rem; align-items: center; width: 100%; min-height: 48px; padding: 0.3rem 0.55rem; border-radius: 12px; background: rgba(27, 44, 77, 0.85); border: 1px solid var(--line); color: var(--ink); text-align: left; }
+.crowd-pick:hover { border-color: var(--gold); background: #22396a; }
+.crowd-pick .avatar { width: 36px; height: 36px; border-radius: 10px; border-width: 1px; }
+.crowd-pick b { display: block; font-size: 0.9rem; line-height: 1.15; }
+.crowd-pick small { display: block; font-size: 0.74rem; color: var(--muted); }
+@media (prefers-reduced-motion: reduce) { .crowd[data-ready='1'] { animation: none; } }
 .hover-tip { position: absolute; z-index: 9; pointer-events: none; padding: 0.2rem 0.55rem; border-radius: 8px; background: rgba(10, 17, 30, 0.88); border: 1px solid var(--glass-line); font-size: 0.78rem; font-weight: 700; white-space: nowrap; transform: translate(-50%, -140%); }
 .hover-tip small { display: block; font-weight: 500; color: var(--muted); }
 
@@ -257,7 +271,7 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 .panel { flex: 1; overflow: auto; padding: 0.8rem; min-height: 0; }
 .panel h3 { font-size: 1.05rem; margin: 0.9rem 0 0.4rem; color: var(--gold); }
 .panel h3:first-child { margin-top: 0; }
-.grab { display: none; flex: none; width: 100%; height: 28px; background: #0f1a31; border: 0; border-radius: 18px 18px 0 0; position: relative; }
+.grab { display: none; flex: none; width: 100%; height: 28px; background: #0f1a31; border: 0; border-radius: 18px 18px 0 0; position: relative; touch-action: none; cursor: ns-resize; }
 .grab::after { content: ''; position: absolute; left: 50%; top: 11px; width: 46px; height: 5px; border-radius: 3px; background: var(--muted); transform: translateX(-50%); }
 
 /* panels */
@@ -309,6 +323,8 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 .digest .head { font-weight: 700; margin: 0.2rem 0 0.5rem; }
 .digest li { font-size: 0.84rem; margin: 0.3rem 0; list-style: none; padding-left: 1.2rem; position: relative; }
 .digest li::before { content: attr(data-ic); position: absolute; left: 0; }
+/* a long night still ends in reach of the way on: the buttons stay pinned to the bottom of the report while it scrolls */
+.digest .d-actions { position: sticky; z-index: 1; bottom: -0.9rem; margin: 0.7rem -0.9rem -0.9rem; padding: 0.6rem 0.9rem 0.9rem; background: rgb(16, 26, 43); border-radius: 0 0 16px 16px; }
 .coach { position: absolute; z-index: 11; top: calc(76px + var(--safe-t)); left: 50%; transform: translateX(-50%); width: min(600px, calc(100% - 200px)); display: flex; align-items: center; justify-content: space-between; gap: 0.9rem; background: rgba(255, 244, 214, 0.97); color: #2a1a05; padding: 0.4rem 0.9rem; border: 1px solid var(--gold); border-radius: 14px; box-shadow: 0 8px 26px rgba(0, 0, 0, 0.4); min-width: 0; }
 .coach .c-body { flex: 1 1 0; min-width: 0; line-height: 1.35; font-size: 0.9rem; }
 .coach b { font-family: var(--serif); margin-right: 0.45rem; }
@@ -360,10 +376,11 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   .play.sheet-open .tray { left: 8px; right: 8px; }
   .hand.chips { order: -1; flex: 1 0 100%; }
   .tray .ap { margin-right: auto; }
-  .side { top: auto; left: 0; right: 0; width: auto; bottom: calc(var(--tray-h) + 8px + var(--safe-b)); max-height: min(58dvh, calc(100dvh - var(--tray-h) - 200px - var(--safe-b))); border-left: 0; border-top: 2px solid var(--gold); border-radius: 18px 18px 0 0; box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.6); transform: translateY(110%); }
-  .side.open { transform: none; }
+  /* a sheet from the bottom that opens at half height, so the village stays in view above it; its handle draws it up to full height */
+  .side { top: auto; left: 0; right: 0; width: auto; bottom: calc(var(--tray-h) + 8px + var(--safe-b)); max-height: min(36dvh, calc(100dvh - var(--tray-h) - 200px - var(--safe-b))); border-left: 0; border-top: 2px solid var(--gold); border-radius: 18px 18px 0 0; box-shadow: 0 -12px 36px rgba(0, 0, 0, 0.6); transform: translateY(110%); transition: transform 0.22s ease, max-height 0.22s ease, visibility 0s linear 0.22s; }
+  .side.open { transform: none; transition: transform 0.22s ease, max-height 0.22s ease, visibility 0s; }
+  .side.full { max-height: min(58dvh, calc(100dvh - var(--tray-h) - 200px - var(--safe-b))); }
   .side .grab { display: block; }
-  .side-x { display: none; }
   /* the sheet covers the map on a phone: its own controls are enough while it is open */
   .play.sheet-open .modes, .play.sheet-open .map-tools, .play.sheet-open .coach { visibility: hidden; }
   .plan-list { bottom: calc(100% + 6px); }
@@ -447,6 +464,11 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
   .claim .c-line { display: none; }
   .hand.choosing .claim .c-line, .hand.drawer .claim .c-line { display: -webkit-box; -webkit-line-clamp: 3; line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .hand.choosing .claim .c-line + .c-line, .hand.drawer .claim .c-line + .c-line { display: none; }
+  /* the details stand at the right, under the top bar and over the bottom bar, as on a wide screen: a strip along the bottom of a
+     screen this short held a line of text and hid the village behind it */
+  .side { top: calc(74px + var(--safe-t)); bottom: calc(var(--tray-h) + 16px + var(--safe-b)); left: auto; right: 8px; width: min(360px, 44vw); max-height: none; border: 1px solid var(--glass-line); border-radius: 16px; box-shadow: -10px 0 32px rgba(0, 0, 0, 0.5); transform: translateX(calc(100% + 24px)); }
+  .side.open, .side.full { transform: none; max-height: none; }
+  .side .grab { display: none; }
   /* the view controls fold into one button and the tip into one line, as on a phone held upright */
   .map-tools { top: calc(66px + var(--safe-t)); }
   .map-tools .btn { width: 44px; height: 44px; min-height: 44px; }
@@ -465,6 +487,10 @@ html[data-motion='reduced'] *, html[data-motion='reduced'] *::before, html[data-
 
 .sticky-cta { position: sticky; bottom: 0; margin-top: 1.2rem; padding: 0.8rem 0 calc(0.8rem + var(--safe-b)); background: linear-gradient(0deg, var(--bg) 70%, rgba(11, 18, 32, 0)); }
 .title-bg::after { background: radial-gradient(ellipse at center, rgba(8, 12, 24, 0.62), rgba(8, 12, 24, 0.92)); }
+/* the 3D village behind the title is let through more: it is the game the player is about to play */
+.title-bg[data-renderer='3d']::after { background: radial-gradient(ellipse at center, rgba(8, 12, 24, 0.42), rgba(8, 12, 24, 0.86)); }
+/* behind a page of text it is only a presence */
+.menu-bg:not([data-screen='title']) .title-bg::after { background: linear-gradient(180deg, rgba(8, 12, 24, 0.8), rgba(8, 12, 24, 0.9)); }
 
 /* ------------------------------------------------------------ modes, twists, villages */
 .mode-tabs { margin: 0.6rem 0 1rem; }

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { allClaimDefs, firstName, getForecast, getLawViews, nightReport } from '../../engine/index.ts';
 import { setAmbience, setSceneAudio, setThreatIntensity, unlockAudio } from '../../audio/audio.ts';
 import { Icon, Modal, evIcon } from '../components.tsx';
@@ -21,7 +21,7 @@ function ConfirmEnd() {
       <ul className="small">
         <li>Unspent Influence: <b>{unspent}</b> (you will have {Math.min(state.apMax, unspent + state.apPerDay)} tomorrow; the cap is {state.apMax}).</li>
         <li>Tonight: {f.tonight.label}, level {f.tonight.level}, {f.tonight.trend}.</li>
-        {f.homesAtRisk.length > 0 && <li>{f.homesAtRisk.length} home(s) in the water’s reach.</li>}
+        {f.homesAtRisk.length > 0 && <li>{f.homesAtRisk.length} {f.homesAtRisk.length === 1 ? 'home' : 'homes'} in the water’s reach.</li>}
         {f.peopleAtRisk.length > 0 && <li style={{ color: '#ffb3bf' }}>{f.peopleAtRisk.map((p) => firstName(p.name)).join(', ')} may be lost.</li>}
         {f.trapped.length > 0 && <li style={{ color: '#ffb3bf' }}>{f.trapped.map((p) => firstName(p)).join(', ')} cannot reach safety.</li>}
       </ul>
@@ -37,6 +37,11 @@ function Digest() {
   const ui = useStore((s) => s.ui);
   const state = useStore((s) => s.state)!;
   const d = ui.digest;
+  const go = useRef<HTMLButtonElement>(null);
+  // the way on gets the keyboard focus, without scrolling the report: it is read from its headline down (the button row stays pinned)
+  useEffect(() => {
+    go.current?.focus({ preventScroll: true });
+  }, [d?.day]);
   if (!d) return null;
   const report = nightReport(state, d.events, d.summary);
   const over = !!state.outcome;
@@ -53,9 +58,9 @@ function Digest() {
         ))}
         {report.story.length === 0 && report.lines.length === 0 && <li data-ic="·">Nothing remarkable happened.</li>}
       </ul>
-      <div className="row spread" style={{ marginTop: '0.7rem' }}>
+      <div className="row spread d-actions">
         <button className="btn small" onClick={() => store.set({ tab: 'log', sheetOpen: true })}>All events</button>
-        <button className="btn primary" onClick={() => store.closeDigest()} data-testid="digest-continue" autoFocus>
+        <button className="btn primary" onClick={() => store.closeDigest()} data-testid="digest-continue" ref={go}>
           {over ? 'See what happened' : `On to day ${state.day}`}
         </button>
       </div>
@@ -99,6 +104,49 @@ function Toasts() {
         <div key={t.id} className={`toast ${t.kind}`} role="status">{t.text}</div>
       ))}
     </div>
+  );
+}
+
+/**
+ * The handle on top of the sheet on a phone held upright. The sheet opens at half height so the village stays in view: a tap on the
+ * handle (or Enter) draws it up to full height and back, a swipe up draws it up, and a swipe down lowers it to half, then closes it.
+ */
+function SheetHandle({ full }: { full: boolean }) {
+  const start = useRef<number | null>(null);
+  const swiped = useRef(false);
+  return (
+    <button
+      className="grab"
+      aria-label={full ? 'Show less of the panel' : 'Show more of the panel'}
+      aria-expanded={full}
+      data-testid="sheet-handle"
+      onPointerDown={(e) => {
+        start.current = e.clientY;
+        // (a touch swipe is often followed by no click at all: whatever the last swipe left behind does not apply to this press)
+        swiped.current = false;
+        e.currentTarget.setPointerCapture?.(e.pointerId);
+      }}
+      onPointerUp={(e) => {
+        const y0 = start.current;
+        start.current = null;
+        if (y0 === null || Math.abs(e.clientY - y0) < 24) return;
+        // a swipe, not a tap: the click that follows it is not a second request
+        swiped.current = true;
+        if (e.clientY < y0) store.set({ sheetFull: true });
+        else if (full) store.set({ sheetFull: false });
+        else store.set({ sheetOpen: false });
+      }}
+      onPointerCancel={() => {
+        start.current = null;
+      }}
+      onClick={() => {
+        if (swiped.current) {
+          swiped.current = false;
+          return;
+        }
+        store.set({ sheetFull: !full });
+      }}
+    />
   );
 }
 
@@ -187,8 +235,8 @@ export function Play() {
       <Modes />
       <Coach />
       <SelectionPopover />
-      <aside className={`side ${ui.sheetOpen ? 'open' : ''}`} aria-label="Details">
-        <button className="grab" aria-label={ui.sheetOpen ? 'Collapse panel' : 'Expand panel'} onClick={() => store.set({ sheetOpen: !ui.sheetOpen })} />
+      <aside className={`side ${ui.sheetOpen ? 'open' : ''} ${ui.sheetFull ? 'full' : ''}`} aria-label="Details">
+        <SheetHandle full={ui.sheetFull} />
         <div className="tabs-row">
           <div className="tabs" role="tablist">
             {TABS.map((t) => (

@@ -13,6 +13,7 @@ import { CloudSea } from './clouds.ts';
 import { Water } from './water.ts';
 import { MaterialLib } from './materials.ts';
 import { createLayers } from './layers.ts';
+import { LandmarksLayer } from './landmarks.ts';
 import { EffectsLayer } from './effects.ts';
 import { MagicField, attachMagicToStandard } from './magic.ts';
 import { PostChain, displayUniforms, preCompensate, type PostLook, type PostProfile } from './post.ts';
@@ -388,6 +389,13 @@ export class World3D implements WorldRenderer {
       viewDistance: this.cam.distance,
       magic: this.magic,
       locate: (kind, id) => this.locate(kind, id),
+      visitSpot: (id) => {
+        for (const l of this.layers) {
+          const d = l.visitSpot?.(id);
+          if (d) return d;
+        }
+        return null;
+      },
     };
     this.ctx = ctx;
     this.layers = createLayers(ctx);
@@ -459,6 +467,8 @@ export class World3D implements WorldRenderer {
     if (this.water) {
       this.water.setTint(new THREE.Color(m.waterTint, m.waterTint, m.waterTint));
       this.water.setRain(this.reduced() ? 0 : m.rain);
+      // the current quickens with the wind: a calm river runs gently, a storm's runs hard
+      this.water.setCurrent(0.45 + 0.3 * m.wind);
       this.water.setLight(this.sun.position.clone().sub(this.sun.target.position).normalize(), this.sun.color.clone().multiplyScalar(Math.min(1, m.sunIntensity / 3)), new THREE.Color(m.skyTop));
     }
     if (this.ctx) {
@@ -676,6 +686,16 @@ export class World3D implements WorldRenderer {
     const objs: THREE.Object3D[] = [];
     for (const l of this.layers) objs.push(...(l.pickables?.() ?? []));
     if (!objs.length) return null;
+    const coarse = this.W < 700 || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+    // the gold marker over a place where the chosen story's proof can be staged means that place (it floats above the roofs, so a
+    // cottage in front of a beacon does not hide it); close up the marker has faded out and the place itself is the target
+    const lm = this.layers.find((l) => l instanceof LandmarksLayer) as LandmarksLayer | undefined;
+    for (const m of lm?.siteSpots() ?? []) {
+      if (m.at.distanceTo(this.cam.camera.position) < 10) continue;
+      const v = m.at.project(this.cam.camera);
+      if (v.z > 1) continue;
+      if (Math.hypot(((v.x + 1) / 2) * this.W - sx, ((1 - v.y) / 2) * this.H - sy) < (coarse ? 16 : 10)) return { kind: 'landmark', id: m.id };
+    }
     this.ray.setFromCamera(new THREE.Vector2((sx / this.W) * 2 - 1, -((sy / this.H) * 2 - 1)), this.cam.camera);
     const hits = this.ray.intersectObjects(objs, false);
     // people win over the buildings they stand beside; among people, the one whose body is nearest the tap (not the one whose invisible
@@ -694,7 +714,7 @@ export class World3D implements WorldRenderer {
     if (person) return { kind: 'villager', id: person.id };
     if (landmark) return landmark;
     // a miss that lands close to a small figure still means that figure (fingers are wider than avatars)
-    const reach = this.W < 700 || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) ? 28 : 14;
+    const reach = coarse ? 28 : 14;
     let near: { id: string; d: number } | null = null;
     for (const o of objs) {
       const e = o.userData.entity as { kind: 'villager' | 'landmark'; id: string } | undefined;
@@ -705,6 +725,41 @@ export class World3D implements WorldRenderer {
       if (d < reach && (!near || d < near.d)) near = { id: e.id, d };
     }
     return near ? { kind: 'villager', id: near.id } : null;
+  }
+
+  /**
+   * Everyone a tap could mean, nearest first, when that is more than one person: figures standing so close on screen that a fingertip
+   * (or a pointer) on one also covers another, as a group at a doorway does from afar. Empty when the tap lands on one person alone,
+   * so they are selected at once; up close the same group spreads apart and each is picked directly.
+   */
+  crowdAt(sx: number, sy: number): string[] {
+    const coarse = this.W < 700 || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+    // how far off a fingertip or a pointer may land, and the least a tiny figure is given
+    const slack = coarse ? 12 : 4;
+    const least = coarse ? 14 : 7;
+    const right = new THREE.Vector3().setFromMatrixColumn(this.cam.camera.matrixWorld, 0);
+    const near: { id: string; d: number }[] = [];
+    for (const l of this.layers) {
+      for (const o of l.pickables?.() ?? []) {
+        const e = o.userData.entity as { kind: 'villager' | 'landmark'; id: string } | undefined;
+        if (e?.kind !== 'villager') continue;
+        const p = this.locate('villager', e.id);
+        if (!p) continue;
+        const a = p.clone().project(this.cam.camera);
+        if (a.z > 1) continue;
+        // pixels per world unit at their depth: a body is about a quarter of a unit across (a little more at the overview, where people
+        // are drawn larger)
+        const b = p.clone().addScaledVector(right, 1).project(this.cam.camera);
+        const perUnit = Math.hypot((b.x - a.x) * this.W, (b.y - a.y) * this.H) / 2;
+        const d = Math.hypot(((a.x + 1) / 2) * this.W - sx, ((1 - a.y) / 2) * this.H - sy);
+        if (d <= Math.max(least, 0.13 * perUnit) + slack) near.push({ id: e.id, d });
+      }
+    }
+    if (near.length < 2) return [];
+    return near
+      .sort((p, q) => p.d - q.d)
+      .slice(0, 6)
+      .map((p) => p.id);
   }
 
   setHover(h: HitResult | null): void {

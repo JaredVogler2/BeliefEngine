@@ -5,7 +5,7 @@
  * the classic map by design, and that is reported as a fallback, not as a pass.
  *
  *   npm run build && npx vite preview --port 4173 &
- *   npx tsx scripts/browser-3d-smoke.ts [--url http://127.0.0.1:4173]
+ *   npx tsx scripts/browser-3d-smoke.ts [--url http://127.0.0.1:4173] [--shots <dir>]
  */
 import { chromium, firefox, webkit, type BrowserType } from '@playwright/test';
 import { mkdirSync, writeFileSync } from 'node:fs';
@@ -13,6 +13,8 @@ import { GameSession, serializeRun } from '../src/engine/index.ts';
 
 const args = process.argv.slice(2);
 const base = args.includes('--url') ? args[args.indexOf('--url') + 1] : 'http://127.0.0.1:4173';
+/** with --shots <dir>, each browser's page is also photographed, so what it drew can be looked at */
+const shots = args.includes('--shots') ? args[args.indexOf('--shots') + 1] : null;
 
 const g = GameSession.create({ scenarioId: 'redbank', seed: 1 });
 const json = serializeRun(g.state);
@@ -55,6 +57,10 @@ for (const [name, type] of [['chromium', chromium], ['firefox', firefox], ['webk
       return { renderer: stage ? stage.getAttribute('data-renderer') : 'none', frames: info ? info.frames : 0, calls: info ? info.calls : 0, triangles: info ? info.triangles : 0 };
     })()`)) as { renderer: string; frames: number; calls: number; triangles: number };
     const drew = m.renderer === '3d' && m.frames > 0;
+    if (shots) {
+      mkdirSync(shots, { recursive: true });
+      await page.screenshot({ path: `${shots}/${name}.png` });
+    }
     rows.push({
       browser: name,
       version: browser.version(),

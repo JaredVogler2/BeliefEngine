@@ -28,6 +28,8 @@ export interface WorldRenderer {
   /** the part of the canvas the interface covers, so the view can keep its subject clear of it (the 3D world shifts its centre) */
   setInsets?(i: { left: number; right: number; top: number; bottom: number }): void;
   hitTest(sx: number, sy: number): HitResult | null;
+  /** everyone a tap could mean, nearest first, when that is more than one person (a knot of people seen from afar); else empty */
+  crowdAt?(sx: number, sy: number): string[];
   /** the map tile under a screen point, if any (the river and open ground are not entities, but a tap on them can still mean something) */
   tileAt?(sx: number, sy: number): { x: number; y: number } | null;
   setHover(h: HitResult | null): void;
@@ -37,6 +39,8 @@ export interface WorldRenderer {
   stats(): { fps: number; effects: number; zoom: number };
   /** the end-of-run tour: a slow drift round the village (the 3D world only) */
   setAmbient?(on: boolean): void;
+  /** stop drawing and hold the last frame (the menus' backdrop, behind a page of text); false starts it again (the 3D world only) */
+  setFrozen?(on: boolean): void;
   /** debug and screenshot hooks (the 3D world only) */
   advance?(seconds: number): void;
   renderNow?(): void;

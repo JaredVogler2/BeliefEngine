@@ -104,6 +104,8 @@ export interface SceneSnapshot {
   packs: { id: string; x: number; y: number; size: number }[];
   /** the regions where each story can become law, so choosing a story can show the ground it would govern */
   claimRegions: Record<string, string[]>;
+  /** where each story's proof can be staged (the landmarks its ritual is performed at), so choosing a story can point at them */
+  claimSites: Record<string, string[]>;
   /** what kind of danger the chapter has, so the sky can say so */
   threat: string;
 }
@@ -151,6 +153,10 @@ export function getSceneSnapshot(s: RunState): SceneSnapshot {
     regions: w.regions.map((r) => ({ id: r.id, rects: r.rects.map((q) => [q[0], q[1], q[2], q[3]] as [number, number, number, number]) })),
     packs: w.packs.map((p) => ({ id: p.id, x: p.x, y: p.y, size: p.size })),
     claimRegions: Object.fromEntries(allClaimDefs(s).map((d) => [d.id, d.regions.slice()])),
+    claimSites: Object.fromEntries(allClaimDefs(s).map((d) => {
+      const kind = d.ritual ? s.scn.rituals.find((r) => r.id === d.ritual)?.landmark : undefined;
+      return [d.id, kind ? w.landmarks.filter((l) => l.kind === kind).map((l) => l.id) : []];
+    })),
     threat: s.scn.threatKind,
   };
 }

@@ -31,7 +31,12 @@ export function ActionRow({ o, onDone }: { o: Opt; onDone?: () => void }) {
       }}
     >
       <span className="a-label">{o.label}</span>
-      <span className={`pill-cost ${o.cost === 0 ? 'free' : ''}`}>{o.cost === 0 ? 'free' : `${o.cost} AP`}</span>
+      {o.cost === 0 ? (
+        <span className="pill-cost free">free</span>
+      ) : (
+        // the cost in Influence, drawn with the same gold pip as the Influence bar (and read out as the word)
+        <span className="pill-cost">{o.cost}<i className="pip on" aria-hidden="true" /><span className="sr-only"> Influence</span></span>
+      )}
       <span className="a-sub">
         {ok ? (
           <>
