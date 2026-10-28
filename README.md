@@ -33,12 +33,12 @@ Needs Node >= 22.12. Once loaded the game makes no network requests.
 ### Controls
 | Action | Mouse / touch | Keyboard |
 |---|---|---|
-| Select a villager or place | click / tap | Village tab list (Tab, Enter) |
+| Select a villager or place | click / tap (people standing too close together to tell apart open a short "who did you mean?" list); a double tap goes to the person | Village tab list (Tab, Enter) |
 | Pan / zoom the map | drag / wheel, pinch, +/- buttons | arrows or WASD / `+` `-`, `0` fits |
 | Turn / tilt the 3D view | right-drag or Shift-drag, the two rotate buttons | `Q` `E` turn, `R` `F` tilt |
 | See who trusts whom (Social), the law ledger (Laws), tonight's flood (Flood) | the buttons on the left edge | `L` for Social |
-| Full detail (the side sheet), the stories' details | the list button in the bottom bar, the book button beside the stories | Tab to them |
-| Choose a story | click a card | `1`-`9` |
+| Full detail (the side sheet), the stories' details | the list button in the bottom bar, the book button beside the stories; on a phone the sheet opens at half height, and its handle draws it up and down (tap, or swipe) | Tab to them |
+| Choose a story | click a card (in 3D, gold rings then mark the places where its proof can be staged; click one to select it) | `1`-`9` |
 | Tell the selected villager the chosen story | the Tell button | `T` |
 | Undo the last action | Undo button | `U` or Ctrl+Z |
 | Social lens (trust ties) | lens button | `L` |
