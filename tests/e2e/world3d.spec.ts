@@ -244,6 +244,41 @@ test.describe('the 3D world', () => {
     await expect.poll(selected, { message: 'the bridge, tapped beside its keeper' }).toBe('br');
   });
 
+  test('choosing a story marks the places where its proof can be staged, and a click or tap on a marker picks that place, whatever stands in front of it', async ({ page }, info) => {
+    await startRedbank(page, 1, 'normal', URL3D);
+    await ready(page);
+    // no coach (while it points at a person the markers wait: render3d-guides.test.ts), then the fire, which is proved at the beacons
+    await page.evaluate(() => (window as unknown as { __belief: { store: { set: (p: unknown) => void } } }).__belief.store.set({ tutorialDone: true }));
+    await chooseClaim(page, 'river_fears_fire');
+    const touch = info.project.name.startsWith('phone');
+    const selected = (): Promise<string> => page.evaluate(() => (window as unknown as { __belief: { store: { ui: { selection: { id: string } | null } } } }).__belief.store.ui.selection?.id ?? '');
+    /** where each marker floats on the page, measured on a settled frame */
+    const marks = async (): Promise<{ id: string; x: number; y: number }[]> => {
+      await page.evaluate(() => (window as unknown as { __beRenderer: { advance: (s: number) => void } }).__beRenderer.advance(2));
+      return page.evaluate(() => {
+        type Spot = { id: string; at: { project: (c: unknown) => { x: number; y: number } } };
+        const r = (window as unknown as { __beRenderer: { layers: { siteSpots?: () => Spot[] }[]; cam: { camera: unknown }; W: number; H: number } }).__beRenderer;
+        const lm = r.layers.find((l) => typeof l.siteSpots === 'function');
+        const b = document.querySelector('canvas')!.getBoundingClientRect();
+        return (lm?.siteSpots?.() ?? []).map((m) => {
+          const v = m.at.project(r.cam.camera);
+          return { id: m.id, x: b.left + ((v.x + 1) / 2) * r.W, y: b.top + ((1 - v.y) / 2) * r.H };
+        });
+      });
+    };
+    expect((await marks()).map((m) => m.id).sort()).toEqual(['b_c', 'b_e', 'b_n', 'b_s']);
+    for (const id of ['b_n', 'b_c', 'b_e', 'b_s']) {
+      // put any open card away so the view is the one the markers were measured in
+      await page.keyboard.press('Escape');
+      await expect.poll(selected).toBe('');
+      const m = (await marks()).find((q) => q.id === id);
+      expect(m, `${id} carries a marker`).toBeTruthy();
+      if (touch) await page.touchscreen.tap(m!.x, m!.y);
+      else await page.mouse.click(m!.x, m!.y);
+      await expect.poll(selected, { message: `the marker over ${id}` }).toBe(id);
+    }
+  });
+
   test('a tap on a knot of people seen from afar asks who was meant, nearest first, and selects only the one chosen; Escape puts the question away; a double tap goes to them', async ({ page }, info) => {
     await startRedbank(page, 1, 'normal', URL3D);
     await ready(page);

@@ -6,7 +6,8 @@ import type { Layer, WorldContext } from './context.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mergeByMaterial, type Part } from './geom.ts';
 import type { MaterialLib } from './materials.ts';
-import { Particles } from './particles.ts';
+import { Particles, viewScale } from './particles.ts';
+import { DISPLAY_GLSL, displayUniforms } from './post.ts';
 import { seedFrom } from './rand.ts';
 import type { SceneChanges, SceneLandmark, SceneSnapshot } from './snapshot.ts';
 import { TERRAIN } from './terrain.ts';
@@ -39,6 +40,44 @@ interface View {
 const WALLED = new Set(['home', 'cabin', 'granary', 'hall', 'chapel', 'mill', 'belltower']);
 
 const MAX_LIGHTS = 4;
+/** at most this many places at once can carry the marker for where the active story's proof is staged */
+const MAX_SITES = 12;
+
+/**
+ * The marker over a place where the chosen story's proof can be staged (a cold beacon for "the river fears fire", the bell tower, the
+ * bridge): a gold ring around a dot, drawn the same size on screen whatever the distance, and only from afar, where the place itself is
+ * too small to find; close up the place speaks for itself.
+ */
+const SITE_VERT = /* glsl */ `
+  attribute float aSize;
+  uniform float uScale;
+  varying float vFade;
+  void main() {
+    vec4 mv = modelViewMatrix * vec4(position, 1.0);
+    gl_Position = projectionMatrix * mv;
+    float d = -mv.z;
+    gl_PointSize = clamp(aSize * uScale / d, 12.0, 24.0) * step(0.001, aSize);
+    vFade = smoothstep(7.0, 13.0, d);
+  }
+`;
+const SITE_FRAG = /* glsl */ `
+  ${DISPLAY_GLSL}
+  uniform float uTime;
+  varying float vFade;
+  void main() {
+    float r = length(gl_PointCoord - 0.5);
+    if (r > 0.5) discard;
+    float ring = smoothstep(0.5, 0.43, r) * smoothstep(0.27, 0.34, r);
+    float dot = smoothstep(0.15, 0.09, r);
+    // a dark halo under the gold so it reads on grass, water and roofs alike
+    float halo = smoothstep(0.5, 0.4, r) * 0.35;
+    float a = max(max(ring, dot), halo) * vFade * (0.8 + 0.2 * sin(uTime * 2.6));
+    if (a < 0.02) discard;
+    vec3 c = mix(vec3(0.08, 0.07, 0.05), vec3(0.95, 0.72, 0.29), max(ring, dot));
+    gl_FragColor = vec4(postDisplay(min(c, vec3(0.8))), a);
+    #include <colorspace_fragment>
+  }
+`;
 /** buildings are drawn a little larger than a tile's worth, so doors and windows read next to people */
 const BUILD_SCALE: Record<string, number> = { home: 1.2, cabin: 1.2, granary: 1.15, hall: 1.1, chapel: 1.15, mill: 1.1, market: 1.1, belltower: 1.1 };
 const cOrange = new THREE.Color(0xffa040);
@@ -66,6 +105,15 @@ export class LandmarksLayer implements Layer {
   private ringHover: THREE.Mesh;
   private selected: string | null = null;
   private hovered: string | null = null;
+  /** the places where the active story's proof can be staged, marked from afar */
+  private sites: THREE.Points;
+  private sitePos = new Float32Array(MAX_SITES * 3);
+  private siteSize = new Float32Array(MAX_SITES);
+  private siteIds: string[] = [];
+  private activeClaim: string | null = null;
+  /** the coach is pointing at someone: one thing at a time, so the proof sites wait */
+  private quiet = false;
+  private snap: SceneSnapshot | null = null;
 
   constructor(ctx: WorldContext) {
     this.lib = ctx.materials;
@@ -90,6 +138,14 @@ export class LandmarksLayer implements Layer {
       this.lights.push(l);
       this.group.add(l);
     }
+    const sg = new THREE.BufferGeometry();
+    sg.setAttribute('position', new THREE.BufferAttribute(this.sitePos, 3).setUsage(THREE.DynamicDrawUsage));
+    sg.setAttribute('aSize', new THREE.BufferAttribute(this.siteSize, 1).setUsage(THREE.DynamicDrawUsage));
+    this.sites = new THREE.Points(sg, new THREE.ShaderMaterial({ vertexShader: SITE_VERT, fragmentShader: SITE_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale, uTime: { value: 0 }, ...displayUniforms } }));
+    this.sites.frustumCulled = false;
+    this.sites.renderOrder = 9;
+    this.sites.name = 'proof-sites';
+    this.group.add(this.sites);
   }
 
   get materials(): MaterialLib {
@@ -402,6 +458,43 @@ export class LandmarksLayer implements Layer {
     this.proxyList = [...this.views.values()].map((v) => v.proxy);
     this.rebatch();
     this.placeRing(this.ringSel, this.selected);
+    this.snap = snap;
+    this.placeSites();
+  }
+
+  /** mark the places where the active story's proof can be staged tonight (a beacon burning well, a bell already set to ring, are not) */
+  private placeSites(): void {
+    const ids = this.activeClaim && this.snap && !this.quiet ? this.snap.claimSites[this.activeClaim] ?? [] : [];
+    let n = 0;
+    this.siteIds = [];
+    const box = new THREE.Box3();
+    for (const id of ids) {
+      if (n >= MAX_SITES) break;
+      const l = this.snap!.landmarks.find((x) => x.id === id);
+      const v = this.views.get(id);
+      if (!l || !v || l.hp <= 0 || (l.lit && l.fuelNights >= 3) || (l.data.ringing ?? 0) > 0) continue;
+      box.setFromObject(v.proxy);
+      this.sitePos[n * 3] = (box.min.x + box.max.x) / 2;
+      this.sitePos[n * 3 + 1] = box.max.y + 0.3;
+      this.sitePos[n * 3 + 2] = (box.min.z + box.max.z) / 2;
+      this.siteSize[n] = 0.5;
+      this.siteIds.push(id);
+      n++;
+    }
+    for (let i = n; i < MAX_SITES; i++) this.siteSize[i] = 0;
+    const g = this.sites.geometry;
+    (g.getAttribute('position') as THREE.BufferAttribute).needsUpdate = true;
+    (g.getAttribute('aSize') as THREE.BufferAttribute).needsUpdate = true;
+  }
+
+  /** how many places carry the proof marker (a hook for tests) */
+  siteCount(): number {
+    return this.siteIds.length;
+  }
+
+  /** where each marker floats: a tap on the marker means its place, even where a cottage stands in front of it */
+  siteSpots(): { id: string; at: THREE.Vector3 }[] {
+    return this.siteIds.map((id, i) => ({ id, at: new THREE.Vector3(this.sitePos[i * 3], this.sitePos[i * 3 + 1], this.sitePos[i * 3 + 2]) }));
   }
 
   private addView(l: SceneLandmark, snap: SceneSnapshot, ctx: WorldContext): void {
@@ -432,10 +525,16 @@ export class LandmarksLayer implements Layer {
     }
   }
 
-  /** the selected place gets a white ring on the ground, and the one under the pointer a gold one */
-  setOptions(o: { selection: { kind: string; id: string } | null }): void {
+  /** the selected place gets a white ring on the ground, and the one under the pointer a gold one; the active story marks its proof sites */
+  setOptions(o: { selection: { kind: string; id: string } | null; activeClaim?: string | null; hints?: string[] }): void {
     this.selected = o.selection?.kind === 'landmark' ? o.selection.id : null;
     this.placeRing(this.ringSel, this.selected);
+    const quiet = (o.hints?.length ?? 0) > 0;
+    if ((o.activeClaim ?? null) !== this.activeClaim || quiet !== this.quiet) {
+      this.activeClaim = o.activeClaim ?? null;
+      this.quiet = quiet;
+      this.placeSites();
+    }
   }
 
   setHover(h: { kind: string; id: string } | null): void {
@@ -496,6 +595,7 @@ export class LandmarksLayer implements Layer {
 
   tick(dt: number, time: number, ctx: WorldContext): void {
     const reduced = ctx.reducedMotion;
+    (this.sites.material as THREE.ShaderMaterial).uniforms.uTime.value = reduced ? 0 : time;
     this.emitAcc += dt;
     let lit = 0;
     for (const v of this.views.values()) {
@@ -587,7 +687,7 @@ export class LandmarksLayer implements Layer {
   }
 
   dispose(): void {
-    for (const m of [this.ringSel, this.ringHover]) {
+    for (const m of [this.ringSel, this.ringHover, this.sites]) {
       m.geometry.dispose();
       (m.material as THREE.Material).dispose();
     }

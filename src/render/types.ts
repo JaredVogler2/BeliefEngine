@@ -39,6 +39,8 @@ export interface WorldRenderer {
   stats(): { fps: number; effects: number; zoom: number };
   /** the end-of-run tour: a slow drift round the village (the 3D world only) */
   setAmbient?(on: boolean): void;
+  /** stop drawing and hold the last frame (the menus' backdrop, behind a page of text); false starts it again (the 3D world only) */
+  setFrozen?(on: boolean): void;
   /** debug and screenshot hooks (the 3D world only) */
   advance?(seconds: number): void;
   renderNow?(): void;

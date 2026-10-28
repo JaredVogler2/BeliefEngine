@@ -52,7 +52,8 @@ export function aftermathFocus(s: RunState, win = false): Focus {
 /** the last few things that mattered, in the engine's own words, each with its event id */
 export function aftermathCaptions(s: RunState): GameEvent[] {
   const last = s.day;
-  const recent = s.log.filter((e) => e.importance >= 2 && e.day >= last - 1);
+  // the run's own ending is not one of them: the headline under the picture says how it ended (and the engine's line for it repeats itself)
+  const recent = s.log.filter((e) => e.importance >= 2 && e.day >= last - 1 && e.code !== 'VICTORY' && e.code !== 'DEFEAT');
   return recent.slice(-3);
 }
 

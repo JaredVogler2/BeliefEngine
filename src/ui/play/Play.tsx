@@ -21,7 +21,7 @@ function ConfirmEnd() {
       <ul className="small">
         <li>Unspent Influence: <b>{unspent}</b> (you will have {Math.min(state.apMax, unspent + state.apPerDay)} tomorrow; the cap is {state.apMax}).</li>
         <li>Tonight: {f.tonight.label}, level {f.tonight.level}, {f.tonight.trend}.</li>
-        {f.homesAtRisk.length > 0 && <li>{f.homesAtRisk.length} home(s) in the water’s reach.</li>}
+        {f.homesAtRisk.length > 0 && <li>{f.homesAtRisk.length} {f.homesAtRisk.length === 1 ? 'home' : 'homes'} in the water’s reach.</li>}
         {f.peopleAtRisk.length > 0 && <li style={{ color: '#ffb3bf' }}>{f.peopleAtRisk.map((p) => firstName(p.name)).join(', ')} may be lost.</li>}
         {f.trapped.length > 0 && <li style={{ color: '#ffb3bf' }}>{f.trapped.map((p) => firstName(p)).join(', ')} cannot reach safety.</li>}
       </ul>
@@ -37,6 +37,11 @@ function Digest() {
   const ui = useStore((s) => s.ui);
   const state = useStore((s) => s.state)!;
   const d = ui.digest;
+  const go = useRef<HTMLButtonElement>(null);
+  // the way on gets the keyboard focus, without scrolling the report: it is read from its headline down (the button row stays pinned)
+  useEffect(() => {
+    go.current?.focus({ preventScroll: true });
+  }, [d?.day]);
   if (!d) return null;
   const report = nightReport(state, d.events, d.summary);
   const over = !!state.outcome;
@@ -53,9 +58,9 @@ function Digest() {
         ))}
         {report.story.length === 0 && report.lines.length === 0 && <li data-ic="·">Nothing remarkable happened.</li>}
       </ul>
-      <div className="row spread" style={{ marginTop: '0.7rem' }}>
+      <div className="row spread d-actions">
         <button className="btn small" onClick={() => store.set({ tab: 'log', sheetOpen: true })}>All events</button>
-        <button className="btn primary" onClick={() => store.closeDigest()} data-testid="digest-continue" autoFocus>
+        <button className="btn primary" onClick={() => store.closeDigest()} data-testid="digest-continue" ref={go}>
           {over ? 'See what happened' : `On to day ${state.day}`}
         </button>
       </div>

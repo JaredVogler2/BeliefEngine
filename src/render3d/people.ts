@@ -507,8 +507,10 @@ const MARK_VERT = /* glsl */ `
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
     float d = -mv.z;
-    gl_PointSize = clamp(aSize * uScale / d, 6.0, 20.0) * step(0.001, aSize);
-    vFade = smoothstep(8.0, 17.0, d);
+    // a call-out (the person the coach asks the player to tap) is drawn larger, and close up as well as from afar
+    float callout = step(0.7, aSize);
+    gl_PointSize = clamp(aSize * uScale / d, 6.0, 20.0 + 14.0 * callout) * step(0.001, aSize);
+    vFade = max(smoothstep(8.0, 17.0, d), callout);
     vColor = aColor;
   }
 `;
@@ -545,6 +547,8 @@ export class PeopleLayer implements Layer {
   private activeClaim: string | null = null;
   private known = new Set<string>();
   private hints = new Set<string>();
+  /** the first of the hinted people: the one the coach names, who gets the call-out above the head */
+  private named: string | null = null;
   private time = 0;
   private graves = new THREE.Group();
   private celebrating = false;
@@ -602,6 +606,7 @@ export class PeopleLayer implements Layer {
     this.activeClaim = o.activeClaim;
     this.known = o.known;
     this.hints = new Set(o.hints);
+    this.named = o.hints[0] ?? null;
   }
 
   setHover(h: { kind: string; id: string } | null): void {
@@ -1094,20 +1099,23 @@ export class PeopleLayer implements Layer {
     (g.getAttribute('aIdx') as THREE.BufferAttribute).needsUpdate = true;
   }
 
-  private updateMarks(): void {
+  private updateMarks(time: number): void {
     let i = 0;
     const tmp = new THREE.Color();
     for (const wk of this.walkers.values()) {
       if (i >= MARKS) break;
       const show = !wk.dead && wk.rig.root.visible;
+      // the person the coach names gets a gold call-out that bobs above the head, so they can be found from the overview
+      const hint = show && this.named === wk.v.id && !(this.selection?.kind === 'villager' && this.selection.id === wk.v.id);
+      const bob = hint && !this.ctx.reducedMotion ? 0.06 * Math.sin(time * 4) : 0;
       this.markPos[i * 3] = wk.pos.x;
-      this.markPos[i * 3 + 1] = this.walkY(wk.pos.x, wk.pos.z) + 0.62 * this.legible;
+      this.markPos[i * 3 + 1] = this.walkY(wk.pos.x, wk.pos.z) + (0.62 + (hint ? 0.14 : 0)) * this.legible + bob;
       this.markPos[i * 3 + 2] = wk.pos.z;
-      tmp.set(wk.v.factionColor);
+      tmp.set(hint ? 0xf2b84b : wk.v.factionColor);
       this.markCol[i * 3] = tmp.r;
       this.markCol[i * 3 + 1] = tmp.g;
       this.markCol[i * 3 + 2] = tmp.b;
-      this.markSize[i] = show ? (this.selection?.kind === 'villager' && this.selection.id === wk.v.id ? 0.62 : 0.4) : 0;
+      this.markSize[i] = !show ? 0 : hint ? 1.1 : this.selection?.kind === 'villager' && this.selection.id === wk.v.id ? 0.62 : 0.4;
       i++;
     }
     for (; i < MARKS; i++) this.markSize[i] = 0;
@@ -1118,7 +1126,7 @@ export class PeopleLayer implements Layer {
   }
 
   private updateRings(time: number): void {
-    this.updateMarks();
+    this.updateMarks(time);
     this.updateRoute(time);
     const sel = this.selection?.kind === 'villager' ? this.walkers.get(this.selection.id) : null;
     this.ring.visible = !!sel && !sel.dead;
@@ -1152,8 +1160,8 @@ export class PeopleLayer implements Layer {
       const mm = m.material as THREE.MeshBasicMaterial;
       if (hint) {
         mm.color.set(0xf2b84b);
-        const p = 1 + Math.sin(time * 5) * 0.12;
-        m.scale.set(p * 1.2, p * 1.2, p * 1.2);
+        const p = (1 + Math.sin(time * 5) * 0.12) * 1.2 * this.legible;
+        m.scale.set(p, p, p);
         mm.opacity = 0.95;
       } else if (conv !== undefined) {
         m.scale.set(1, 1, 1);

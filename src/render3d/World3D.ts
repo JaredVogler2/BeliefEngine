@@ -13,6 +13,7 @@ import { CloudSea } from './clouds.ts';
 import { Water } from './water.ts';
 import { MaterialLib } from './materials.ts';
 import { createLayers } from './layers.ts';
+import { LandmarksLayer } from './landmarks.ts';
 import { EffectsLayer } from './effects.ts';
 import { MagicField, attachMagicToStandard } from './magic.ts';
 import { PostChain, displayUniforms, preCompensate, type PostLook, type PostProfile } from './post.ts';
@@ -685,6 +686,16 @@ export class World3D implements WorldRenderer {
     const objs: THREE.Object3D[] = [];
     for (const l of this.layers) objs.push(...(l.pickables?.() ?? []));
     if (!objs.length) return null;
+    const coarse = this.W < 700 || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches);
+    // the gold marker over a place where the chosen story's proof can be staged means that place (it floats above the roofs, so a
+    // cottage in front of a beacon does not hide it); close up the marker has faded out and the place itself is the target
+    const lm = this.layers.find((l) => l instanceof LandmarksLayer) as LandmarksLayer | undefined;
+    for (const m of lm?.siteSpots() ?? []) {
+      if (m.at.distanceTo(this.cam.camera.position) < 10) continue;
+      const v = m.at.project(this.cam.camera);
+      if (v.z > 1) continue;
+      if (Math.hypot(((v.x + 1) / 2) * this.W - sx, ((1 - v.y) / 2) * this.H - sy) < (coarse ? 16 : 10)) return { kind: 'landmark', id: m.id };
+    }
     this.ray.setFromCamera(new THREE.Vector2((sx / this.W) * 2 - 1, -((sy / this.H) * 2 - 1)), this.cam.camera);
     const hits = this.ray.intersectObjects(objs, false);
     // people win over the buildings they stand beside; among people, the one whose body is nearest the tap (not the one whose invisible
@@ -703,7 +714,7 @@ export class World3D implements WorldRenderer {
     if (person) return { kind: 'villager', id: person.id };
     if (landmark) return landmark;
     // a miss that lands close to a small figure still means that figure (fingers are wider than avatars)
-    const reach = this.W < 700 || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) ? 28 : 14;
+    const reach = coarse ? 28 : 14;
     let near: { id: string; d: number } | null = null;
     for (const o of objs) {
       const e = o.userData.entity as { kind: 'villager' | 'landmark'; id: string } | undefined;

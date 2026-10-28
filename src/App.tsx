@@ -1,7 +1,7 @@
 import { Component, useEffect, type ErrorInfo, type ReactNode } from 'react';
 import { configureAudio } from './audio/audio.ts';
 import { Atlas } from './ui/atlas.tsx';
-import { Briefing, Credits, Debrief, HowTo, Scenarios, SettingsScreen, Title } from './ui/screens.tsx';
+import { Briefing, Credits, Debrief, HowTo, MenuBackdrop, Scenarios, SettingsScreen, Title } from './ui/screens.tsx';
 import { Play } from './ui/play/Play.tsx';
 import { GameSession, deserializeRun, eventHash, parseShare, stateHash } from './engine/index.ts';
 import { optionsFromDescriptor } from './ui/modes.ts';
@@ -50,6 +50,9 @@ function parseDeepLink(): void {
   store.set({ notes: parsed.notes });
 }
 
+/** the screens that share the living village as their backdrop (it is built once and kept while the player moves between them) */
+const MENUS = new Set(['title', 'scenarios', 'briefing', 'howto', 'settings', 'credits', 'atlas']);
+
 /** The whole shell sits inside a boundary too: an error outside the screen switch must not leave a blank page. */
 export function App() {
   return (
@@ -97,5 +100,10 @@ function Shell() {
     case 'play': screen = <Play />; break;
     default: screen = <Title />;
   }
-  return <Boundary>{screen}</Boundary>;
+  return (
+    <Boundary>
+      {MENUS.has(ui.screen) && <MenuBackdrop screen={ui.screen} />}
+      {screen}
+    </Boundary>
+  );
 }
