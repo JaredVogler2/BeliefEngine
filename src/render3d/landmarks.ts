@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { DEFAULT_AZIMUTH } from './camera.ts';
-import { buildCabin, buildChapel, buildGranary, buildHall, buildHome, buildRuin, type Built } from './buildings.ts';
+import { buildCabin, buildChapel, buildGranary, buildHall, buildHome, buildRuin, buildStandIn, type Built } from './buildings.ts';
 import { buildBeacon, buildBellTower, buildBridge, bridgeSpecOf, deckHeight, buildCampfire, buildMarket, buildMill, buildPen, buildShelter, buildWell } from './civic.ts';
 import type { Layer, WorldContext } from './context.ts';
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { mergeByMaterial, type Part } from './geom.ts';
 import type { MaterialLib } from './materials.ts';
-import { Particles, viewScale } from './particles.ts';
+import { Particles, pixelRatio, viewScale } from './particles.ts';
 import { DISPLAY_GLSL, displayUniforms } from './post.ts';
 import { seedFrom } from './rand.ts';
 import type { SceneChanges, SceneLandmark, SceneSnapshot } from './snapshot.ts';
@@ -51,12 +51,13 @@ const MAX_SITES = 12;
 const SITE_VERT = /* glsl */ `
   attribute float aSize;
   uniform float uScale;
+  uniform float uDpr;
   varying float vFade;
   void main() {
     vec4 mv = modelViewMatrix * vec4(position, 1.0);
     gl_Position = projectionMatrix * mv;
     float d = -mv.z;
-    gl_PointSize = clamp(aSize * uScale / d, 12.0, 24.0) * step(0.001, aSize);
+    gl_PointSize = clamp(aSize * uScale / d, 12.0, 24.0) * step(0.001, aSize) * uDpr;
     vFade = smoothstep(7.0, 13.0, d);
   }
 `;
@@ -114,6 +115,8 @@ export class LandmarksLayer implements Layer {
   /** the coach is pointing at someone: one thing at a time, so the proof sites wait */
   private quiet = false;
   private snap: SceneSnapshot | null = null;
+  /** the places drawn with the plain stand-in because their own generator failed (none, unless something is broken) */
+  private fallbacks = new Set<string>();
 
   constructor(ctx: WorldContext) {
     this.lib = ctx.materials;
@@ -141,7 +144,7 @@ export class LandmarksLayer implements Layer {
     const sg = new THREE.BufferGeometry();
     sg.setAttribute('position', new THREE.BufferAttribute(this.sitePos, 3).setUsage(THREE.DynamicDrawUsage));
     sg.setAttribute('aSize', new THREE.BufferAttribute(this.siteSize, 1).setUsage(THREE.DynamicDrawUsage));
-    this.sites = new THREE.Points(sg, new THREE.ShaderMaterial({ vertexShader: SITE_VERT, fragmentShader: SITE_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale, uTime: { value: 0 }, ...displayUniforms } }));
+    this.sites = new THREE.Points(sg, new THREE.ShaderMaterial({ vertexShader: SITE_VERT, fragmentShader: SITE_FRAG, transparent: true, depthWrite: false, depthTest: false, uniforms: { uScale: viewScale, uDpr: pixelRatio, uTime: { value: 0 }, ...displayUniforms } }));
     this.sites.frustumCulled = false;
     this.sites.renderOrder = 9;
     this.sites.name = 'proof-sites';
@@ -254,7 +257,16 @@ export class LandmarksLayer implements Layer {
       id: l.id, kind: l.kind, root, meshes: [], statics: [], extras: new Map(), smokeAt: [], proxy: new THREE.Mesh(), lit: false, hp: l.hp, built: true, swing: 0, occupied: true, wheelSpeed: 0,
     };
     if (l.kind === 'bridge') return this.buildBridgeView(l, snap, ctx, view);
-    const built = this.builderFor(l, ctx);
+    let built: Built | null;
+    try {
+      built = this.builderFor(l, ctx);
+      this.fallbacks.delete(l.id);
+    } catch (e) {
+      // one generator failing must not blank the village: this place alone gets a plain stand-in, and the failure is reported
+      console.warn(`3D: the ${l.kind} "${l.name}" could not be built, so a plain stand-in is drawn in its place.`, e);
+      built = buildStandIn();
+      this.fallbacks.add(l.id);
+    }
     if (!built) return null;
     const cx = l.x + 0.5;
     const cz = l.y + 0.5;
@@ -428,6 +440,7 @@ export class LandmarksLayer implements Layer {
     if (changes.rebuild) {
       for (const v of this.views.values()) this.dispose1(v);
       this.views.clear();
+      this.fallbacks.clear();
       for (const l of snap.landmarks) this.addView(l, snap, ctx);
     } else {
       for (const id of changes.landmarks) {
@@ -438,6 +451,7 @@ export class LandmarksLayer implements Layer {
             this.dispose1(old);
             this.views.delete(id);
           }
+          this.fallbacks.delete(id);
           continue;
         }
         // a building that fell or changed kind is rebuilt; anything else only changes how it is lit
@@ -495,6 +509,11 @@ export class LandmarksLayer implements Layer {
   /** where each marker floats: a tap on the marker means its place, even where a cottage stands in front of it */
   siteSpots(): { id: string; at: THREE.Vector3 }[] {
     return this.siteIds.map((id, i) => ({ id, at: new THREE.Vector3(this.sitePos[i * 3], this.sitePos[i * 3 + 1], this.sitePos[i * 3 + 2]) }));
+  }
+
+  /** the places standing in as a plain stand-in because their generator failed (empty unless something is broken) */
+  standIns(): string[] {
+    return [...this.fallbacks];
   }
 
   private addView(l: SceneLandmark, snap: SceneSnapshot, ctx: WorldContext): void {
@@ -695,6 +714,7 @@ export class LandmarksLayer implements Layer {
     this.batches = [];
     for (const v of this.views.values()) this.dispose1(v);
     this.views.clear();
+    this.fallbacks.clear();
     this.smoke.dispose();
     this.fire.dispose();
     for (const l of this.lights) l.dispose();

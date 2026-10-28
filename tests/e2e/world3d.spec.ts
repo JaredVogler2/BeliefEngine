@@ -58,8 +58,8 @@ async function drive(page: Page, actions: { type: string }[]): Promise<void> {
   }
 }
 
-function played(days: number, policy: string, seed = 1): string {
-  const g = GameSession.create({ scenarioId: 'redbank', seed });
+function played(days: number, policy: string, seed = 1, scenarioId = 'redbank'): string {
+  const g = GameSession.create({ scenarioId, seed });
   const p = policyById(policy);
   for (let i = 0; i < days && !g.state.outcome; i++) p.playDay(g);
   return serializeRun(g.state);
@@ -252,8 +252,8 @@ test.describe('the 3D world', () => {
     await chooseClaim(page, 'river_fears_fire');
     const touch = info.project.name.startsWith('phone');
     const selected = (): Promise<string> => page.evaluate(() => (window as unknown as { __belief: { store: { ui: { selection: { id: string } | null } } } }).__belief.store.ui.selection?.id ?? '');
-    /** where each marker floats on the page, measured on a settled frame */
-    const marks = async (): Promise<{ id: string; x: number; y: number }[]> => {
+    /** where each marker floats on the page now */
+    const measure = async (): Promise<{ id: string; x: number; y: number }[]> => {
       await page.evaluate(() => (window as unknown as { __beRenderer: { advance: (s: number) => void } }).__beRenderer.advance(2));
       return page.evaluate(() => {
         type Spot = { id: string; at: { project: (c: unknown) => { x: number; y: number } } };
@@ -265,6 +265,21 @@ test.describe('the 3D world', () => {
           return { id: m.id, x: b.left + ((v.x + 1) / 2) * r.W, y: b.top + ((1 - v.y) / 2) * r.H };
         });
       });
+    };
+    /**
+     * where each marker floats once the view has settled: on a phone, closing a card re-frames the camera, and the layout that moves it
+     * can land after a reading (seen in CI: a marker measured mid-move, and the tap fell on the shelter in front of the beacon). So
+     * readings are taken until two of them, a little apart, agree
+     */
+    const marks = async (): Promise<{ id: string; x: number; y: number }[]> => {
+      let last = await measure();
+      for (let i = 0; i < 20; i++) {
+        await page.waitForTimeout(300);
+        const now = await measure();
+        if (now.length === last.length && now.every((m, j) => m.id === last[j].id && Math.hypot(m.x - last[j].x, m.y - last[j].y) < 1)) return now;
+        last = now;
+      }
+      return last;
     };
     expect((await marks()).map((m) => m.id).sort()).toEqual(['b_c', 'b_e', 'b_n', 'b_s']);
     for (const id of ['b_n', 'b_c', 'b_e', 'b_s']) {
@@ -387,20 +402,79 @@ test.describe('the 3D world', () => {
     expect(laws.map((l) => [l.law, l.status]).sort()).toEqual(stateLaws.sort());
   });
 
-  test('restarting and loading other villages does not leak geometry or textures', async ({ page }) => {
+  test('ten new villages in a row leave nothing behind: geometry, textures and shader programs come back to the same count, and the heap does not climb', async ({ page }) => {
     await page.goto(URL3D);
     await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
-    await loadRun(page, played(2, 'evidence-first', 1));
-    await page.waitForTimeout(1500);
-    const base = await renderer(page, (r) => r.info());
-    for (const seed of [2, 3, 4, 5]) {
-      await loadRun(page, played(2, 'evidence-first', seed));
-      await page.waitForTimeout(800);
+    const cdp = await page.context().newCDPSession(page);
+    // three villages in turn, ten loads: each load builds the world again and must free the one before
+    const villages = [played(1, 'evidence-first', 2), played(1, 'evidence-first', 1, 'ashwood'), played(1, 'evidence-first', 1, 'harvest')];
+    const rows: { geometries: number; textures: number; programs: number; heapMb: number }[] = [];
+    for (let i = 0; i < 10; i++) {
+      // (before the first load there is no world on the page yet: the title's village is a world of its own)
+      const before = await renderer(page, (r) => (r && typeof r.info === 'function' ? (r.info() as unknown as { builds: number }).builds : 0));
+      await page.evaluate((j) => (window as unknown as { __belief: { load: (s: string) => boolean } }).__belief.load(j), villages[i % 3]);
+      await ready(page);
+      await expect.poll(() => renderer(page, (r) => (r.info() as unknown as { builds: number }).builds), { timeout: 60_000 }).toBeGreaterThan(before);
+      // a few frames of the new village (what it makes on its first frames is part of it), then everything unreferenced collected
+      await renderer(page, (r) => r.advance(1));
+      await cdp.send('HeapProfiler.collectGarbage');
+      const heap = (await cdp.send('Runtime.getHeapUsage')) as { usedSize: number };
+      const i0 = (await renderer(page, (r) => r.info())) as unknown as { geometries: number; textures: number; programs: number };
+      rows.push({ geometries: i0.geometries, textures: i0.textures, programs: i0.programs, heapMb: heap.usedSize / 1048576 });
     }
-    const after = await renderer(page, (r) => r.info());
-    // each load rebuilds the world; the old one must be disposed, so the counts stay where they were (within the noise of a different village)
-    expect(after.geometries).toBeLessThan(base.geometries * 1.25);
-    expect(after.textures).toBeLessThan(base.textures + 6);
+    test.info().annotations.push({ type: 'cycles', description: rows.map((r, i) => `${i + 1}: ${r.geometries} geometries, ${r.textures} textures, ${r.programs} programs, ${r.heapMb.toFixed(1)} MB`).join(' | ') });
+    for (let i = 3; i < 10; i++) {
+      // the same village built again holds what it held before: nothing of the villages in between stayed behind. (The very first load
+      // also holds the close-up figures of its people, drawn while the camera came in from close by; later loads open at the overview,
+      // so from the second visit on the counts must match exactly, and no visit may hold more than the first.)
+      const ref = rows[i - 3];
+      expect(rows[i].geometries, `load ${i + 1}: geometries`).toBeLessThanOrEqual(ref.geometries);
+      if (i >= 6) expect(Math.abs(rows[i].geometries - ref.geometries), `load ${i + 1}: geometries`).toBeLessThanOrEqual(Math.ceil(ref.geometries * 0.02));
+      expect(Math.abs(rows[i].textures - ref.textures), `load ${i + 1}: textures`).toBeLessThanOrEqual(1);
+      expect(rows[i].programs, `load ${i + 1}: shader programs`).toBeLessThanOrEqual(ref.programs + 1);
+    }
+    // the heap after loads 8 to 10 is where it was after loads 5 to 7 (each village seen twice by then), not climbing with every load
+    const mean = (a: number[]): number => a.reduce((s, v) => s + v, 0) / a.length;
+    const early = mean(rows.slice(4, 7).map((r) => r.heapMb));
+    const late = mean(rows.slice(7, 10).map((r) => r.heapMb));
+    expect(late, `heap ${early.toFixed(1)} MB after loads 5-7, ${late.toFixed(1)} MB after loads 8-10`).toBeLessThan(early * 1.08 + 1);
+  });
+
+  test('a lost graphics context is survived: when it comes back the world is built again and draws, and the record counts the loss', async ({ page }) => {
+    const errors = watchConsole(page);
+    await page.goto(URL3D);
+    await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
+    await loadRun(page, played(1, 'evidence-first', 1));
+    type Rec = { builds: number; frames: number; programs: number; contextLosses: number };
+    const rec = (): Promise<Rec> => renderer(page, (r) => r.info() as unknown as Rec);
+    const before = await rec();
+    expect(before.contextLosses).toBe(0);
+    // what a driver reset or a GPU short of memory does: the context goes, and the browser gives it back a moment later
+    await page.evaluate(`(() => { window.__lose = window.__beRenderer.renderer.getContext().getExtension('WEBGL_lose_context'); window.__lose.loseContext(); })()`);
+    await expect.poll(async () => (await rec()).contextLosses, { timeout: 30_000 }).toBe(1);
+    await page.waitForTimeout(300);
+    await page.evaluate('window.__lose.restoreContext()');
+    await expect.poll(async () => (await rec()).builds, { timeout: 60_000 }).toBe(before.builds + 1);
+    const back = await rec();
+    await expect.poll(async () => (await rec()).frames, { timeout: 60_000 }).toBeGreaterThan(back.frames);
+    expect((await rec()).programs).toBeGreaterThan(0);
+    await expect(page.locator('.stage[data-renderer="3d"]')).toBeVisible();
+    expect(errors.filter((e) => !/GL Driver Message|GPU stall|CONTEXT_LOST|context lost/i.test(e))).toEqual([]);
+  });
+
+  test('the developer quality monitor shows only when the address asks for it', async ({ page }) => {
+    await page.goto(`${URL3D}&perf=1`);
+    await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
+    await loadRun(page, played(1, 'evidence-first', 1));
+    const monitor = page.getByTestId('perf-monitor');
+    await expect(monitor).toBeVisible({ timeout: 30_000 });
+    for (const word of ['fps', 'calls', 'tris', 'programs', 'first draw', 'hitches', 'video', 'people']) await expect(monitor).toContainText(word);
+    // a player's address has no monitor
+    await page.goto(URL3D);
+    await page.waitForFunction(() => !!(window as unknown as { __belief?: unknown }).__belief);
+    await loadRun(page, played(1, 'evidence-first', 1));
+    await page.waitForTimeout(1500);
+    await expect(monitor).toHaveCount(0);
   });
 
   test('every effect the world starts names an event the engine logged', async ({ page }) => {

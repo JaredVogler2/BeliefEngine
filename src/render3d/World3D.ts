@@ -14,9 +14,12 @@ import { Water } from './water.ts';
 import { MaterialLib } from './materials.ts';
 import { createLayers } from './layers.ts';
 import { LandmarksLayer } from './landmarks.ts';
+import type { PeopleLayer } from './people.ts';
+import { lagOf, pacedGap, qualityStep, typicalOf } from './pacing.ts';
 import { EffectsLayer } from './effects.ts';
 import { MagicField, attachMagicToStandard } from './magic.ts';
 import { PostChain, displayUniforms, preCompensate, type PostLook, type PostProfile } from './post.ts';
+import { pixelRatio } from './particles.ts';
 import { makeEnvironment } from './env.ts';
 
 const DEFAULT_OPTS: RenderOpts = {
@@ -38,14 +41,17 @@ function floatBuffersLikely(): boolean {
 
 /** which quality tier to start in: an explicit ?quality=, else the setting, with software-rendered and phone-sized windows stepped down */
 export function chooseQuality(setting: 'high' | 'low', w: number): Quality {
+  let asked: string | null = null;
   try {
-    const q = new URLSearchParams(window.location.search).get('quality');
-    if (q === 'high' || q === 'medium' || q === 'low') return q;
+    asked = new URLSearchParams(window.location.search).get('quality');
+    if (asked === 'high' || asked === 'medium' || asked === 'low') return asked;
   } catch {
     /* no window.location in some test environments */
   }
   if (setting === 'low') return 'low';
-  if (typeof navigator !== 'undefined' && navigator.webdriver) return 'low';
+  // an automated browser (a test suite) starts on the low tier to keep its runs quick, unless the address asks for the choice a player's
+  // browser would get (?quality=auto: how the real-hardware measurements see what a player sees)
+  if (asked !== 'auto' && typeof navigator !== 'undefined' && navigator.webdriver) return 'low';
   if (w < 700 || (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches)) return 'medium';
   return 'high';
 }
@@ -70,6 +76,8 @@ export class World3D implements WorldRenderer {
   /** the sky's light as an environment map (ambient light and soft reflections) */
   private envRT: THREE.WebGLRenderTarget | null = null;
   private W = 300;
+  /** resize() has set the canvas's size at least once */
+  private sized = false;
   private H = 200;
   private dpr = 1;
   private opts: RenderOpts = { ...DEFAULT_OPTS };
@@ -93,12 +101,16 @@ export class World3D implements WorldRenderer {
   private last = 0;
   private time = 0;
   private lastDraw = 0;
+  /** the frame cap in force: the tier's cap while the view moves, its resting cap while it is still */
+  private capFps = 60;
   private frames = 0;
   private fpsT = performance.now();
   fps = 60;
   private hover: HitResult | null = null;
   private ray = new THREE.Raycaster();
   private contextLost = false;
+  /** how many times the GPU took the graphics context away (each one rebuilds the world when it comes back) */
+  private contextLosses = 0;
   /** how long drawing a frame takes on this machine (smoothed, ms): the frame pacing and the quality monitor both read it */
   private drawMs = 0;
   /** render resolution as a fraction of the canvas, stepped down when even the lowest tier is too slow */
@@ -110,6 +122,20 @@ export class World3D implements WorldRenderer {
   private monT = 0;
   /** how long the last world build took on the main thread (ms) */
   buildMs = 0;
+  /** how many times a village has been built in this world (a new run, another village, a load) */
+  private builds = 0;
+  /**
+   * Draw times since the village was built: the first frame (which compiles the shaders it meets), the worst frame after it, and the
+   * hitches, frames after the first that took over 50 ms and four times the median of the draws before them (a shader compiled mid-play
+   * shows as one)
+   */
+  private stalls = { first: -1, worst: 0, hitches: 0 };
+  private recent: number[] = [];
+  private recentAt = 0;
+  /** the time between the last 120 frames of the live loop (ms), for the median and the 95th percentile */
+  private gaps: number[] = [];
+  private gapAt = 0;
+  private lastFrameAt = 0;
   /** drawn frames, for tests and the quality monitor */
   frameCount = 0;
   lastError: string | null = null;
@@ -143,7 +169,9 @@ export class World3D implements WorldRenderer {
     // a frame is several drawing passes: count them all, reset once per frame in draw()
     this.renderer.info.autoReset = false;
     try {
-      this.pinned = !!new URLSearchParams(window.location.search).get('quality');
+      // a tier named in the address is kept; ?quality=auto chooses as for a player and leaves the monitor free
+      const asked = new URLSearchParams(window.location.search).get('quality');
+      this.pinned = asked === 'high' || asked === 'medium' || asked === 'low';
     } catch {
       this.pinned = false;
     }
@@ -192,6 +220,7 @@ export class World3D implements WorldRenderer {
   private onLost = (e: Event): void => {
     e.preventDefault();
     this.contextLost = true;
+    this.contextLosses++;
     this.lastError = 'The graphics context was lost.';
   };
   private onRestored = (): void => {
@@ -214,10 +243,17 @@ export class World3D implements WorldRenderer {
     const loop = (now: number): void => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(loop);
-      if (document.hidden || this.contextLost || this.frozen) return;
-      // never spend more than about 40% of the main thread on drawing, whatever the machine: a slow frame earns a longer rest
-      // (a software rasteriser is capped at a few frames a second: it can only ever be a fallback, and the page must stay responsive)
-      const minGap = Math.max(1000 / (this.software ? 3 : this.profile.maxFps) - 2, this.drawMs * 2.5);
+      if (document.hidden || this.contextLost || this.frozen) {
+        // (the time away is not a frame interval)
+        this.lastFrameAt = 0;
+        return;
+      }
+      // never spend more than about 40% of the main thread on drawing, whatever the machine: a slow machine's frames earn a longer rest
+      // (a software rasteriser is capped at a few frames a second: it can only ever be a fallback, and the page must stay responsive).
+      // Paced by the typical draw, not an average: one slow frame (the first, compiling shaders) must not hold up the next ones
+      // the tier's cap while the view moves, its resting cap while it is still (the camera's motion is from the last frame drawn)
+      this.capFps = this.cam.isMoving ? this.profile.maxFps : this.profile.idleFps;
+      const minGap = pacedGap(this.capFps, this.software, this.typicalDraw());
       if (now - this.lastDraw < minGap) return;
       const dt = Math.min(0.1, (now - this.last) / 1000);
       this.last = now;
@@ -244,9 +280,14 @@ export class World3D implements WorldRenderer {
   }
 
   resize(w: number, h: number, dpr: number): void {
+    const d = Math.min(dpr, this.profile.dpr);
+    // the same size again (a resize observer's first report) changes nothing: setting a canvas's size, even to the one it has, clears
+    // and reallocates its drawing buffer, and the frame drawn after it pays for that
+    if (this.sized && Math.max(1, w) === this.W && Math.max(1, h) === this.H && d === this.dpr) return;
+    this.sized = true;
     this.W = Math.max(1, w);
     this.H = Math.max(1, h);
-    this.dpr = Math.min(dpr, this.profile.dpr);
+    this.dpr = d;
     this.renderer.setPixelRatio(this.dpr * this.scale);
     this.renderer.setSize(this.W, this.H, false);
     this.syncPostSize();
@@ -387,6 +428,8 @@ export class World3D implements WorldRenderer {
       weather: { wind: 1, rain: 0 },
       bridgeLift: 0,
       viewDistance: this.cam.distance,
+      viewFrom: this.cam.camera.position.clone(),
+      viewPx: this.pxPerUnit(),
       magic: this.magic,
       locate: (kind, id) => this.locate(kind, id),
       visitSpot: (id) => {
@@ -416,7 +459,24 @@ export class World3D implements WorldRenderer {
     this.syncForecastOverlay();
     for (const l of this.layers) l.update(snap, getSceneChanges(null, snap), ctx);
     for (const l of this.layers) (l as Layer & { setOptions?: (o: RenderOpts) => void }).setOptions?.(this.opts);
+    this.warm();
     this.buildMs = performance.now() - t0;
+    this.builds++;
+    this.stalls = { first: -1, worst: 0, hitches: 0 };
+    this.resetSamples();
+  }
+
+  /**
+   * Compile the shaders of everything the village holds while it is built, the hidden effect pools included (the ribbons, glyphs and
+   * rings a night brings): a shader met for the first time mid-play is compiled on the spot and stalls that frame.
+   */
+  private warm(): void {
+    try {
+      if (this.post && this.postActive()) this.post.compile(this.scene, this.cam.camera);
+      else this.renderer.compile(this.scene, this.cam.camera);
+    } catch {
+      // a failed warm-up only means each shader is compiled when it is first drawn, as it would be without one
+    }
   }
 
   /** tonight's predicted flood drawn on the ground and the water, while the player is planning and has the overlay on */
@@ -522,12 +582,21 @@ export class World3D implements WorldRenderer {
 
   // ------------------------------------------------------------------------------------------------------ frame
 
+  /** CSS pixels covered by one unit, one unit in front of the camera (a thing's height on screen is its height times this, over its distance) */
+  private pxPerUnit(): number {
+    return this.H / (2 * Math.tan((this.cam.camera.fov * Math.PI) / 360));
+  }
+
   /** everything a frame does except drawing it: the camera, the weather, the water, every layer's animation */
   private simulate(dt: number): void {
     this.time += dt;
     (this.sky.material as THREE.ShaderMaterial).uniforms.uTime.value = this.time;
     this.cam.update(dt);
-    if (this.ctx) this.ctx.viewDistance = this.cam.distance;
+    if (this.ctx) {
+      this.ctx.viewDistance = this.cam.distance;
+      this.ctx.viewFrom?.copy(this.cam.camera.position);
+      this.ctx.viewPx = this.pxPerUnit();
+    }
     if (this.atmo.update(dt)) this.applyMood();
     this.rain?.update(this.time, this.reduced() ? 0 : this.atmo.current.rain, this.atmo.current.wind);
     this.clouds?.tick(this.reduced() ? 0 : this.time);
@@ -541,6 +610,8 @@ export class World3D implements WorldRenderer {
     this.simulate(dt);
     this.draw();
     this.monitor(dt);
+    if (this.lastFrameAt) this.gaps[this.gapAt++ % 120] = now - this.lastFrameAt;
+    this.lastFrameAt = now;
     this.frames++;
     if (now - this.fpsT > 1000) {
       this.fps = (this.frames * 1000) / (now - this.fpsT);
@@ -562,18 +633,38 @@ export class World3D implements WorldRenderer {
     this.draw();
   }
 
-  /** step the quality down when frames are too slow for this machine, and back up (resolution only) when there is room */
+  /**
+   * Step the quality down when this machine is too slow for it, and back up (resolution only) when there is room. Judged from the frames
+   * since the village was built or the setting last changed (`pacing.ts`): the typical draw on the main thread, and how late frames come
+   * round, which is where a busy GPU shows.
+   */
   private monitor(dt: number): void {
     this.monT += dt;
-    if (this.monT < 1.5 || this.pinned || this.drawMs === 0) return;
+    if (this.monT < 1.5 || this.pinned) return;
+    const draw = this.typicalDraw();
+    const lag = lagOf(typicalOf(this.gaps, 20), pacedGap(this.capFps, this.software, draw));
+    // too few frames at this setting to judge this machine yet
+    if (draw === 0 || lag === 0) return;
     this.monT = 0;
-    if (this.drawMs > 28) {
-      if (this.quality === 'high') this.setQuality('medium');
-      else if (this.quality === 'medium') this.setQuality('low');
-      else if (this.scale > 0.5) this.setScale(Math.max(0.5, this.scale * 0.8));
-    } else if (this.drawMs < 6 && this.scale < 1) {
-      this.setScale(Math.min(1, this.scale * 1.15));
-    }
+    const next = qualityStep(this.quality, this.scale, draw, lag);
+    if (next.quality !== this.quality) this.setQuality(next.quality);
+    else if (next.scale !== this.scale) this.setScale(next.scale);
+    else return;
+    // the new setting is judged on its own frames
+    this.resetSamples();
+  }
+
+  /** the median draw since the village was built or the setting changed (0 until there are five) */
+  private typicalDraw(): number {
+    return typicalOf(this.recent, 5);
+  }
+
+  private resetSamples(): void {
+    this.recent = [];
+    this.recentAt = 0;
+    this.gaps = [];
+    this.gapAt = 0;
+    this.lastFrameAt = 0;
   }
 
   private setScale(k: number): void {
@@ -592,6 +683,8 @@ export class World3D implements WorldRenderer {
       this.renderer.info.reset();
       displayUniforms.uDisplayComp.value = this.postActive() ? 1 : 0;
       displayUniforms.uPostExposure.value = this.renderer.toneMappingExposure;
+      // point sprites are sized in CSS pixels and drawn in the drawing buffer's (a menu's world and the game's may differ)
+      pixelRatio.value = this.renderer.getPixelRatio();
       if (this.post && !this.postOff) {
         // the ink is for the village and what is near it; it fades out over the far clouds and islands
         const d = this.cam.distance;
@@ -601,6 +694,13 @@ export class World3D implements WorldRenderer {
         this.renderer.render(this.scene, this.cam.camera);
       }
       const ms = performance.now() - t0;
+      if (this.stalls.first < 0) this.stalls.first = ms;
+      else {
+        this.stalls.worst = Math.max(this.stalls.worst, ms);
+        const typical = this.typicalDraw();
+        if (ms > 50 && typical > 0 && ms > typical * 4) this.stalls.hitches++;
+        this.recent[this.recentAt++ % 30] = ms;
+      }
       this.drawMs = this.drawMs === 0 ? ms : this.drawMs * 0.8 + ms * 0.2;
       this.frameCount++;
     } catch (e) {
@@ -816,12 +916,59 @@ export class World3D implements WorldRenderer {
   }
 
   /** draw-call and memory figures for the developer quality monitor and the performance record (calls and triangles: every pass of the last frame) */
-  info(): { calls: number; triangles: number; geometries: number; textures: number; fps: number; tier: Quality; frames: number; scale: number; drawMs: number; software: boolean; buildMs: number; post: PostProfile | null; env: boolean } {
+  info(): {
+    calls: number; triangles: number; geometries: number; textures: number; programs: number; fps: number; tier: Quality; capFps: number; frames: number; scale: number; drawMs: number; software: boolean;
+    buildMs: number; builds: number; firstDrawMs: number; worstDrawMs: number; hitches: number; frameP50Ms: number; frameP95Ms: number; post: PostProfile | null; env: boolean;
+    contextLosses: number;
+  } {
     const i = this.renderer.info;
+    const r1 = (v: number): number => Math.round(v * 10) / 10;
+    const gaps = [...this.gaps].sort((a, b) => a - b);
+    const pct = (q: number): number => (gaps.length ? r1(gaps[Math.min(gaps.length - 1, Math.floor(q * gaps.length))]) : 0);
     return {
-      calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, fps: this.fps, tier: this.quality, frames: this.frameCount, scale: this.scale,
-      drawMs: Math.round(this.drawMs * 10) / 10, software: this.software, buildMs: Math.round(this.buildMs), post: this.post && !this.postOff ? { ...this.post.settings } : null, env: !!this.envRT,
+      calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, programs: i.programs?.length ?? 0, fps: this.fps, tier: this.quality, capFps: this.capFps,
+      frames: this.frameCount, scale: this.scale, drawMs: r1(this.drawMs), software: this.software, buildMs: Math.round(this.buildMs), builds: this.builds, firstDrawMs: r1(Math.max(0, this.stalls.first)),
+      worstDrawMs: r1(this.stalls.worst), hitches: this.stalls.hitches, frameP50Ms: pct(0.5), frameP95Ms: pct(0.95), post: this.post && !this.postOff ? { ...this.post.settings } : null,
+      env: !!this.envRT, contextLosses: this.contextLosses,
     };
+  }
+
+  /**
+   * What the village holds in video memory and how its people are drawn, for the performance record and the developer monitor. The
+   * bytes are estimated from each texture's and target's size and format (a driver may pad or compress them); walking the scene makes
+   * this too slow to call every frame.
+   */
+  memory(): { textureMB: number; targetMB: number; textures: number; targets: number; people: { near: number; far: number }; standIns: string[] } {
+    const texel = (t: THREE.Texture): number => (t.type === THREE.HalfFloatType ? 8 : t.type === THREE.FloatType ? 16 : 4);
+    const seen = new Set<THREE.Texture>();
+    let tex = 0;
+    const count = (t: unknown): void => {
+      if (!(t instanceof THREE.Texture) || seen.has(t) || t.isRenderTargetTexture) return;
+      seen.add(t);
+      const img = t.image as { width?: number; height?: number } | undefined;
+      const w = img?.width ?? 0;
+      const h = img?.height ?? 0;
+      const mips = t.generateMipmaps && t.minFilter !== THREE.LinearFilter && t.minFilter !== THREE.NearestFilter ? 4 / 3 : 1;
+      tex += w * h * texel(t) * mips;
+    };
+    this.scene.traverse((o) => {
+      const mats = (o as THREE.Mesh).material;
+      for (const m of Array.isArray(mats) ? mats : mats ? [mats] : []) {
+        for (const v of Object.values(m)) count(v);
+        const u = (m as THREE.ShaderMaterial).uniforms;
+        if (u) for (const k of Object.keys(u)) count(u[k]?.value);
+      }
+    });
+    const targets: THREE.RenderTarget[] = [...(this.post?.targets() ?? [])];
+    if (this.envRT) targets.push(this.envRT);
+    const shadow = this.sun.castShadow ? this.sun.shadow.map : null;
+    if (shadow) targets.push(shadow);
+    let rt = 0;
+    for (const t of targets) rt += t.width * t.height * (texel(t.texture) + (t.depthBuffer || t.depthTexture ? 4 : 0));
+    const people = (this.layers.find((l) => (l as Partial<PeopleLayer>).lodCounts) as PeopleLayer | undefined)?.lodCounts() ?? { near: 0, far: 0 };
+    const standIns = (this.layers.find((l) => (l as Partial<LandmarksLayer>).standIns) as LandmarksLayer | undefined)?.standIns() ?? [];
+    const mb = (b: number): number => Math.round((b / 1048576) * 10) / 10;
+    return { textureMB: mb(tex), targetMB: mb(rt), textures: seen.size, targets: targets.length, people, standIns };
   }
 
   /**
@@ -923,7 +1070,7 @@ export class World3D implements WorldRenderer {
    * on the graphics side (a one-pixel read), and return the frame times. Unlike the live loop this is not paced, so it measures what a
    * frame costs here. The page is given a breath every few frames.
    */
-  async benchmark(frames = 60): Promise<{ frames: number; medianMs: number; p99Ms: number; medianFps: number; low1Fps: number; calls: number; triangles: number }> {
+  async benchmark(frames = 60): Promise<{ frames: number; medianMs: number; p95Ms: number; p99Ms: number; medianFps: number; low1Fps: number; calls: number; triangles: number }> {
     const gl = this.renderer.getContext();
     const px = new Uint8Array(4);
     const times: number[] = [];
@@ -937,10 +1084,13 @@ export class World3D implements WorldRenderer {
     }
     const s = [...times].sort((a, b) => a - b);
     const med = s[Math.floor(s.length / 2)];
+    const p95 = s[Math.min(s.length - 1, Math.floor(s.length * 0.95))];
     const p99 = s[Math.min(s.length - 1, Math.floor(s.length * 0.99))];
     const i = this.renderer.info.render;
     const r1 = (v: number): number => Math.round(v * 10) / 10;
-    return { frames, medianMs: r1(med), p99Ms: r1(p99), medianFps: r1(1000 / med), low1Fps: r1(1000 / p99), calls: i.calls, triangles: i.triangles };
+    // frames drawn back to back and waited for are not the paced loop's: the quality monitor starts again from the frames after them
+    this.resetSamples();
+    return { frames, medianMs: r1(med), p95Ms: r1(p95), p99Ms: r1(p99), medianFps: r1(1000 / med), low1Fps: r1(1000 / p99), calls: i.calls, triangles: i.triangles };
   }
 
   /** render one frame now, regardless of the loop, and wait for the GPU: used by screenshot capture */

@@ -11,7 +11,8 @@ import type { Quality } from './context.ts';
  * How a pixel knows what it is: every opaque material writes a code into the alpha channel, which the screen never shows (the canvas
  * has no alpha). Standing things (houses, trees, people, the bridge) write `1 + glow`; the ground and what lies flat on it (terrain,
  * grass, flowers, crops, small stones) write `-(1 + glow)` and the sky `-0.5`, where glow comes from the material's own emissive light, so only
- * lit windows, lanterns, fire and belief magic ever bloom. Transparent things leave the code of what is behind them untouched. The
+ * lit windows, lanterns, fire and belief magic ever bloom. Transparent things leave the code of what is behind them untouched, except a
+ * veil (`markVeil`: the waterfall's sheet), which scales it by what it lets through, so what is drawn for the things behind fades. The
  * ink is drawn on standing things where their depth breaks away from what is behind them, and where they meet the ground; never on
  * grass or the ground's own folds.
  */
@@ -87,6 +88,22 @@ export function markGround<T extends THREE.Material>(m: T): T {
   return m;
 }
 
+/**
+ * mark a transparent material as a veil (the waterfall's sheet): instead of leaving the code of what is behind it untouched, it scales
+ * the code by what it lets through, so the ink and the hollows of what stands behind it fade where it is opaque and come back where it
+ * thins out. Without it the cliff's lip and the island's underside were inked straight through the falling water
+ */
+export function markVeil<T extends THREE.Material>(m: T): T {
+  m.blending = THREE.CustomBlending;
+  m.blendEquation = THREE.AddEquation;
+  m.blendSrc = m.premultipliedAlpha ? THREE.OneFactor : THREE.SrcAlphaFactor;
+  m.blendDst = THREE.OneMinusSrcAlphaFactor;
+  m.blendEquationAlpha = THREE.AddEquation;
+  m.blendSrcAlpha = THREE.ZeroFactor;
+  m.blendDstAlpha = THREE.OneMinusSrcAlphaFactor;
+  return m;
+}
+
 const QUAD_VERT = /* glsl */ `
   varying vec2 vUv;
   void main() {
@@ -123,6 +140,8 @@ const COMPOSITE_FRAG = /* glsl */ `
     vec3 c = src.rgb;
     float z = viewZ(vUv);
     bool ground = src.a < 0.0;
+    // a veil in front (markVeil) has scaled the code by what it lets through: what is drawn for the things behind it fades with it
+    float veil = min(1.0, abs(src.a));
 
     #if AO_PAIRS > 0
       // pairs of opposite samples: where both sides come nearer than this pixel it sits in a hollow (the foot of a wall, under eaves,
@@ -140,7 +159,7 @@ const COMPOSITE_FRAG = /* glsl */ `
         float ok = step(z - z1, uAORadius * 3.0) * step(z - z2, uAORadius * 3.0);
         occ += ok * clamp((z - 0.5 * (z1 + z2)) / uAORadius, 0.0, 1.0);
       }
-      c *= 1.0 - uAO * occ / float(AO_PAIRS);
+      c *= 1.0 - uAO * veil * occ / float(AO_PAIRS);
     #endif
 
     // ink: the second difference of depth is about zero across any smooth surface and large where a nearer thing breaks away from what
@@ -164,7 +183,7 @@ const COMPOSITE_FRAG = /* glsl */ `
       float meets = max(max(step(al, 0.0) * step(zMin, zl), step(ar, 0.0) * step(zMin, zr)), max(step(ad, 0.0) * step(zMin, zd), step(au, 0.0) * step(zMin, zu)));
       edge = max(edge, meets);
     }
-    float ink = edge * (1.0 - smoothstep(uInkFade.x, uInkFade.y, z)) * uInkAmount;
+    float ink = edge * veil * (1.0 - smoothstep(uInkFade.x, uInkFade.y, z)) * uInkAmount;
     c = mix(c, uInk, ink);
 
     #ifdef USE_BLOOM
@@ -274,6 +293,11 @@ export class PostChain {
   private readonly seen = new WeakSet<THREE.Material>();
   /** the materials patched so far (for the debug view) */
   patched = 0;
+
+  /** every target the chain draws into (for the memory record) */
+  targets(): THREE.WebGLRenderTarget[] {
+    return [this.scene, ...(this.ldr ? [this.ldr] : []), ...this.down, ...this.up];
+  }
 
   /** a renderer that cannot draw into a high-range buffer gets no chain (the caller draws directly) */
   static supported(renderer: THREE.WebGLRenderer): boolean {
@@ -429,6 +453,19 @@ export class PostChain {
     m.customProgramCacheKey = () => key;
     m.needsUpdate = true;
     this.patched++;
+  }
+
+  /** compile every material in `scene` as the chain draws it (into its own buffer, with its alpha code), the hidden ones included */
+  compile(scene: THREE.Scene, camera: THREE.Camera): void {
+    const r = this.renderer;
+    this.prepare(scene);
+    const prev = r.getRenderTarget();
+    r.setRenderTarget(this.scene);
+    try {
+      r.compile(scene, camera);
+    } finally {
+      r.setRenderTarget(prev);
+    }
   }
 
   /** draw `scene` through the chain to the screen */

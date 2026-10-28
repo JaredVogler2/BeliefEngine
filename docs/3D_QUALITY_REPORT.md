@@ -14,7 +14,9 @@ The standard the frames are judged against is `docs/3D_VISUAL_STANDARD.md` (an i
 **Where this was run.** A Linux container with 4 CPU cores and no GPU. WebGL is SwiftShader, a software rasteriser, in headless Chromium.
 Every frame below was rendered by the real game from an engine state played by a bot through the save format; none is a mock-up. Each frame
 was opened and looked at by the developer (an AI agent) against the standard. That is a real inspection, but it is one reviewer's eye, not a
-player's or an artist's.
+player's or an artist's. Iteration 8 adds frames and frame times from a real GPU, made by a CI workflow on GitHub's macOS runner (an Apple
+GPU reached through the virtual machine's paravirtualised graphics device, in Chrome and Safari, and Mobile Safari in the iOS Simulator);
+those frames were downloaded from the runs and looked at the same way.
 
 ## The iterations
 
@@ -257,6 +259,43 @@ had just looked at, on desktop and in phone emulation; `docs/PLAYTHROUGH_NOTES.m
   fields on night 4, gold rings round each lit beacon once the law woke, the fallen bridge, and the aftermath with the rings still holding
   the water off the homes were each the thing the morning report described (frames 7 to 9 of `desktop-run.jpg`).
 
+### Iteration 8: the Day 1 frame on a real GPU
+
+Every frame before this one came from a software rasteriser at half resolution, whose softness hid small things. The real-hardware
+workflow (`docs/3d-rebuild/PERFORMANCE.md`, "Real hardware") photographs the art director's Day 1 frame on an Apple GPU at 2880×1800 at
+the high tier. Looked at full size, two things were wrong that no earlier frame had shown clearly, both at the front of the opening view;
+two more showed in the next runs' frames:
+
+* **The plate's cut sides were a slice of cake.** They were seven bands of vertex colour, which the GPU blends into one smooth
+  green-to-brown gradient: no material, no edge, a straight ruled base. The cut is now painted from the seed like the ground (a turf lip
+  with grass hanging over it, dark topsoil threaded with roots and pebbles, clay, bedded sandstone, jointed grey rock with partings), and
+  the geometry has relief to match: the turf overhangs, the soil tucks in under it, the rock juts in ledges, and the base is ragged with
+  crags. Where the river crosses the cut the rock is darker and wet, and no crag hangs under the water (`src/render3d/cliff.ts`).
+* **The river stopped dead at the cut,** the bank's notch showing under it. It now pours off the island: a sheet that leaves the lip at the
+  river's own surface and colour, curves out and whitens as it falls past the strata and the root, breaks into strands and vanishes into
+  the cloud sea, with mist rolling off its lower half. It runs on the river's clock, so it quickens in wind and storm, and in a flood it
+  widens and rises with the water at the lip. Where the river enters the island it rises among mossy boulders (`src/render3d/falls.ts`).
+* **Sprites at half size on a sharp screen.** The frames of the next run, at a pixel ratio of 2, showed the new mist as a scatter of dots.
+  Every point sprite (mist, smoke, flame, the gold proof markers, the coach's call-out, the route dots) was sized in the drawing buffer's
+  pixels, so it drew at half its size at a pixel ratio of 2, and at two thirds on a phone's medium tier (a ratio of 1.5). It was in this
+  report's phone frames too (a pixel ratio of 2), where the gold rings were smaller than on a desktop; nobody noticed until the mist made
+  it plain. Sprites are now sized in CSS pixels and scaled by the renderer's pixel ratio each frame
+  (`src/render3d/particles.ts`, `pixelRatio`), and the phone frames were captured again after the fix (I, L, `wc/phone-*.jpg`). Run 6
+  shows the fix on the GPU (`docs/3d-rebuild/screenshots/real-hw/sprites-before-after-run5-run6.jpg`).
+* **Ink through the water.** Run 6's close-up of the falls at a pixel ratio of 2 showed the cliff's lip and the island's underside
+  outlined straight through the falling water, a thin dark line in mid-air: the chain inks from the depth of opaque things and lays the
+  ink over everything, the water included. The sheet is now a veil to the chain, which fades the ink and the hollows of what is behind it
+  where the water is thick (`src/render3d/post.ts`, `markVeil`; `wc/falls-ink-veil-before-after.jpg`). Every frame that shows the falls
+  was captured again after it.
+
+Checked by `tests/unit/render3d-edge.test.ts` (the faces close the plate edge to edge with the ground above and the root below, with no
+gap at a corner; the painted face repeats without a seam; the falls pour from the water's surface at the lip, swell with a flood, and
+exist only where a river crosses the cut) and by eye, on the GPU: the same Day 1 frame before and after
+(`docs/3d-rebuild/screenshots/real-hw/edge-before-after-run4-run5.jpg`, and its front edge at full size, `…-closeup.jpg`), and in every
+recaptured matrix and size frame (A, `wc/desktop-1920x1080.jpg`). On a phone, frame L before and after this round's work side by side:
+`wc/phone-round8-vs-round9.jpg` (the painted cut, the falls and their mist, the gold rings at their intended size). The waterfall up
+close was also rendered at pixel ratios 1 and 2 after the sprite fix: the mist is the same soft cloud at both.
+
 ## Scores (1 to 5)
 
 Each score names the frame or measurement it rests on. No area is scored on something that was not looked at.
@@ -274,8 +313,8 @@ one is shown struck through with the reason.
 | Animation and life | ~~3~~ **4** | Wind in every tree and grass, a river whose current follows the weather, rain rings, birds, smoke, drifting islets; people walk to work each morning with knees and planted feet (slip 13% of the body's travel, was 58%) and react to the events that touch them. Reviewed as clips rendered frame by frame (iteration 6; `docs/3d-rebuild/video/`) | Was 3: the village stood still all week, feet skated and floated, motion never seen as moving pictures. Still: the clips are a software rasteriser's, seen by one reviewer; arms are one piece |
 | Interaction feedback | **4** | Hover and selection rings, the route to shelter, magic rings and runes that glow, cards anchored to what they describe (E, `world3d.spec.ts`); a call-out over the person the coach names and rings over the places a chosen story is proved at, found missing by playing (iteration 7) | — |
 | Camera | **4** | Bounded orbit, zoom to the cursor, wheel and trackpad zoom by distance turned, keyboard, buttons, portrait framing, insets, a double tap to go to a person (`world3d.spec.ts` drives real mouse input, and real touch for one-finger pans and two-finger pinches) | Touch is a desktop browser's emulation of a phone, not a phone |
-| Mobile | **4** in emulation | Seven sizes pass the layout test, now also with the law ledger open; the sheet opens at half height with the village framed above it (a side sheet on a phone on its side); a crowd under a fingertip becomes a list; controls 44×44 (`wc/phone-*.jpg`, `wc/phone-sheet-compare.jpg`) | **A real phone was never used.** This score is for emulated layouts only |
-| Performance | **UNVERIFIED** | Tiers, an adaptive render scale, and the chain's cost measured on its own (Performance with the chain, below) | No GPU and no phone in this container: real frame rates are unknown |
+| Mobile | **4** (emulated sizes, one real GPU, the iOS Simulator) | Seven sizes pass the layout test, now also with the law ledger open; the sheet opens at half height with the village framed above it (a side sheet on a phone on its side); a crowd under a fingertip becomes a list; controls 44×44 (`wc/phone-*.jpg`, `wc/phone-sheet-compare.jpg`). Since iteration 8: on a real GPU at an iPhone's size and pixel ratio, 30 frames a second at rest and a median of 60 while the view turns; Mobile Safari draws and runs the world in the iOS Simulator (`real-hw/run5-*.jpg`) | **A physical phone was never used**: its frame rate, heat and a finger on glass are unknown |
+| Performance | **3** on the one GPU measured (was UNVERIFIED) | Tiers, an adaptive render scale, and the chain's cost measured on its own (Performance with the chain, below). On an Apple GPU through CI's macOS virtual machine: phase 08's mobile target met at an iPhone's size; the high tier's cost broken down by part (`docs/3d-rebuild/PERFORMANCE.md`, "Real hardware") | Desktop at 2880×1800 settles at about 30 frames a second, not the stable 60 phase 08 asks for (**FAIL** there); a night's resolution can stall a frame for up to 1.1 s on that device. One virtualised GPU: a native Mac, other GPUs and physical phones are **UNVERIFIED** |
 
 ## Performance with the chain
 
@@ -368,7 +407,8 @@ ratio of 2). That is how the off-centre village on phones (iteration 4) was foun
 **Not verifiable here:**
 
 * **Safe areas.** The layout uses `env(safe-area-inset-*)`, but desktop emulation has no notch, so the insets are 0 in every test.
-* **Real devices.** Touch on a real phone, Safari on iOS, and how the game feels in the hand were not tried.
+* **Real devices.** Touch on a real phone and how the game feels in the hand were not tried. Safari on iOS ran only in the iOS Simulator
+  (iteration 8), which draws and runs the 3D world but cannot say how an iPhone performs.
 
 ## Functional checks run on this pass
 
@@ -395,8 +435,11 @@ made one at a time on the final build. The exact commands and counts are in `doc
 
 ## Not verified, and not claimed
 
-* **Real hardware.** No GPU, phone, iPhone or real Safari was used. Frame times here are a CPU rasteriser's. WebKit was exercised as
-  Playwright's Linux build (it draws the 3D world and picks a person by a tap); headless Firefox has no WebGL2 and falls back as designed.
+* **Real hardware.** No physical phone or iPhone was used. Frame times in this report's own tables are a CPU rasteriser's. One real GPU
+  was measured (iteration 8): an Apple GPU through CI's macOS virtual machine, in Chrome, in real Safari 26, and Mobile Safari in the iOS
+  Simulator, whose frame rate says nothing about an iPhone's. A Mac's GPU used directly, Windows and Linux GPUs, and phones are
+  **UNVERIFIED**. WebKit was also exercised as Playwright's Linux build (it draws the 3D world and picks a person by a tap); headless
+  Firefox has no WebGL2 and falls back as designed.
 * **Players.** No person has played this build; the scores are one reviewer's. An automated agent played Flood at Redbank to a victory
   through the interface (iteration 7, `docs/PLAYTHROUGH_NOTES.md`); it is not a playtest.
 * **Video.** Motion was reviewed as clips rendered frame by frame at 24 frames a second on a software rasteriser (iteration 6), not watched

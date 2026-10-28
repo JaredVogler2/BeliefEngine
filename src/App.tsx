@@ -48,6 +48,9 @@ function parseDeepLink(): void {
   }
   store.newRun(optionsFromDescriptor(parsed.descriptor));
   store.set({ notes: parsed.notes });
+  // &play=1 goes straight into the first day, as "Begin the first day" would: a link that opens the game itself, for a returning player
+  // or for measuring the village on a device that cannot be scripted (a phone, the iOS Simulator)
+  if (q.get('play') === '1') store.set({ screen: 'play', activeClaim: null });
 }
 
 /** the screens that share the living village as their backdrop (it is built once and kept while the player moves between them) */

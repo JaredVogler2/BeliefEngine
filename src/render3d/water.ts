@@ -229,6 +229,20 @@ export class Water {
     this.refresh();
   }
 
+  /**
+   * The river's own clock, colours and light, as the very uniform objects its shader reads: anything drawn as part of the river (the
+   * falls where it leaves the plate) shares them, so it can never run at another pace or take another colour.
+   */
+  sharedUniforms(): Record<'uTime' | 'uFlowT' | 'uSunColor' | 'uSky' | 'uShallow' | 'uDeep' | 'uTint', THREE.IUniform> {
+    const u = this.mat.uniforms;
+    return { uTime: u.uTime, uFlowT: u.uFlowT, uSunColor: u.uSunColor, uSky: u.uSky, uShallow: u.uShallow, uDeep: u.uDeep, uTint: u.uTint };
+  }
+
+  /** how fast the current runs now: about 0.7 on a calm day, more in wind and storm */
+  get speed(): number {
+    return this.current;
+  }
+
   /** let the glow belief leaves (law ground, ripples going out from a source) show on the surface */
   attachMagic(field: MagicField): void {
     this.mat.fragmentShader = injectMagicIntoWater(FRAG);

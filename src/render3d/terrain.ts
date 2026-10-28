@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { CHANNEL_DEPTH, HEIGHT_UNIT } from './coords.ts';
 import { fbm, makeNoise } from './rand.ts';
+import { buildPlateEdge } from './cliff.ts';
 import { buildGroundTexture } from './groundTexture.ts';
 import type { SceneSnapshot } from './snapshot.ts';
 import { markGround } from './post.ts';
@@ -201,8 +202,6 @@ export function buildHeightField(snap: SceneSnapshot, seedNum: number): TerrainD
 
 // ---------------------------------------------------------------------------------------------------------------- mesh
 
-const col = (hex: number): THREE.Color => new THREE.Color(hex);
-
 export interface TerrainMesh {
   group: THREE.Group;
   ground: THREE.Mesh;
@@ -212,7 +211,6 @@ export interface TerrainMesh {
 /** the ground surface (geometry from the height field, colour from the painted ground texture) and the diorama's cut edge */
 export function buildTerrainMesh(snap: SceneSnapshot, data: TerrainData, seedNum: number, maxAniso: number): TerrainMesh {
   const { w, h, nx, nz, heights } = data;
-  const noise = makeNoise(seedNum ^ 0x51ed270b);
   const geo = new THREE.BufferGeometry();
   const pos = new Float32Array(nx * nz * 3);
   const uvs = new Float32Array(nx * nz * 2);
@@ -248,113 +246,11 @@ export function buildTerrainMesh(snap: SceneSnapshot, data: TerrainData, seedNum
   mesh.receiveShadow = true;
   mesh.name = 'terrain';
 
-  // the plate's edge: a cut through layered earth and stone, so the village reads as a diorama and not a floating sheet
+  // the plate's edge: a cut through turf, soil, clay, sandstone and rock, and the root of rock the island hangs from (cliff.ts)
   const group = new THREE.Group();
   group.add(mesh);
-  const BASE = -1.6;
-  const bands: { y: number; c: THREE.Color }[] = [
-    { y: 0, c: col(0x436131) }, { y: -0.12, c: col(0x5b4731) }, { y: -0.34, c: col(0x6f5736) }, { y: -0.58, c: col(0x8d7851) }, { y: -0.9, c: col(0x7d7668) }, { y: -1.22, c: col(0x655f56) }, { y: BASE, c: col(0x4d4a44) },
-  ];
-  const sp: number[] = [];
-  const sc: number[] = [];
-  const si: number[] = [];
-  const addWall = (edge: { x: number; z: number; y: number }[], nrm: [number, number]): void => {
-    const cols = edge.length;
-    const startIdx = sp.length / 3;
-    for (const p of edge) {
-      for (let b = 0; b < bands.length; b++) {
-        // the strata are not level: each boundary wanders along the cut, and a band takes the colour of the layer it ends in
-        const wander = b === 0 || b === bands.length - 1 ? 0 : (noise((p.x + p.z) * 1.7, b * 3.1) - 0.5) * 0.16;
-        const y = b === 0 ? p.y : Math.min(p.y, bands[b].y + wander) - 0.01 * b;
-        sp.push(p.x, y, p.z);
-        const c = bands[b].c;
-        // streaks run down the face (noise along the cut only) and patches vary within a layer
-        const g = 0.8 + 0.22 * noise((p.x + p.z) * 5.5, 40) + 0.18 * noise((p.x + p.z) * 1.3, b * 2.5);
-        sc.push(c.r * g, c.g * g, c.b * g);
-      }
-    }
-    const rows = bands.length;
-    for (let c = 0; c < cols - 1; c++) {
-      for (let r = 0; r < rows - 1; r++) {
-        const a = startIdx + c * rows + r;
-        const b = a + rows;
-        const cc = a + 1;
-        const d = b + 1;
-        if (nrm[0] + nrm[1] > 0) si.push(a, cc, b, b, cc, d);
-        else si.push(a, b, cc, b, d, cc);
-      }
-    }
-  };
-  const north: { x: number; z: number; y: number }[] = [];
-  const south: { x: number; z: number; y: number }[] = [];
-  for (let i = 0; i < nx; i++) {
-    north.push({ x: i / SUB, z: 0, y: heights[i] });
-    south.push({ x: i / SUB, z: h, y: heights[(nz - 1) * nx + i] });
-  }
-  const west: { x: number; z: number; y: number }[] = [];
-  const east: { x: number; z: number; y: number }[] = [];
-  for (let j = 0; j < nz; j++) {
-    west.push({ x: 0, z: j / SUB, y: heights[j * nx] });
-    east.push({ x: w, z: j / SUB, y: heights[j * nx + nx - 1] });
-  }
-  addWall(north, [-1, -1]);
-  addWall(south, [1, 1]);
-  addWall(west, [1, -1]);
-  addWall(east, [-1, 1]);
-  const skirtGeo = new THREE.BufferGeometry();
-  skirtGeo.setAttribute('position', new THREE.Float32BufferAttribute(sp, 3));
-  skirtGeo.setAttribute('color', new THREE.Float32BufferAttribute(sc, 3));
-  skirtGeo.setIndex(si);
-  skirtGeo.computeVertexNormals();
-  const skirt = new THREE.Mesh(skirtGeo, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, side: THREE.DoubleSide }));
-  skirt.receiveShadow = true;
-  skirt.castShadow = true;
-  skirt.name = 'plate-edge';
-  group.add(skirt);
-  // below the cut: the island narrows to a craggy root of rock, so the village hangs in the sky instead of resting on a slab
-  const loop: { x: number; z: number }[] = [];
-  for (const p of north) loop.push({ x: p.x, z: p.z });
-  for (const p of east.slice(1)) loop.push({ x: p.x, z: p.z });
-  for (const p of south.slice(0, -1).reverse()) loop.push({ x: p.x, z: p.z });
-  for (const p of west.slice(1, -1).reverse()) loop.push({ x: p.x, z: p.z });
-  const rings: { y: number; k: number }[] = [{ y: BASE, k: 1 }, { y: BASE - 0.55, k: 0.97 }, { y: BASE - 1.35, k: 0.88 }, { y: BASE - 2.3, k: 0.7 }, { y: BASE - 3.4, k: 0.44 }, { y: BASE - 4.5, k: 0.12 }];
-  const cx = w / 2;
-  const cz = h / 2;
-  const n = loop.length;
-  const up: number[] = [];
-  const uc: number[] = [];
-  const ui: number[] = [];
-  const rock = [col(0x4d4a44), col(0x57524a), col(0x45413c), col(0x3a3733), col(0x302e2b), col(0x2a2826)];
-  rings.forEach((r, ri) => {
-    loop.forEach((p, i) => {
-      // crags only ever bite inwards, so the root never sticks out past the cut above it
-      const bite = ri === 0 ? 0 : 1 - 0.16 * noise(p.x * 0.9 + ri * 7, p.z * 0.9 - ri * 3);
-      const jy = ri === 0 ? 0 : (noise(p.x * 1.3 + ri, p.z * 1.3 - ri) - 0.5) * 0.6;
-      up.push(cx + (p.x - cx) * r.k * bite, r.y + jy, cz + (p.z - cz) * r.k * bite);
-      const g = 0.82 + 0.4 * noise(i * 0.31 + ri * 3, ri * 1.7);
-      const c = rock[ri];
-      uc.push(c.r * g, c.g * g, c.b * g);
-    });
-  });
-  for (let r = 0; r < rings.length - 1; r++) {
-    for (let i = 0; i < n; i++) {
-      const a = r * n + i;
-      const b = r * n + ((i + 1) % n);
-      const c = (r + 1) * n + i;
-      const d = (r + 1) * n + ((i + 1) % n);
-      ui.push(a, c, b, b, c, d);
-    }
-  }
-  const rootGeo = new THREE.BufferGeometry();
-  rootGeo.setAttribute('position', new THREE.Float32BufferAttribute(up, 3));
-  rootGeo.setAttribute('color', new THREE.Float32BufferAttribute(uc, 3));
-  rootGeo.setIndex(ui);
-  const flat = rootGeo.toNonIndexed();
-  rootGeo.dispose();
-  flat.computeVertexNormals();
-  const root = new THREE.Mesh(flat, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true, side: THREE.DoubleSide }));
-  root.name = 'island-root';
-  group.add(root);
+  const edge = buildPlateEdge(data, seedNum, maxAniso, SUB);
+  group.add(edge.group);
 
   return {
     group,
@@ -363,10 +259,7 @@ export function buildTerrainMesh(snap: SceneSnapshot, data: TerrainData, seedNum
       geo.dispose();
       mat.dispose();
       ground.dispose();
-      skirtGeo.dispose();
-      (skirt.material as THREE.Material).dispose();
-      flat.dispose();
-      (root.material as THREE.Material).dispose();
+      edge.dispose();
     },
   };
 }

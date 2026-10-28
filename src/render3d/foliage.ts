@@ -2,13 +2,13 @@ import * as THREE from 'three';
 import { DEFAULT_AZIMUTH } from './camera.ts';
 import type { Layer, WorldContext } from './context.ts';
 import { mergeByMaterial } from './geom.ts';
-import { add, cyl, fence, type Parts } from './kit.ts';
+import { fence, type Parts } from './kit.ts';
 import { fbm, makeNoise, type Rng } from './rand.ts';
 import type { SceneChanges, SceneSnapshot } from './snapshot.ts';
 import { TERRAIN } from './terrain.ts';
 import { makeTree, type TreeKind } from './trees.ts';
 import { markGround } from './post.ts';
-import { PROP_RADIUS, YARD_PROPS, propFacing, yardProp } from './props.ts';
+import { PROP_RADIUS, YARD_PROPS, haystackAt, propFacing, yardProp } from './props.ts';
 
 /**
  * The living ground: forests and orchards, shrubs, tufts of grass, wildflowers, rocks, reeds along the water, fenced fields with
@@ -73,7 +73,7 @@ const KIND_CLEARANCE: Record<string, number> = {
   home: 0.8, cabin: 0.75, hall: 1.2, chapel: 0.95, mill: 1.0, market: 1.15, shelter: 1.25, granary: 0.8, belltower: 0.8, well: 0.5, pen: 1.0, campfire: 0.55, beacon: 0.55,
 };
 
-function tuftGeometry(): THREE.BufferGeometry {
+export function tuftGeometry(): THREE.BufferGeometry {
   const pos: number[] = [];
   const col: number[] = [];
   const blades = 5;
@@ -98,7 +98,7 @@ function tuftGeometry(): THREE.BufferGeometry {
   return g;
 }
 
-function plantGeometry(): THREE.BufferGeometry {
+export function plantGeometry(): THREE.BufferGeometry {
   // a stalk of grain: a thin green stem with an ear on top, three of them leaning together
   const parts: THREE.BufferGeometry[] = [];
   for (let i = 0; i < 3; i++) {
@@ -162,7 +162,17 @@ function mergeGeom(list: THREE.BufferGeometry[]): THREE.BufferGeometry {
   return out;
 }
 
-function rockGeometry(r: Rng): THREE.BufferGeometry {
+/** a wildflower's head: drawn in clusters, each instance in its own colour */
+export function flowerGeometry(): THREE.BufferGeometry {
+  return new THREE.SphereGeometry(0.013, 5, 4);
+}
+
+/** a reed in the shallows, standing on its base */
+export function reedGeometry(): THREE.BufferGeometry {
+  return new THREE.ConeGeometry(0.012, 0.34, 4, 1).translate(0, 0.17, 0);
+}
+
+export function rockGeometry(r: Rng): THREE.BufferGeometry {
   const g = new THREE.IcosahedronGeometry(1, 1);
   const p = g.getAttribute('position') as THREE.BufferAttribute;
   const n = makeNoise(Math.floor(r() * 1e6));
@@ -458,7 +468,7 @@ export class FoliageLayer implements Layer {
       this.addMesh(instanced(geo, mat, tufts, false, false));
     }
     if (flowers.length) {
-      const geo = new THREE.SphereGeometry(0.013, 5, 4);
+      const geo = flowerGeometry();
       const mat = markGround(new THREE.MeshStandardMaterial({ roughness: 0.7 }));
       this.geos.push(geo);
       this.mats.push(mat);
@@ -502,8 +512,7 @@ export class FoliageLayer implements Layer {
       this.addMesh(instanced(geo, mat, rocks, true));
     }
     if (reeds.length) {
-      const geo = new THREE.ConeGeometry(0.012, 0.34, 4, 1);
-      geo.translate(0, 0.17, 0);
+      const geo = reedGeometry();
       const mat = markGround(new THREE.MeshStandardMaterial({ color: 0x7d9a4a, roughness: 1, side: THREE.DoubleSide }));
       sway(mat, 0.05, 0);
       this.geos.push(geo);
@@ -560,8 +569,7 @@ export class FoliageLayer implements Layer {
         const hx = x1 + 0.15 + i * 0.22;
         const hz = z1 - 0.25 - i * 0.1;
         const gy = ctx.heightAt(hx, hz);
-        add(hayParts, cyl(0.12, 0.1, 0.12, 8, 0.1), 'straw', hx, gy, hz);
-        add(hayParts, cyl(0.1, 0.01, 0.12, 8, 0.1), 'straw', hx, gy + 0.12, hz);
+        haystackAt(hayParts, hx, gy, hz);
       }
     }
     const resolve = (key: string): THREE.Material => {
