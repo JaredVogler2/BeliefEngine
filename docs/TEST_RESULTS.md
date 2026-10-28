@@ -170,12 +170,30 @@ Every browser run below was made alone, in the same container (no GPU, SwiftShad
 | `npm test` | **32 files, 374 tests passed** (new: `render3d-guides.test.ts`: the proof sites, the coach's call-out, which fails on the old marking, and the aftermath captions) |
 | `npm run build`, `npm run size` | exit 0. Entry 234 KB gzip (budget 260), 3D chunk 216 KB gzip (budget 270, lazy), CSS 8.9 KB gzip (budget 12) |
 | `npm run verify:hosting` | 19 checks ok, including the 3D world under the production Content-Security-Policy |
-| `npm run test:e2e:3d`, locally | **18 of 44 passed, 0 failed**, on the build just before the last two small edits, when the run was stopped to free the one browser this container may run for the evidence capture. The full browser suites (classic and 3D, with this round's proof-marker test) run in CI on the pull request |
+| `npm run test:e2e:3d`, locally | **18 of 44 passed, 0 failed**, on the build just before the last two small edits, when the run was stopped to free the one browser this container may run for the evidence capture. The full browser suites (classic and 3D, with this round's proof-marker test) then ran in CI on the round's last commit (`156cdf9`): **all green**, the 3D job 43 passed and 3 skipped in 37.7 min. Round 8 ran both suites to completion locally (below) |
 | `npx tsx scripts/capture-sequence.ts` (river, people, storm, village) | four clips, 48 frames each at 24 fps, rendered frame by frame on the final build; the worst neighbouring pair changed 1.05× (village), 1.06× (river, storm) and 1.19× (people, a following camera) as much as the median: no pops. Strips, change images and measures: `docs/3d-rebuild/video/` |
 | `npx tsx scripts/capture-matrix.ts --quality high` and `capture-3d.ts` at four screen sizes | 16 + 4 frames recaptured on the final build, each one looked at: `docs/3d-rebuild/screenshots/` |
 | `npx tsx scripts/perf-3d.ts --out docs/3d-rebuild/data/perf-chain.json` | high tier, calm: 498 draw calls (742 in the visual pass), 628,775 triangles, 545 ms a frame on the CPU rasteriser; the full table in `docs/3d-rebuild/PERFORMANCE.md` (**software rasteriser; no GPU or real device was measured**) |
 | `npx tsx scripts/browser-3d-smoke.ts` | Chromium 153 **PASS** and WebKit 26.6 **PASS** (3D drew, 256 calls, 268,116 triangles on the low tier, 0 console errors); Firefox 155 **FALLBACK** (no WebGL2 headless) |
 | People before and after (`wc/people-compare.jpg`) | six people from the opening view at `22b7b1c` (four of them inside the buildings they visited) and on the final build (all six outside, dressed, each with a role's hat or tool) |
+
+## Round 8 (phase 08 closed out; the build this work ends on)
+
+Every browser run below was made alone, in the same container (no GPU, SwiftShader), on the round 8 build (`46345f0` plus documentation).
+
+| Command | Result |
+| --- | --- |
+| `npx tsc --noEmit`, `npx eslint .` | exit 0, exit 0 |
+| `npm test` | **34 files, 386 tests passed**. New: `render3d-assets.test.ts` (9 tests: every asset sound, on its origin, in budget, from library materials, deterministic; the written manifest equal to the generators' output; no stand-in in any authored village, as built or burned; the per-asset fallback) and `render3d-lod.test.ts` (3 tests: the distant figures, the swap with its hysteresis, both versions freed). The asset tests failed on their first run on a real defect, zero-area triangles in three roofs, since fixed. A deliberately stale manifest makes the drift test fail |
+| `npm run build`, `npm run size` | exit 0. Entry 235 KB gzip (budget 260), 3D chunk 218 KB gzip (budget 270, lazy), CSS 9.1 KB gzip (budget 12) |
+| `npm run test:e2e:classic` | **141 passed, 0 failed, 55 skipped** (project-specific skips), 7.7 min |
+| `npm run test:e2e:3d` | **45 passed, 0 failed, 3 skipped** (project-specific skips), 27.6 min. New: "ten new villages in a row leave nothing behind" (replaces the five-load leak test) and "the developer quality monitor shows only when the address asks for it" |
+| The ten-load leak test, one run with its figures | from the second visit on, Redbank, Ashwood and Harvest Hollow each hold exactly the same geometry (277 / 226 / 245), textures and shader programs; heap after loads 5–7 averages 14.2 MB, after loads 8–10 14.6 MB (the table is in `docs/3d-rebuild/PERFORMANCE.md`) |
+| `npm run verify:hosting` | 19 checks ok, including the 3D world under the production Content-Security-Policy |
+| `npx tsx scripts/browser-3d-smoke.ts` | Chromium 153 **PASS** and WebKit 26.6 **PASS** (3D drew, 256 calls, 244,070 triangles on the low tier, 0 console errors); Firefox 155 **FALLBACK** (no WebGL2 headless) |
+| `npx tsx scripts/perf-3d.ts --out docs/3d-rebuild/data/perf-chain.json` | high tier, calm: 498 draw calls, 580,683 triangles (628,775 in round 7: the people's distant figures), 35 shader programs, first draw 1.37 s, median frame 531 ms and p95 597 ms on the CPU rasteriser; the full table in `docs/3d-rebuild/PERFORMANCE.md` (**software rasteriser; no GPU or real device was measured**) |
+| `npx tsx scripts/asset-manifest.ts` | 70 assets written to `docs/3d-rebuild/data/asset-manifest.json` |
+| Scratch probes (not part of the repository) | people's height on screen at the overview and the close/distant comparison at the switch size, looked at magnified; programs compiled during a night before and after the warm-up (3 → 0); 30 loads with the 3D and the classic renderer; heap snapshots between loads 9 and 24. Results in `PERFORMANCE.md`, "Round 8" and "Resource hygiene" |
 
 ## What is not covered, plainly
 

@@ -40,6 +40,30 @@ Every area now scores 4. **"Premium" is still not claimed:** phase 09 asks for a
 smoothness can only be shown on real hardware, which this container does not have; and these are one reviewer's scores. The verdicts
 below are updated in `STATUS.md`'s phase table (3D-05 is now PASS).
 
+## Round 8: phase 08 closed out
+
+Phase 08 was read again item by item (`STATUS.md`, "Round 8"). What it lists and the build lacked now exists, each with a test or a
+measurement:
+
+* an asset manifest read from the generators and kept in step with them by a test;
+* validation tests for every asset and every village, which found and fixed zero-area triangles in three roofs;
+* a per-asset stand-in when a generator fails;
+* level of detail for the people;
+* a shader warm-up, so the first night's effects no longer compile programs mid-play;
+* stall, frame-percentile and video-memory records;
+* a developer monitor behind `?perf=1`;
+* the ten-cycle leak check.
+
+**3D-08 is now PASS** for everything that can be checked here. Its frame-rate targets, which the phase itself calls "aspirational until
+tested", remain **UNVERIFIED**: no GPU or phone has run the game.
+
+**3D-10 stays PARTIAL, and "premium" is still not claimed.** Phase 10 says "do not assert premium quality on missing evidence", and phase
+09's phone area asks for a world that is smooth on a phone. Nothing here can show smoothness on a phone. The way to settle it:
+
+1. Make a preview deployment. That needs the owner's go-ahead; none was made.
+2. Open it on a real iPhone and a mid-range Android phone with `?perf=1`.
+3. Record the monitor's frame p50/p95 at the overview and during a flood night in `PERFORMANCE.md`.
+
 ## What was reviewed, and how
 
 * **Source and commits.** Branch `claude/gracious-gates-95kmda`. Pull request 1 (merged at `15257dc`) carried the first Three.js world; pull request 2 carries everything after it. The 3D work is in `7b5bfa0` (Three.js world behind a renderer interface, belief-magic effects), `6416850` (immersive HUD, aftermath scene, forecast overlay, batching, 3D browser tests), `ebde29e` (side-sheet focus race), `1809880` (this review's repairs, scripts and the 16 frames) and `7a5ea63` (forecast overlay over standing water, the camera-control test, recaptured frames). `git log --oneline` names the rest; the docs-only commit after `7a5ea63` carries this file.
@@ -105,7 +129,7 @@ passed on a clean re-run. A camera-control test I added failed once on the phone
 | 3D-05 Villagers and life | **PARTIAL** | Present, animated, pickable; small and blocky; motion not reviewed as video |
 | 3D-06 Belief magic and feedback | **PASS** | Event-parity fixtures and tests; legible, not lavish |
 | 3D-07 Immersive HUD and controls | **PASS** | Tested with real pointer events (3D projects) and axe, including on the live 3D page. A real phone and a real screen reader: **UNVERIFIED**. Evacuation routes are not drawn (*since drawn: see the quality report*) |
-| 3D-08 Asset pipeline and optimisation | **PARTIAL** | Budgets met and measured on software GL only; GPU and phone frame rate **UNVERIFIED**; no in-world loading scene (*since added*) |
+| 3D-08 Asset pipeline and optimisation | **PARTIAL** | Budgets met and measured on software GL only; GPU and phone frame rate **UNVERIFIED**; no in-world loading scene (*since added*). *Since: PASS in round 8 (manifest, validation, per-asset fallback, people LOD, shader warm-up, ten-cycle leak check); real-device frame rate still **UNVERIFIED*** |
 | 3D-09 Visual QA and gameplay regression | **PASS** | Frames, scorecard, defects, regression table. No automated pixel-diff baseline (the phase allows structural tests plus inspection) |
 | 3D-10 Final art direction and release | **PARTIAL** | Reviewed and repaired. Not premium by its own rubric; nothing deployed |
 

@@ -2,8 +2,8 @@
   "generatedBy": "npx tsx scripts/asset-manifest.ts",
   "units": "world units; one tile of the engine map is one unit square",
   "origin": "each asset's origin is its base, in the middle of its footprint (the bridge is brought back to its own centre)",
-  "textures": "textured materials paint one canvas each at load (RGBA8, sRGB, 256 px square, 128 px on the low tier, repeat-wrapped, anisotropy 4) and use the same canvas as their bump map; tinted variants share it. Trees and people carry their colours in their vertices and use no texture.",
-  "ambientOcclusion": "no occlusion is baked into building textures; on the medium and high tiers the finishing chain adds screen-space ambient occlusion. Trees darken toward the trunk and the underside of each crown in their vertex colours.",
+  "textures": "textured materials paint one canvas each at load (RGBA8, sRGB, 256 px square, 128 px on the low tier, repeat-wrapped, mipmapped, anisotropic filtering up to 8 or the GPU limit); materials with relief use the same canvas as their bump map; tinted variants share it. Trees, people and ground cover carry their colours in their vertices or per instance and use no texture.",
+  "ambientOcclusion": "no occlusion is baked into building textures; on the medium and high tiers the finishing chain adds screen-space ambient occlusion. The underside of each tree crown is darker in its vertex colours (the crown shading itself), and the painted ground is darkened round each building.",
   "seed": 1,
   "assets": [
     {

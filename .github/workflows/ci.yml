@@ -59,7 +59,8 @@ jobs:
   e2e-3d:
     name: Browser tests, 3D world (software WebGL)
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # the 3D suite runs on a software rasteriser: 43 tests took 37.7 minutes before the ten-load leak check and the monitor test joined it
+    timeout-minutes: 60
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
