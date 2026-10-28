@@ -159,7 +159,8 @@ export function MapView({ children }: { children?: React.ReactNode }) {
         if (pts.size < 2) pinch = 0;
         if (wasSingle && drag.moved <= 8 && e.button !== 2) {
           const hit = r?.hitTest(p.x, p.y) ?? null;
-          const now = performance.now();
+          // when the finger came up, not when this handler got to run: a page busy drawing must not turn a double tap into two taps
+          const now = e.timeStamp;
           if (hit?.kind === 'villager' && hit.id === lastTap.id && now - lastTap.at < 450) {
             // a double tap on someone: go to them (up close a knot of people spreads apart, so this one is the one selected)
             lastTap = { id: '', at: 0 };

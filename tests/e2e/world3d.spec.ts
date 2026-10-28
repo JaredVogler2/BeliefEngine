@@ -300,6 +300,9 @@ test.describe('the 3D world', () => {
     const dist = (): Promise<number> => page.evaluate(() => (window as unknown as { __beRenderer: { describeView: () => { dist: number } } }).__beRenderer.describeView().dist);
     const far = await dist();
     const p = await pip();
+    // the world stops drawing for the two taps: a software rasteriser holds the page for over half a second a frame, so each touch would
+    // wait its turn and arrive too late to count as a double tap (a GPU draws a frame in milliseconds; the tap logic is what is tested)
+    await page.evaluate(() => (window as unknown as { __beRenderer: { setFrozen: (on: boolean) => void } }).__beRenderer.setFrozen(true));
     if (touch) {
       const cdp = await page.context().newCDPSession(page);
       const pt = [{ x: Math.round(p.x), y: Math.round(p.y), id: 0, radiusX: 6, radiusY: 6, force: 1 }];
@@ -308,6 +311,7 @@ test.describe('the 3D world', () => {
         await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
       }
     } else await page.mouse.dblclick(p.x, p.y);
+    await page.evaluate(() => (window as unknown as { __beRenderer: { setFrozen: (on: boolean) => void } }).__beRenderer.setFrozen(false));
     await expect.poll(selected).toBe('pip');
     await expect(menu).toHaveCount(0);
     expect(await dist()).toBeLessThan(far * 0.75);
