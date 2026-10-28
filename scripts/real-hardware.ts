@@ -142,7 +142,24 @@ async function chrome(): Promise<void> {
         await page.screenshot({ path: `${out}/${label.replace(/\W+/g, '-')}-${view.name}-${scene}.png` });
         let bench: unknown = null;
         if (live?.renderer === '3d' && scene !== 'night') bench = await page.evaluate('window.__beRenderer.benchmark(120)');
-        rows[scene] = { live, bench, timeline };
+        // where the high tier's GPU time goes: the same frames with parts of the finishing chain switched off in turn
+        let parts: unknown = null;
+        if (live?.renderer === '3d' && view.quality === 'high' && scene === 'calm') {
+          parts = await page.evaluate(`(async () => {
+            const r = window.__beRenderer;
+            const out = { full: await r.benchmark(90) };
+            r.setPost({ ao: 0 });
+            out.noAmbientOcclusion = await r.benchmark(90);
+            r.setPost({ ao: 0, bloom: false });
+            out.noAmbientOcclusionNoBloom = await r.benchmark(90);
+            r.setPost({ enabled: false });
+            out.noChainAtAll = await r.benchmark(90);
+            r.setPost(null);
+            return out;
+          })()`);
+          note(`${view.name} ${scene} cost by part (median ms back to back): ${Object.entries(parts as Record<string, { medianMs: number }>).map(([k, v]) => `${k} ${v.medianMs}`).join(', ')}`);
+        }
+        rows[scene] = { live, bench, timeline, parts };
         note(`${view.name} ${scene}: ${brief(live)}${bench ? ` · back to back: ${JSON.stringify(bench)}` : ''}`);
         note(`${view.name} ${scene} tier every 2 s: ${timeline.map((x) => `${(x as { tier: string }).tier}×${(x as { scale: number }).scale}`).join(' ')}`);
       }
@@ -248,7 +265,17 @@ async function ios(): Promise<void> {
   if (device.state !== 'Booted') sim('boot', device.udid);
   sim('bootstatus', device.udid, '-b');
   const link = `${base}/?mode=story&scn=redbank&seed=1&play=1&perf=1`;
-  sim('openurl', device.udid, link);
+  // a freshly booted simulator can time out opening its first link: try again a little later
+  for (let attempt = 1; ; attempt++) {
+    try {
+      sim('openurl', device.udid, link);
+      break;
+    } catch (e) {
+      if (attempt >= 4) throw e;
+      note(`openurl attempt ${attempt} failed (${String(e).split('\n')[0].slice(0, 120)}); retrying`);
+      await sleep(20_000);
+    }
+  }
   const shots: string[] = [];
   for (const [wait, name] of [[60_000, 'ios-after-1-minute.png'], [60_000, 'ios-after-2-minutes.png']] as const) {
     await sleep(wait);

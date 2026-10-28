@@ -1077,6 +1077,8 @@ export class World3D implements WorldRenderer {
     const p99 = s[Math.min(s.length - 1, Math.floor(s.length * 0.99))];
     const i = this.renderer.info.render;
     const r1 = (v: number): number => Math.round(v * 10) / 10;
+    // frames drawn back to back and waited for are not the paced loop's: the quality monitor starts again from the frames after them
+    this.resetSamples();
     return { frames, medianMs: r1(med), p95Ms: r1(p95), p99Ms: r1(p99), medianFps: r1(1000 / med), low1Fps: r1(1000 / p99), calls: i.calls, triangles: i.triangles };
   }
 

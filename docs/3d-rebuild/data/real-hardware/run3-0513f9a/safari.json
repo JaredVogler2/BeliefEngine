@@ -1,0 +1,103 @@
+{
+  "capabilities": {
+    "browserName": "Safari",
+    "browserVersion": "26.6.1",
+    "platformName": "macOS"
+  },
+  "gpu": {
+    "vendor": "Apple Inc.",
+    "webgl2": true,
+    "renderer": "Apple GPU"
+  },
+  "userAgent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/26.6.1 Safari/605.1.15",
+  "calm": {
+    "dpr": 1,
+    "renderer": "3d",
+    "info": {
+      "programs": 35,
+      "tier": "high",
+      "software": false,
+      "calls": 497,
+      "worstDrawMs": 24,
+      "hitches": 0,
+      "post": {
+        "bloom": true,
+        "fxaa": true,
+        "ao": 4
+      },
+      "triangles": 580662,
+      "geometries": 270,
+      "fps": 44.6168768186227,
+      "builds": 1,
+      "firstDrawMs": 1276,
+      "frameP50Ms": 21,
+      "frameP95Ms": 36,
+      "buildMs": 1578,
+      "env": true,
+      "scale": 1,
+      "frames": 473,
+      "textures": 26,
+      "drawMs": 4.4
+    },
+    "css": [
+      1440,
+      848
+    ],
+    "memory": {
+      "textures": 13,
+      "targets": 11,
+      "textureMB": 7.2,
+      "people": {
+        "far": 14,
+        "near": 0
+      },
+      "targetMB": 65.8,
+      "standIns": []
+    }
+  },
+  "flood": {
+    "dpr": 1,
+    "renderer": "3d",
+    "info": {
+      "programs": 58,
+      "tier": "high",
+      "software": false,
+      "calls": 530,
+      "worstDrawMs": 45,
+      "hitches": 0,
+      "post": {
+        "bloom": true,
+        "fxaa": true,
+        "ao": 4
+      },
+      "triangles": 648605,
+      "geometries": 291,
+      "fps": 35.43307086614173,
+      "builds": 2,
+      "firstDrawMs": 4765,
+      "frameP50Ms": 24,
+      "frameP95Ms": 47,
+      "buildMs": 839,
+      "env": true,
+      "scale": 1,
+      "frames": 964,
+      "textures": 27,
+      "drawMs": 5
+    },
+    "css": [
+      1440,
+      848
+    ],
+    "memory": {
+      "textures": 13,
+      "targets": 11,
+      "textureMB": 7.2,
+      "people": {
+        "far": 14,
+        "near": 0
+      },
+      "targetMB": 65.8,
+      "standIns": []
+    }
+  }
+}
