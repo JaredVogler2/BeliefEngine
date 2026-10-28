@@ -121,16 +121,24 @@ async function chrome(): Promise<void> {
           await sleep(4000);
           await page.evaluate(() => (window as unknown as { __belief: { store: { endDay: () => void } } }).__belief.store.endDay());
         }
-        // the live loop, with its frame pacing and the quality monitor free to step down: what a player on this machine would get
-        await sleep(12_000);
+        // the live loop, with its frame pacing and the quality monitor free to step down: what a player on this machine would get. The
+        // tier is read every two seconds, so a step down (and when it came) shows
+        const timeline: unknown[] = [];
+        for (let t = 2; t <= 12; t += 2) {
+          await sleep(2000);
+          const r = (await page.evaluate(READ)) as Reading;
+          const i = r?.info as { tier: string; scale: number; fps: number; frameP50Ms: number; drawMs: number } | null | undefined;
+          if (i) timeline.push({ t, tier: i.tier, scale: i.scale, fps: Math.round(i.fps), p50: i.frameP50Ms, draw: i.drawMs });
+        }
         const live = (await page.evaluate(READ)) as Reading;
         // (the night's morning report would cover the village in the picture)
         if (scene === 'night') await page.evaluate(() => (window as unknown as { __belief: { store: { closeDigest: () => void } } }).__belief.store.closeDigest());
         await page.screenshot({ path: `${out}/${label.replace(/\W+/g, '-')}-${view.name}-${scene}.png` });
         let bench: unknown = null;
         if (live?.renderer === '3d' && scene !== 'night') bench = await page.evaluate('window.__beRenderer.benchmark(120)');
-        rows[scene] = { live, bench };
+        rows[scene] = { live, bench, timeline };
         note(`${view.name} ${scene}: ${brief(live)}${bench ? ` · back to back: ${JSON.stringify(bench)}` : ''}`);
+        note(`${view.name} ${scene} tier every 2 s: ${timeline.map((x) => `${(x as { tier: string }).tier}×${(x as { scale: number }).scale}`).join(' ')}`);
       }
       if (view.name === 'desktop') {
         // the art director's test: Day 1 with no interface at all, on this GPU

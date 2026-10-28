@@ -15,6 +15,7 @@ import { MaterialLib } from './materials.ts';
 import { createLayers } from './layers.ts';
 import { LandmarksLayer } from './landmarks.ts';
 import type { PeopleLayer } from './people.ts';
+import { lagOf, pacedGap, qualityStep, typicalOf } from './pacing.ts';
 import { EffectsLayer } from './effects.ts';
 import { MagicField, attachMagicToStandard } from './magic.ts';
 import { PostChain, displayUniforms, preCompensate, type PostLook, type PostProfile } from './post.ts';
@@ -71,6 +72,8 @@ export class World3D implements WorldRenderer {
   /** the sky's light as an environment map (ambient light and soft reflections) */
   private envRT: THREE.WebGLRenderTarget | null = null;
   private W = 300;
+  /** resize() has set the canvas's size at least once */
+  private sized = false;
   private H = 200;
   private dpr = 1;
   private opts: RenderOpts = { ...DEFAULT_OPTS };
@@ -229,10 +232,15 @@ export class World3D implements WorldRenderer {
     const loop = (now: number): void => {
       if (!this.running) return;
       this.raf = requestAnimationFrame(loop);
-      if (document.hidden || this.contextLost || this.frozen) return;
-      // never spend more than about 40% of the main thread on drawing, whatever the machine: a slow frame earns a longer rest
-      // (a software rasteriser is capped at a few frames a second: it can only ever be a fallback, and the page must stay responsive)
-      const minGap = Math.max(1000 / (this.software ? 3 : this.profile.maxFps) - 2, this.drawMs * 2.5);
+      if (document.hidden || this.contextLost || this.frozen) {
+        // (the time away is not a frame interval)
+        this.lastFrameAt = 0;
+        return;
+      }
+      // never spend more than about 40% of the main thread on drawing, whatever the machine: a slow machine's frames earn a longer rest
+      // (a software rasteriser is capped at a few frames a second: it can only ever be a fallback, and the page must stay responsive).
+      // Paced by the typical draw, not an average: one slow frame (the first, compiling shaders) must not hold up the next ones
+      const minGap = pacedGap(this.profile.maxFps, this.software, this.typicalDraw());
       if (now - this.lastDraw < minGap) return;
       const dt = Math.min(0.1, (now - this.last) / 1000);
       this.last = now;
@@ -259,9 +267,14 @@ export class World3D implements WorldRenderer {
   }
 
   resize(w: number, h: number, dpr: number): void {
+    const d = Math.min(dpr, this.profile.dpr);
+    // the same size again (a resize observer's first report) changes nothing: setting a canvas's size, even to the one it has, clears
+    // and reallocates its drawing buffer, and the frame drawn after it pays for that
+    if (this.sized && Math.max(1, w) === this.W && Math.max(1, h) === this.H && d === this.dpr) return;
+    this.sized = true;
     this.W = Math.max(1, w);
     this.H = Math.max(1, h);
-    this.dpr = Math.min(dpr, this.profile.dpr);
+    this.dpr = d;
     this.renderer.setPixelRatio(this.dpr * this.scale);
     this.renderer.setSize(this.W, this.H, false);
     this.syncPostSize();
@@ -437,7 +450,7 @@ export class World3D implements WorldRenderer {
     this.buildMs = performance.now() - t0;
     this.builds++;
     this.stalls = { first: -1, worst: 0, hitches: 0 };
-    this.recent = [];
+    this.resetSamples();
   }
 
   /**
@@ -607,18 +620,38 @@ export class World3D implements WorldRenderer {
     this.draw();
   }
 
-  /** step the quality down when frames are too slow for this machine, and back up (resolution only) when there is room */
+  /**
+   * Step the quality down when this machine is too slow for it, and back up (resolution only) when there is room. Judged from the frames
+   * since the village was built or the setting last changed (`pacing.ts`): the typical draw on the main thread, and how late frames come
+   * round, which is where a busy GPU shows.
+   */
   private monitor(dt: number): void {
     this.monT += dt;
-    if (this.monT < 1.5 || this.pinned || this.drawMs === 0) return;
+    if (this.monT < 1.5 || this.pinned) return;
+    const draw = this.typicalDraw();
+    const lag = lagOf(typicalOf(this.gaps, 20), pacedGap(this.profile.maxFps, this.software, draw));
+    // too few frames at this setting to judge this machine yet
+    if (draw === 0 || lag === 0) return;
     this.monT = 0;
-    if (this.drawMs > 28) {
-      if (this.quality === 'high') this.setQuality('medium');
-      else if (this.quality === 'medium') this.setQuality('low');
-      else if (this.scale > 0.5) this.setScale(Math.max(0.5, this.scale * 0.8));
-    } else if (this.drawMs < 6 && this.scale < 1) {
-      this.setScale(Math.min(1, this.scale * 1.15));
-    }
+    const next = qualityStep(this.quality, this.scale, draw, lag);
+    if (next.quality !== this.quality) this.setQuality(next.quality);
+    else if (next.scale !== this.scale) this.setScale(next.scale);
+    else return;
+    // the new setting is judged on its own frames
+    this.resetSamples();
+  }
+
+  /** the median draw since the village was built or the setting changed (0 until there are five) */
+  private typicalDraw(): number {
+    return typicalOf(this.recent, 5);
+  }
+
+  private resetSamples(): void {
+    this.recent = [];
+    this.recentAt = 0;
+    this.gaps = [];
+    this.gapAt = 0;
+    this.lastFrameAt = 0;
   }
 
   private setScale(k: number): void {
@@ -649,7 +682,8 @@ export class World3D implements WorldRenderer {
       if (this.stalls.first < 0) this.stalls.first = ms;
       else {
         this.stalls.worst = Math.max(this.stalls.worst, ms);
-        if (ms > 50 && this.recent.length >= 5 && ms > [...this.recent].sort((a, b) => a - b)[this.recent.length >> 1] * 4) this.stalls.hitches++;
+        const typical = this.typicalDraw();
+        if (ms > 50 && typical > 0 && ms > typical * 4) this.stalls.hitches++;
         this.recent[this.recentAt++ % 30] = ms;
       }
       this.drawMs = this.drawMs === 0 ? ms : this.drawMs * 0.8 + ms * 0.2;
