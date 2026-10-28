@@ -466,6 +466,8 @@ export class World3D implements WorldRenderer {
     if (this.water) {
       this.water.setTint(new THREE.Color(m.waterTint, m.waterTint, m.waterTint));
       this.water.setRain(this.reduced() ? 0 : m.rain);
+      // the current quickens with the wind: a calm river runs gently, a storm's runs hard
+      this.water.setCurrent(0.45 + 0.3 * m.wind);
       this.water.setLight(this.sun.position.clone().sub(this.sun.target.position).normalize(), this.sun.color.clone().multiplyScalar(Math.min(1, m.sunIntensity / 3)), new THREE.Color(m.skyTop));
     }
     if (this.ctx) {

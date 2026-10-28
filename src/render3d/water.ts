@@ -34,6 +34,7 @@ const FRAG = /* glsl */ `
   varying float vDepth;
   varying float vRiver;
   uniform float uTime;
+  uniform float uFlowT;
   uniform vec2 uFlow;
   uniform vec3 uSunDir;
   uniform vec3 uSunColor;
@@ -57,10 +58,11 @@ const FRAG = /* glsl */ `
     // coordinates along and across the current: ripples stretch downstream into long streaks
     vec2 dirF = normalize(uFlow);
     vec2 dirC = vec2(-dirF.y, dirF.x);
-    float along = dot(p, dirF) - uTime * speed * 0.9;
+    // (uFlowT is how far the current has carried the water: it runs faster in wind and storm without the pattern jumping)
+    float along = dot(p, dirF) - uFlowT * speed * 0.9;
     float across = dot(p, dirC);
     float n1 = vn(vec2(across * 3.2, along * 0.9));
-    float n2 = vn(vec2(across * 7.5 + 13.0, along * 1.7 + uTime * 0.12 * speed));
+    float n2 = vn(vec2(across * 7.5 + 13.0, along * 1.7 + uFlowT * 0.12 * speed));
     float n3 = vn(vec2(across * 15.0 + 4.0, along * 3.0));
     vec3 N = normalize(vec3((n1 - 0.5) * 0.35 + (n2 - 0.5) * 0.22 * uTierF, 1.0, (vn(vec2(across * 3.2 + 9.0, along * 0.9 + 3.0)) - 0.5) * 0.35 + (n3 - 0.5) * 0.12 * uTierF));
     vec3 V = normalize(cameraPosition - vWorld);
@@ -124,6 +126,10 @@ export class Water {
   readonly flow: THREE.Vector2;
   private snapW: number;
   private snapH: number;
+  /** how fast the current runs (1 = a steady river), eased toward what the weather asks, and how far it has carried the water */
+  private current = 0.75;
+  private currentGoal = 0.75;
+  private flowT = 0;
 
   constructor(snap: SceneSnapshot, terrain: TerrainData, tier: WaterTier) {
     this.terrain = terrain;
@@ -148,6 +154,8 @@ export class Water {
     this.geo.setAttribute('position', this.posAttr);
     this.geo.setAttribute('aDepth', this.depthAttr);
     this.geo.setAttribute('aRiver', this.riverAttr);
+    // the same triangles as the ground under it, diagonal for diagonal: on a steep bank a quad split the other way stood up out of the
+    // slope as a streaky sheet of water, with a saw-toothed shoreline (seen in a frame-by-frame review of the river)
     const index: number[] = [];
     for (let j = 0; j < this.nz - 1; j++) {
       for (let i = 0; i < this.nx - 1; i++) {
@@ -155,7 +163,8 @@ export class Water {
         const b = a + 1;
         const c = a + this.nx;
         const d = c + 1;
-        index.push(a, c, b, b, c, d);
+        if ((i + j) % 2 === 0) index.push(a, c, b, b, c, d);
+        else index.push(a, c, d, a, d, b);
       }
     }
     this.geo.setIndex(index);
@@ -198,6 +207,7 @@ export class Water {
         THREE.UniformsLib.fog,
         {
           uTime: { value: 0 },
+          uFlowT: { value: 0 },
           uFlow: { value: this.flow },
           uSunDir: { value: new THREE.Vector3(0.5, 0.8, 0.3).normalize() },
           uSunColor: { value: new THREE.Color(1.0, 0.86, 0.62) },
@@ -235,6 +245,11 @@ export class Water {
   /** how hard it is raining (0..1): rings spread on the surface */
   setRain(v: number): void {
     this.mat.uniforms.uRain.value = v;
+  }
+
+  /** how fast the current runs: a calm river about 0.7, a storm's well over 1; the change is eased, never a jump */
+  setCurrent(v: number): void {
+    this.currentGoal = v;
   }
 
   /** the water's colour shifts with the weather: murky and dark in a flood */
@@ -326,7 +341,8 @@ export class Water {
         const rv = r(ix, iy) * (1 - tx) * (1 - ty) + r(ix + 1, iy) * tx * (1 - ty) + r(ix, iy + 1) * (1 - tx) * ty + r(ix + 1, iy + 1) * tx * ty;
         const ground = terrain.heights[k];
         const depth = s - ground;
-        pos[k * 3 + 1] = depth > 0 ? s : ground - 0.02;
+        // where the ground is above the surface, the mesh tucks under it, so the shoreline is where the two cross
+        pos[k * 3 + 1] = depth > 0 ? s : ground - 0.05;
         dep[k] = Math.max(0, depth);
         riv[k] = smoothstep(0.2, 0.9, rv);
       }
@@ -339,6 +355,9 @@ export class Water {
   /** advance the rise or fall of the water; returns true while it is still moving */
   tick(dt: number, time: number): boolean {
     (this.mat.uniforms.uTime as { value: number }).value = time;
+    this.current += (this.currentGoal - this.current) * Math.min(1, dt * 0.8);
+    this.flowT += dt * this.current;
+    (this.mat.uniforms.uFlowT as { value: number }).value = this.flowT;
     if (this.animT >= 1) return false;
     this.animT = Math.min(1, this.animT + dt / 1.4);
     const e = this.animT * this.animT * (3 - 2 * this.animT);

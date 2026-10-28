@@ -85,6 +85,8 @@ export function buildGroundTexture(snap: SceneSnapshot, data: TerrainData, seedN
   const wRock = new Float32Array(cw * ch);
   const wForest = new Float32Array(cw * ch);
   const wWet = new Float32Array(cw * ch);
+  /** banks too steep for turf: bare, muddy earth (the texture is laid from above, so grass flecks there would stretch into streaks) */
+  const wBare = new Float32Array(cw * ch);
   const wSand = new Float32Array(cw * ch);
   const tmp: RGB = [0, 0, 0];
   const mix = (c: RGB, t: RGB, k: number): void => {
@@ -121,6 +123,7 @@ export function buildGroundTexture(snap: SceneSnapshot, data: TerrainData, seedN
       const sl = Math.hypot(data.heightAt(u + e, v) - data.heightAt(u - e, v), data.heightAt(u, v + e) - data.heightAt(u, v - e)) / (2 * e);
       const steep = smooth(0.9, 2.0, sl);
       wRock[k] = Math.max(rock, steep * 0.85);
+      wBare[k] = smooth(0.55, 1.3, sl);
       wForest[k] = forest;
       wSand[k] = sand;
       wField[k] = mask([TERRAIN.FIELD], u, v, 0.14);
@@ -195,13 +198,14 @@ export function buildGroundTexture(snap: SceneSnapshot, data: TerrainData, seedN
       const forest = sample(wForest, fu, fv, 1, 0);
       const wet = sample(wWet, fu, fv, 1, 0);
       const yard = sample(wYard, fu, fv, 1, 0);
+      const bare = sample(wBare, fu, fv, 1, 0);
       // fine grain at the pixel scale
       const n1 = hash(x, y);
       const n2 = hash(x >> 1, y >> 1);
       const grain = 0.9 + 0.2 * (0.6 * n1 + 0.4 * n2);
       // blades and flecks on grass
       const fleck = hash(x * 3 + 11, y * 5 + 7) > 0.97 ? 1 : 0;
-      const grassW = (1 - road) * (1 - field) * (1 - rock) * (1 - path * 0.7) * (1 - yard * 0.8);
+      const grassW = (1 - road) * (1 - field) * (1 - rock) * (1 - path * 0.7) * (1 - yard * 0.8) * (1 - bare);
       r = r * grain + fleck * grassW * 0.07;
       gg = gg * grain + fleck * grassW * 0.1;
       b = b * grain;
@@ -253,6 +257,13 @@ export function buildGroundTexture(snap: SceneSnapshot, data: TerrainData, seedN
         r = lerp(r, rr, edge);
         gg = lerp(gg, rg, edge);
         b = lerp(b, rb, edge);
+      }
+      // a bank too steep for turf: bare earth, darker toward the bottom where the water keeps it wet
+      if (bare > 0.02) {
+        const k = bare * 0.72 * (1 - road) * (1 - field);
+        r = lerp(r, PAL.mud[0] * grain, k);
+        gg = lerp(gg, PAL.mud[1] * grain, k);
+        b = lerp(b, PAL.mud[2] * grain, k);
       }
       // rock outcrops: banded stone
       if (rock > 0.02) {
