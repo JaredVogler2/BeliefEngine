@@ -16,7 +16,9 @@ under `docs/` (those are evidence, not assets). The only shipped non-code file i
 | Ground (grass, fields, roads, rock, marsh, sand, forest floor, paths worn to doors, mown plots) | one canvas per village, painted from the tile map, blended per tile with seeded noise | `src/render3d/groundTexture.ts` | project (MIT) |
 | Plaster, tile, thatch, planks, timber, stone, cobble, bark, cloth | 256 px canvases (128 on the low tier) painted from a seeded generator; tinted variants share the texture | `src/render3d/materials.ts` | project (MIT) |
 | Glass, iron, brass, rope, straw, mud, gold | flat PBR materials (colour, roughness, metalness) | `src/render3d/materials.ts` | project (MIT) |
-| Terrain mesh and the plate's layered edge | height field from the engine's elevation, smoothed; vertex colours | `src/render3d/terrain.ts` | project (MIT) |
+| Terrain mesh | height field from the engine's elevation, smoothed; the painted ground texture | `src/render3d/terrain.ts`, `src/render3d/groundTexture.ts` | project (MIT) |
+| The plate's cut edge and the root of rock under it | painted strata on a canvas made from the seed (turf, topsoil with roots and pebbles, clay, sandstone, jointed rock), faces with relief and a ragged base; the root flat-shaded rock | `src/render3d/cliff.ts` | project (MIT) |
+| Waterfall, mist and spring boulders | a falling sheet shaded with the river's own uniforms, soft point sprites for mist, boulders from the rock generator merged into one mesh | `src/render3d/falls.ts` | project (MIT) |
 | River and flood surface | one mesh over the terrain, a custom GLSL shader (flow, glints, foam) | `src/render3d/water.ts` | project (MIT) |
 | Houses, cabins, mill, granary, hall, chapel, market, shelter, well, pens, campfire, beacon, bridge, bell tower | merged primitive geometry per material (box, cylinder, extruded arch, gable and hip roofs) | `src/render3d/geom.ts`, `buildings.ts`, `civic.ts`, `kit.ts`, `landmarks.ts` | project (MIT) |
 | Oak (also in blossom and in autumn colour), pine, birch, willow, cypress, apple, shrub, stump; grass tufts, wildflowers, reeds, grain, rocks | one merged geometry per species with colours painted into the vertices (or one material coloured per instance), instanced | `src/render3d/trees.ts`, `foliage.ts` | project (MIT) |
@@ -39,7 +41,9 @@ assets" in place of Blender and glTF), and the record is read from them rather t
 - **The catalog**, `scripts/asset-catalog.ts`, lists every model the world builds and the generator that makes it: five cottage
   variants, the cabin, granary, hall, chapel, ruin (standing and burned), bell tower, mill, market, shelter, well, pen, campfire, beacon,
   the bridge, the yard and field props, ten kinds of tree (a shrub and a stump among them), five kinds of ground cover, the 14 people of Redbank and the distant version of each,
-  and the plain stand-in drawn only when a generator fails. 70 entries.
+  and the plain stand-in drawn only when a generator fails. 70 entries. The surfaces built from the village's own data rather than
+  placed (the ground, the plate's cut edge and the root under it, the river with its falls, the sky and the cloud sea) are in the table
+  above, not the catalog, and are checked by their own tests (`render3d-scene.test.ts`, `render3d-edge.test.ts`).
 - **The manifest**, `docs/3d-rebuild/data/asset-manifest.json`, is the catalog run with a fixed seed and written out by
   `npx tsx scripts/asset-manifest.ts` (add `--md` for a table). For each asset it gives the generator, how the world draws it,
   triangles, vertices, meshes before batching, the materials by library name and tint, the animated sub-groups and where each turns

@@ -23,10 +23,13 @@ const VERT = /* glsl */ `
 const FRAG = /* glsl */ `
   ${DISPLAY_GLSL}
   varying vec4 vColor;
+  uniform float uSoft;
   void main() {
     vec2 p = gl_PointCoord - 0.5;
     float d = length(p);
-    float a = (1.0 - smoothstep(0.12, 0.5, d)) * vColor.a;
+    // a puff of smoke has a body; mist (uSoft) has none, only a haze thinning to its edge, so many of them merge into one cloud
+    float edge = 1.0 - smoothstep(0.12 * (1.0 - uSoft), 0.5, d);
+    float a = mix(edge, edge * edge * edge, uSoft) * vColor.a;
     if (a < 0.01) discard;
     gl_FragColor = vec4(postDisplay(vColor.rgb), a);
     #include <colorspace_fragment>
@@ -57,7 +60,7 @@ export class Particles {
   private readonly sizeAttr: THREE.BufferAttribute;
   private readonly colAttr: THREE.BufferAttribute;
 
-  constructor(max: number, additive: boolean) {
+  constructor(max: number, additive: boolean, soft = false) {
     this.n = max;
     this.pos = new Float32Array(max * 3);
     this.vel = new Float32Array(max * 3);
@@ -88,7 +91,7 @@ export class Particles {
       transparent: true,
       depthWrite: false,
       blending: additive ? THREE.AdditiveBlending : THREE.NormalBlending,
-      uniforms: { uScale: { value: viewScale.value }, ...displayUniforms },
+      uniforms: { uScale: { value: viewScale.value }, uSoft: { value: soft ? 1 : 0 }, ...displayUniforms },
     });
     this.points = new THREE.Points(this.geo, this.mat);
     this.points.frustumCulled = false;

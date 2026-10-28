@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { Quality } from '../../src/render3d/context.ts';
+import { PROFILES, type Quality } from '../../src/render3d/context.ts';
 import { lagOf, pacedGap, qualityStep, typicalOf } from '../../src/render3d/pacing.ts';
 
 /**
@@ -66,12 +66,24 @@ describe('the quality monitor judges the machine, not the first frames of a vill
     expect(lagOf(55, pacedGap(60, false, 4))).toBeGreaterThan(1.6);
   });
 
-  it('a frame cap that falls between the display’s beats is not lag: 45 a second on a 60 Hz screen comes every other beat', () => {
-    // the medium tier asks for 45 a second; a 60 Hz display can give 30 (every other beat, 33 ms)
-    expect(lagOf(33.3, pacedGap(45, false, 3))).toBeLessThan(1.6);
-    expect(session('medium', steady(600, 3, 33.3), 45)).toEqual({ quality: 'medium', scale: 1, changes: 0 });
-    // and the low tier's 30 a second is simply met
+  it('a GPU that keeps every other beat of a 60 Hz screen gives a steady 30 a second, and that is not lag', () => {
+    // asked for 60, drawn in 20 ms: each frame waits for the next beat, 33 ms apart
+    expect(lagOf(33.3, pacedGap(60, false, 3))).toBeLessThan(1.6);
+    expect(session('medium', steady(600, 3, 33.3), 60)).toEqual({ quality: 'medium', scale: 1, changes: 0 });
+    // and the resting cap of 30 a second is simply met
     expect(session('low', steady(600, 3, 33.3), 30)).toEqual({ quality: 'low', scale: 1, changes: 0 });
+  });
+
+  it('every tier’s frame caps divide a 60 Hz display’s rate evenly: a 45 cap could only ever be shown as 30', () => {
+    // seen on a real GPU at an iPhone's size: 12-14 ms a frame back to back, yet 30 a second in the live loop under the old cap of 45
+    for (const [tier, p] of Object.entries(PROFILES)) {
+      expect(60 % p.maxFps, `${tier} while the view moves`).toBe(0);
+      expect(60 % p.idleFps, `${tier} at rest`).toBe(0);
+      expect(p.idleFps, `${tier} rests at no more than its moving cap`).toBeLessThanOrEqual(p.maxFps);
+    }
+    // a phone's tier is smooth while the player moves the view, and rests at 30 a second while it is still
+    expect([PROFILES.medium.maxFps, PROFILES.medium.idleFps]).toEqual([60, 30]);
+    expect(PROFILES.high.idleFps).toBe(60);
   });
 
   it('at a reduced resolution, quick draws and frames on time bring the resolution back up, one step at a time', () => {

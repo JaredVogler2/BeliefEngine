@@ -18,15 +18,21 @@ export interface QualityProfile {
   detail: number;
   /** multiplier on tree counts */
   trees: number;
-  /** cap on frames drawn per second */
+  /** cap on frames drawn per second while the view moves (a pan, a zoom, an orbit, a glide to a focus, the closing tour) */
   maxFps: number;
+  /**
+   * cap while the view is still. Both caps divide a 60 Hz display's rate evenly: a 45 cap, which the medium tier once had, can only be
+   * shown on alternate beats of such a display, 30 a second however fast the GPU (measured on a real GPU at an iPhone's size)
+   */
+  idleFps: number;
   particles: number;
 }
 
 export const PROFILES: Record<Quality, QualityProfile> = {
-  high: { dpr: 2, shadow: 2048, water: 'high', detail: 1, trees: 1, maxFps: 60, particles: 1 },
-  medium: { dpr: 1.5, shadow: 1024, water: 'medium', detail: 0.6, trees: 0.8, maxFps: 45, particles: 0.6 },
-  low: { dpr: 1, shadow: 0, water: 'low', detail: 0.3, trees: 0.55, maxFps: 30, particles: 0.3 },
+  high: { dpr: 2, shadow: 2048, water: 'high', detail: 1, trees: 1, maxFps: 60, idleFps: 60, particles: 1 },
+  // a phone's tier: smooth while the player moves the view, resting at 30 a second (battery, heat) while it is still
+  medium: { dpr: 1.5, shadow: 1024, water: 'medium', detail: 0.6, trees: 0.8, maxFps: 60, idleFps: 30, particles: 0.6 },
+  low: { dpr: 1, shadow: 0, water: 'low', detail: 0.3, trees: 0.55, maxFps: 30, idleFps: 30, particles: 0.3 },
 };
 
 /** everything a scene layer may use from the world it is part of */

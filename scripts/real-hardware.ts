@@ -6,8 +6,9 @@
  *   chrome  Chrome (Playwright's Chromium, headed) on the machine's GPU, through the default route (no ?renderer=3d): which renderer the
  *           game chooses there, which GPU WebGL reports, then for a desktop window and an iPhone-sized one, the calm village, the flood
  *           night and a night of effects, each left running in the live loop with its own frame pacing and quality monitor; the frame
- *           times it reports (median and 95th percentile), the tier it settles on, the scene counts, stalls and video memory, a
- *           back-to-back benchmark, and a screenshot of each (and the desktop village with no interface, for the art director's test).
+ *           times it reports (median and 95th percentile), the tier it settles on, the scene counts, stalls and video memory, the
+ *           frame times again while the view turns (the calm village), a back-to-back benchmark, and a screenshot of each (and the
+ *           desktop village with no interface, for the art director's test).
  *   safari  Safari itself, driven through safaridriver (WebDriver; `sudo safaridriver --enable` first): the same calm village and flood
  *           night in a desktop window, the same numbers and screenshots.
  *   ios     Mobile Safari in the iOS Simulator: an iPhone is booted, the game is opened with a link that goes straight into the first day
@@ -83,9 +84,9 @@ type Reading = { renderer: string | null; info: Record<string, unknown> | null; 
 const brief = (r: Reading): string => {
   if (!r) return 'no world';
   if (!r.info) return `the game chose the ${r.renderer === '2d' ? 'classic map' : `renderer "${r.renderer}"`}`;
-  const i = r.info as { tier: string; scale: number; fps: number; frameP50Ms: number; frameP95Ms: number; drawMs: number; calls: number; triangles: number; programs: number; firstDrawMs: number; worstDrawMs: number; hitches: number; software: boolean };
+  const i = r.info as { tier: string; capFps?: number; scale: number; fps: number; frameP50Ms: number; frameP95Ms: number; drawMs: number; calls: number; triangles: number; programs: number; firstDrawMs: number; worstDrawMs: number; hitches: number; software: boolean };
   const m = r.memory as { textureMB: number; targetMB: number; people: { near: number; far: number } } | null;
-  return `${r.renderer} · ${i.software ? 'SOFTWARE GL' : 'hardware GL'} · tier ${i.tier} ×${i.scale} · ${Math.round(i.fps)} fps, frame p50 ${i.frameP50Ms} / p95 ${i.frameP95Ms} ms, draw ${i.drawMs} ms · ${i.calls} calls, ${i.triangles} triangles, ${i.programs} programs · first draw ${i.firstDrawMs} ms, worst ${i.worstDrawMs} ms, ${i.hitches} hitches${m ? ` · video ≈ ${m.textureMB} + ${m.targetMB} MB · people ${m.people.far}/${m.people.near + m.people.far} far` : ''}`;
+  return `${r.renderer} · ${i.software ? 'SOFTWARE GL' : 'hardware GL'} · tier ${i.tier} ×${i.scale}${i.capFps ? ` (cap ${i.capFps})` : ''} · ${Math.round(i.fps)} fps, frame p50 ${i.frameP50Ms} / p95 ${i.frameP95Ms} ms, draw ${i.drawMs} ms · ${i.calls} calls, ${i.triangles} triangles, ${i.programs} programs · first draw ${i.firstDrawMs} ms, worst ${i.worstDrawMs} ms, ${i.hitches} hitches${m ? ` · video ≈ ${m.textureMB} + ${m.targetMB} MB · people ${m.people.far}/${m.people.near + m.people.far} far` : ''}`;
 };
 
 // ---------------------------------------------------------------------------------------------------------------------------- chrome
@@ -133,13 +134,24 @@ async function chrome(): Promise<void> {
           await sleep((t - at) * 1000);
           at = t;
           const r = (await page.evaluate(READ)) as Reading;
-          const i = r?.info as { tier: string; scale: number; fps: number; frameP50Ms: number; frames: number; drawMs: number } | null | undefined;
-          if (i) timeline.push({ t, tier: i.tier, scale: i.scale, frames: i.frames, fps: Math.round(i.fps), p50: i.frameP50Ms, draw: i.drawMs });
+          const i = r?.info as { tier: string; capFps?: number; scale: number; fps: number; frameP50Ms: number; frames: number; drawMs: number } | null | undefined;
+          if (i) timeline.push({ t, tier: i.tier, cap: i.capFps, scale: i.scale, frames: i.frames, fps: Math.round(i.fps), p50: i.frameP50Ms, draw: i.drawMs });
         }
         const live = (await page.evaluate(READ)) as Reading;
         // (the night's morning report would cover the village in the picture)
         if (scene === 'night') await page.evaluate(() => (window as unknown as { __belief: { store: { closeDigest: () => void } } }).__belief.store.closeDigest());
         await page.screenshot({ path: `${out}/${label.replace(/\W+/g, '-')}-${view.name}-${scene}.png` });
+        // the view turning (a slow orbit, as a player turns it): the medium tier draws at up to 60 a second while the view moves and
+        // rests at 30 while it is still, so the frame times are read again after five seconds of turning
+        let moving: Reading = null;
+        if (live?.renderer === '3d' && scene === 'calm') {
+          await page.evaluate(`(() => { const r = window.__beRenderer; window.__turn = setInterval(() => r.orbitBy(0.006, 0), 40); })()`);
+          await sleep(5000);
+          moving = (await page.evaluate(READ)) as Reading;
+          await page.evaluate(`(() => { clearInterval(window.__turn); window.__beRenderer.fit(); })()`);
+          await sleep(1500);
+          note(`${view.name} ${scene} while the view turns: ${brief(moving)}`);
+        }
         let bench: unknown = null;
         if (live?.renderer === '3d' && scene !== 'night') bench = await page.evaluate('window.__beRenderer.benchmark(120)');
         // where the high tier's GPU time goes: the same frames with parts of the finishing chain switched off in turn
@@ -159,7 +171,7 @@ async function chrome(): Promise<void> {
           })()`);
           note(`${view.name} ${scene} cost by part (median ms back to back): ${Object.entries(parts as Record<string, { medianMs: number }>).map(([k, v]) => `${k} ${v.medianMs}`).join(', ')}`);
         }
-        rows[scene] = { live, bench, timeline, parts };
+        rows[scene] = { live, moving, bench, timeline, parts };
         note(`${view.name} ${scene}: ${brief(live)}${bench ? ` · back to back: ${JSON.stringify(bench)}` : ''}`);
         note(`${view.name} ${scene} tier every 2 s: ${timeline.map((x) => `${(x as { tier: string }).tier}×${(x as { scale: number }).scale}`).join(' ')}`);
       }
@@ -228,7 +240,16 @@ async function safari(): Promise<void> {
       const live = (await exec(`return ${READ}`)) as Reading;
       const shot = (await wd('GET', `/session/${sid}/screenshot`)).value as string;
       writeFileSync(`${out}/safari-desktop-${scene}.png`, Buffer.from(shot, 'base64'));
-      results[scene] = live;
+      let moving: Reading = null;
+      if (live?.renderer === '3d' && scene === 'calm') {
+        await exec('const r = window.__beRenderer; window.__turn = setInterval(() => r.orbitBy(0.006, 0), 40); return true');
+        await sleep(5000);
+        moving = (await exec(`return ${READ}`)) as Reading;
+        await exec('clearInterval(window.__turn); window.__beRenderer.fit(); return true');
+        await sleep(1500);
+        note(`safari desktop ${scene} while the view turns: ${brief(moving)}`);
+      }
+      results[scene] = moving ? { ...live, moving } : live;
       note(`safari desktop ${scene}: ${brief(live)}`);
     }
   } finally {
@@ -265,25 +286,39 @@ async function ios(): Promise<void> {
   if (device.state !== 'Booted') sim('boot', device.udid);
   sim('bootstatus', device.udid, '-b');
   const link = `${base}/?mode=story&scn=redbank&seed=1&play=1&perf=1`;
-  // a freshly booted simulator can time out opening its first link: try again a little later
-  for (let attempt = 1; ; attempt++) {
+  // Mobile Safari's first launch on a fresh simulator does its first-run setup, and an `openurl` sent meanwhile times out (runs 3 and 4
+  // timed out four times each): start Safari on its own first and give it time
+  try {
+    sim('launch', device.udid, 'com.apple.mobilesafari');
+  } catch (e) {
+    note(`launching Mobile Safari first failed (${String(e).split('\n')[0].slice(0, 120)})`);
+  }
+  await sleep(45_000);
+  let openError: string | null = null;
+  for (let attempt = 1; attempt <= 4; attempt++) {
     try {
       sim('openurl', device.udid, link);
+      openError = null;
       break;
     } catch (e) {
-      if (attempt >= 4) throw e;
-      note(`openurl attempt ${attempt} failed (${String(e).split('\n')[0].slice(0, 120)}); retrying`);
-      await sleep(20_000);
+      openError = String(e).split('\n')[0].slice(0, 200);
+      note(`openurl attempt ${attempt} failed (${openError.slice(0, 120)})${attempt < 4 ? '; retrying' : ''}`);
+      if (attempt < 4) await sleep(20_000);
     }
   }
+  // photographed whatever happened: a timed-out openurl can still have opened the page, and if not, the screen says what is there
   const shots: string[] = [];
   for (const [wait, name] of [[60_000, 'ios-after-1-minute.png'], [60_000, 'ios-after-2-minutes.png']] as const) {
     await sleep(wait);
-    sim('io', device.udid, 'screenshot', `${out}/${name}`);
-    shots.push(name);
+    try {
+      sim('io', device.udid, 'screenshot', `${out}/${name}`);
+      shots.push(name);
+    } catch (e) {
+      note(`screenshot ${name} failed (${String(e).split('\n')[0].slice(0, 120)})`);
+    }
   }
-  note(`opened ${link} in Mobile Safari; screenshots: ${shots.join(', ')} (read the developer monitor in them)`);
-  finish({ device: device.name, runtime, link, shots });
+  note(`${openError ? 'tried to open' : 'opened'} ${link} in Mobile Safari; screenshots: ${shots.join(', ') || 'none'} (read the developer monitor in them)`);
+  finish({ device: device.name, runtime, link, shots, openError });
 }
 
 if (mode === 'chrome') await chrome();

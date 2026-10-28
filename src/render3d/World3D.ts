@@ -100,6 +100,8 @@ export class World3D implements WorldRenderer {
   private last = 0;
   private time = 0;
   private lastDraw = 0;
+  /** the frame cap in force: the tier's cap while the view moves, its resting cap while it is still */
+  private capFps = 60;
   private frames = 0;
   private fpsT = performance.now();
   fps = 60;
@@ -245,7 +247,9 @@ export class World3D implements WorldRenderer {
       // never spend more than about 40% of the main thread on drawing, whatever the machine: a slow machine's frames earn a longer rest
       // (a software rasteriser is capped at a few frames a second: it can only ever be a fallback, and the page must stay responsive).
       // Paced by the typical draw, not an average: one slow frame (the first, compiling shaders) must not hold up the next ones
-      const minGap = pacedGap(this.profile.maxFps, this.software, this.typicalDraw());
+      // the tier's cap while the view moves, its resting cap while it is still (the camera's motion is from the last frame drawn)
+      this.capFps = this.cam.isMoving ? this.profile.maxFps : this.profile.idleFps;
+      const minGap = pacedGap(this.capFps, this.software, this.typicalDraw());
       if (now - this.lastDraw < minGap) return;
       const dt = Math.min(0.1, (now - this.last) / 1000);
       this.last = now;
@@ -634,7 +638,7 @@ export class World3D implements WorldRenderer {
     this.monT += dt;
     if (this.monT < 1.5 || this.pinned) return;
     const draw = this.typicalDraw();
-    const lag = lagOf(typicalOf(this.gaps, 20), pacedGap(this.profile.maxFps, this.software, draw));
+    const lag = lagOf(typicalOf(this.gaps, 20), pacedGap(this.capFps, this.software, draw));
     // too few frames at this setting to judge this machine yet
     if (draw === 0 || lag === 0) return;
     this.monT = 0;
@@ -907,7 +911,7 @@ export class World3D implements WorldRenderer {
 
   /** draw-call and memory figures for the developer quality monitor and the performance record (calls and triangles: every pass of the last frame) */
   info(): {
-    calls: number; triangles: number; geometries: number; textures: number; programs: number; fps: number; tier: Quality; frames: number; scale: number; drawMs: number; software: boolean;
+    calls: number; triangles: number; geometries: number; textures: number; programs: number; fps: number; tier: Quality; capFps: number; frames: number; scale: number; drawMs: number; software: boolean;
     buildMs: number; builds: number; firstDrawMs: number; worstDrawMs: number; hitches: number; frameP50Ms: number; frameP95Ms: number; post: PostProfile | null; env: boolean;
   } {
     const i = this.renderer.info;
@@ -915,7 +919,7 @@ export class World3D implements WorldRenderer {
     const gaps = [...this.gaps].sort((a, b) => a - b);
     const pct = (q: number): number => (gaps.length ? r1(gaps[Math.min(gaps.length - 1, Math.floor(q * gaps.length))]) : 0);
     return {
-      calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, programs: i.programs?.length ?? 0, fps: this.fps, tier: this.quality,
+      calls: i.render.calls, triangles: i.render.triangles, geometries: i.memory.geometries, textures: i.memory.textures, programs: i.programs?.length ?? 0, fps: this.fps, tier: this.quality, capFps: this.capFps,
       frames: this.frameCount, scale: this.scale, drawMs: r1(this.drawMs), software: this.software, buildMs: Math.round(this.buildMs), builds: this.builds, firstDrawMs: r1(Math.max(0, this.stalls.first)),
       worstDrawMs: r1(this.stalls.worst), hitches: this.stalls.hitches, frameP50Ms: pct(0.5), frameP95Ms: pct(0.95), post: this.post && !this.postOff ? { ...this.post.settings } : null,
       env: !!this.envRT,

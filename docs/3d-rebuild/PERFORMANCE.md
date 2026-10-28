@@ -1,7 +1,9 @@
 # 3D world: performance, budgets and what was (and was not) measured
 
-**Read this first.** Every number below was produced by a command in this repository, in a Linux container whose only WebGL is a
-**software rasteriser (SwiftShader, on 4 CPU cores)**. There is no GPU in that machine. So:
+**Read this first.** Two kinds of machine produced the numbers here. The section "Real hardware" just below comes from a real GPU: Apple's,
+on GitHub's Apple-silicon macOS runner, reached through its virtual machine's paravirtualised graphics device, in Chrome and in Safari,
+plus Mobile Safari in the iOS Simulator. **No physical phone has run the game.** Everything after that section was produced in a Linux
+container whose only WebGL is a **software rasteriser (SwiftShader, on 4 CPU cores)**, with no GPU. For those:
 
 * the **scene counts** (triangles, draw calls, geometries, textures) and the **memory** figures are properties of the scene and carry over to real hardware;
 * the **frame times** are a CPU rasteriser's. They are useful for comparing tiers and for catching regressions, and they say **nothing** about what a
@@ -14,6 +16,78 @@ There are two sets of numbers here:
   7's figures are kept beside them;
 * the **earlier build**, measured at commit `1809880`. That was before the cloud sea, the later art work and the chain. Its sections are
   kept below for comparison (`docs/3d-rebuild/data/perf.json`).
+
+## Real hardware: an Apple GPU, Safari, the iOS Simulator (CI)
+
+`.github/workflows/real-hardware.yml` runs `scripts/real-hardware.ts` on GitHub's `macos-15` runner. The production build is served
+locally and opened by the game's own default route: no `?renderer=3d`, so the game decides for itself whether this machine gets the 3D
+world. It did, in both browsers:
+
+| Browser | GPU WebGL reports | Renderer the game chose | Console errors |
+|---|---|---|---|
+| Chrome 153 (headed) | ANGLE (Apple, ANGLE Metal Renderer: Apple Paravirtual device) | 3D, hardware GL | none |
+| Safari 26.6.1 (through safaridriver) | Apple GPU | 3D, hardware GL | none |
+| Mobile Safari, iOS 26.2 Simulator (iPhone 17) | (not readable without a debugger) | 3D, by its screenshot | — |
+
+**What a player's browser settles on** (run 3, `0513f9a`, `?quality=auto`: an automated browser otherwise starts on the low tier on
+purpose, to keep test suites quick; with `auto` it chooses as a player's browser would, and the quality monitor is free). Each scene
+was left in the live loop, with the game's own frame pacing, for 12 s:
+
+| Window | Scene | Tier the game settled on | Frame p50 / p95 | fps | Draw on the main thread | Back to back, median |
+|---|---|---|---:|---:|---:|---:|
+| Chrome 1440×900 at 2× (2880×1800) | calm Day 1 | high, held | 34 / 67 ms | 27 | 3–9 ms | 32 ms |
+| Chrome 1440×900 at 2× | flood night | medium (stepped down from high within a second: frames came late) | 33.5 / 53.5 ms | 27 | 3–8 ms | 22 ms |
+| Chrome 1440×900 at 2× | a night of effects (end of day 4) | medium | 33.4 / 67.5 ms | 25 | 5–8 ms | — |
+| Chrome 390×844 at 3× (iPhone-sized, touch) | calm Day 1 | medium, held | 33.4 / 50 ms | 29 | 2–4 ms | 12 ms |
+| Chrome 390×844 at 3× | flood night | medium, held | 33.4 / 50 ms | 29 | 3 ms | 14 ms |
+| Chrome 390×844 at 3× | a night of effects | medium, held | 33.4 / 50 ms | 29 | 3–6 ms | — |
+| Safari 1440×848 at 1× | calm Day 1 | high, held | 21 / 36 ms | 45 | 4 ms | — |
+| Safari 1440×848 at 1× | flood night | high, held | 24 / 47 ms | 35 | 5 ms | — |
+
+Held at the high tier instead (pinned), the same desktop window runs the calm village at p50 34 / p95 82 ms and the flood night at
+p50 66 / p95 132 ms (17 fps): that is what the monitor saw and stepped away from.
+
+Reading it:
+
+* **Steady about 30 frames a second at the settled tier, at both sizes, in Chrome; 35–45 in Safari at 1×.** The high and medium tiers
+  cap at 60 and 45; on a 60 Hz display a frame that misses a beat waits for the next, so a GPU that needs 17–33 ms a frame gives 30.
+  The back-to-back medians say how far each window is from the next step: 12–14 ms at the iPhone size (room to spare), 22–32 ms at the
+  2880×1800 desktop (not enough for 60).
+* **The phase file's targets.** Mobile, median 30 fps or more at a suitable quality: met at the iPhone-sized window on this GPU (29–30).
+  Desktop, a stable 60 fps at the default camera: **not met on this GPU** (about 30 at 2880×1800; 45 in Safari at 1440×848). A virtual
+  machine's paravirtualised device is slower than the same chip used directly; a native Mac, a discrete GPU or a phone has not been
+  measured, so how far each is from these figures is **UNVERIFIED**.
+* **Stalls.** A village's first frame (shaders and uploads) took 0.33–1.1 s in Chrome, and 1.3 s (calm) and 4.8 s (flood) in Safari. It
+  is drawn under the loading veil, which lifts after it. One of the frames just after it can be slow too: up to 0.65 s in Chrome. After
+  those, the calm village and the flood ran with no hitch at either size; a hitch is a frame over 50 ms and four times the usual. The
+  night's resolution brings one to three: the worst frame was 79 ms at the iPhone size and 349 ms at 2880×1800, the moment the night's
+  changes reach the GPU. Recorded in `KNOWN_ISSUES.md`.
+* **Video memory** (estimated): 7.2 MB of textures in every case; render targets 28 MB at the iPhone size (medium), 62 MB at 2880×1800 on
+  medium and 146 MB on high, most of it the finishing chain's half-float buffers at full resolution.
+* **Where the high tier's time goes** (run 4, the calm village held at the high tier at 2880×1800, 90 frames back to back with parts of
+  the finishing chain switched off in turn; medians): the whole chain 45.6 ms; without ambient occlusion 30.2 ms; without ambient
+  occlusion and glow 24.7 ms; with no chain at all 22.3 ms. Ambient occlusion (four pairs of depth samples a pixel, at full resolution)
+  is the largest single cost, about a third of the frame. It was not made cheaper in this round: on this GPU even the bare scene at that
+  size needs 22 ms, so no change to the chain alone would bring it to 60 frames a second; the quality monitor's step to the medium tier
+  (two pairs, no glow, a pixel ratio of 1.5) is the lever, and it takes it when frames come late.
+
+**The iOS Simulator** opened a link that goes straight into the first day (`&play=1&perf=1`). Mobile Safari drew the 3D world, and its
+monitor read 13–16 fps (run 2: low tier at half resolution, frame p50 55–58 ms, draws of 3.4–3.9 ms). The Simulator renders through an
+emulated graphics path inside the virtual machine, so that frame rate says nothing about an iPhone's. What the run does show is iOS
+WebKit choosing, compiling and drawing the 3D world, laid out as on a phone (`screenshots/real-hw/run2-ios-simulator-mobile-safari.jpg`).
+
+**What the first runs found.** Run 1 (`9294f83`) measured only the low tier, because of the automation rule above (`chooseQuality`; an
+earlier commit message here put it down to the quality monitor, wrongly). It did show a real defect, in the Simulator, which is not
+automated: the old monitor went by an average seeded by the first frames, and while those first frames took 3.2 s, the average was
+still high when the monitor looked. So it stepped down to low, though the draws had fallen to 3.7 ms. The same average set the frame
+pacing, 2.5 times it between frames, so the seconds after a slow start were a slideshow. Since `07a39e7`, pacing and monitor go by the
+medians of the frames since the village was built or the setting changed, and late frames (where a busy GPU shows) count too
+(`src/render3d/pacing.ts`, `tests/unit/render3d-pacing.test.ts`). In run 2 the Simulator's tier came down for a real reason, frames 55 ms
+apart even at the lowest setting.
+
+Frames from the GPU: `screenshots/real-hw/run3-apple-gpu-chrome-day1-no-interface-high-tier.jpg` (the art director's Day 1 frame at the high
+tier), `…-flood-night-high-tier.jpg`, `…-iphone-size-medium-tier.jpg`, `run3-apple-gpu-safari-calm-high-tier.jpg`; the low tier of run 1 for
+comparison, `run1-apple-gpu-chrome-day1-no-interface-low-tier.jpg`. The measurement files of every run are in `data/real-hardware/`.
 
 ## The current build, with the finishing chain
 
@@ -253,8 +327,8 @@ Real Safari on a Mac or an iPhone is **UNVERIFIED** (WebKit here is Playwright's
 
 ## Known limits
 
-* Real GPU / phone / iOS Safari frame rates: **UNVERIFIED** (no device). The honest statement is: counts are in the range of ordinary stylised
-  3D games, the JS cost is small, the CPU rasteriser is slow, and the tier system and monitor exist to handle weak GPUs.
+* Real GPU: measured on an Apple GPU through a CI virtual machine (above). A native Mac, a Windows or Linux GPU, an Android phone and a
+  physical iPhone: **UNVERIFIED**. Mobile Safari ran the 3D world in the iOS Simulator, whose frame rate is not a phone's.
 * The p50/p95 above are of a software rasteriser at half resolution; do not quote them as game performance.
 * Battery and thermal behaviour on a phone: not measured. Idle frames are capped (`maxFps`) and the world pauses when the tab is hidden.
 

@@ -1,0 +1,1253 @@
+{
+  "chrome": {
+    "version": "153.0.8010.12",
+    "flags": [],
+    "desktop": {
+      "gpu": {
+        "webgl2": true,
+        "vendor": "Google Inc. (Apple)",
+        "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple Paravirtual device, Unspecified Version)"
+      },
+      "calm": {
+        "live": {
+          "renderer": "3d",
+          "info": {
+            "calls": 492,
+            "triangles": 464175,
+            "geometries": 270,
+            "textures": 20,
+            "programs": 35,
+            "fps": 27.08716261971566,
+            "tier": "medium",
+            "frames": 263,
+            "scale": 1,
+            "drawMs": 5,
+            "software": false,
+            "buildMs": 716,
+            "builds": 2,
+            "firstDrawMs": 734.9,
+            "worstDrawMs": 26.2,
+            "hitches": 0,
+            "frameP50Ms": 33.5,
+            "frameP95Ms": 72.8,
+            "post": {
+              "ao": 2,
+              "bloom": false,
+              "fxaa": true
+            },
+            "env": true
+          },
+          "memory": {
+            "textureMB": 7.2,
+            "targetMB": 61.5,
+            "textures": 13,
+            "targets": 4,
+            "people": {
+              "near": 0,
+              "far": 14
+            },
+            "standIns": []
+          },
+          "dpr": 2,
+          "css": [
+            1440,
+            900
+          ]
+        },
+        "bench": {
+          "frames": 120,
+          "medianMs": 18.4,
+          "p95Ms": 50.2,
+          "p99Ms": 74.3,
+          "medianFps": 54.3,
+          "low1Fps": 13.5,
+          "calls": 492,
+          "triangles": 464175
+        },
+        "timeline": [
+          {
+            "t": 0.5,
+            "tier": "high",
+            "scale": 1,
+            "frames": 22,
+            "fps": 17,
+            "p50": 33.5,
+            "draw": 13.3
+          },
+          {
+            "t": 1,
+            "tier": "high",
+            "scale": 1,
+            "frames": 36,
+            "fps": 17,
+            "p50": 34.4,
+            "draw": 7.4
+          },
+          {
+            "t": 1.5,
+            "tier": "high",
+            "scale": 1,
+            "frames": 50,
+            "fps": 26,
+            "p50": 33.9,
+            "draw": 5.6
+          },
+          {
+            "t": 2,
+            "tier": "high",
+            "scale": 1,
+            "frames": 61,
+            "fps": 26,
+            "p50": 34.4,
+            "draw": 8.1
+          },
+          {
+            "t": 3,
+            "tier": "high",
+            "scale": 1,
+            "frames": 84,
+            "fps": 22,
+            "p50": 34.4,
+            "draw": 6.4
+          },
+          {
+            "t": 4,
+            "tier": "high",
+            "scale": 1,
+            "frames": 102,
+            "fps": 20,
+            "p50": 34.5,
+            "draw": 7.7
+          },
+          {
+            "t": 6,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 145,
+            "fps": 24,
+            "p50": 0,
+            "draw": 5.7
+          },
+          {
+            "t": 8,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 159,
+            "fps": 5,
+            "p50": 50,
+            "draw": 15.1
+          },
+          {
+            "t": 10,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 212,
+            "fps": 25,
+            "p50": 33.9,
+            "draw": 6.6
+          },
+          {
+            "t": 12,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 263,
+            "fps": 27,
+            "p50": 33.5,
+            "draw": 5
+          }
+        ],
+        "parts": null
+      },
+      "flood": {
+        "live": {
+          "renderer": "3d",
+          "info": {
+            "calls": 521,
+            "triangles": 497980,
+            "geometries": 290,
+            "textures": 21,
+            "programs": 59,
+            "fps": 25.18647679938013,
+            "tier": "medium",
+            "frames": 736,
+            "scale": 1,
+            "drawMs": 5.7,
+            "software": false,
+            "buildMs": 666,
+            "builds": 3,
+            "firstDrawMs": 3302.3,
+            "worstDrawMs": 608.1,
+            "hitches": 1,
+            "frameP50Ms": 33.7,
+            "frameP95Ms": 56.7,
+            "post": {
+              "ao": 2,
+              "bloom": false,
+              "fxaa": true
+            },
+            "env": true
+          },
+          "memory": {
+            "textureMB": 7.2,
+            "targetMB": 61.5,
+            "textures": 13,
+            "targets": 4,
+            "people": {
+              "near": 0,
+              "far": 14
+            },
+            "standIns": []
+          },
+          "dpr": 2,
+          "css": [
+            1440,
+            900
+          ]
+        },
+        "bench": {
+          "frames": 120,
+          "medianMs": 18.3,
+          "p95Ms": 54,
+          "p99Ms": 59.9,
+          "medianFps": 54.6,
+          "low1Fps": 16.7,
+          "calls": 521,
+          "triangles": 497980
+        },
+        "timeline": [
+          {
+            "t": 0.5,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 430,
+            "fps": 7,
+            "p50": 49,
+            "draw": 26.7
+          },
+          {
+            "t": 1,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 445,
+            "fps": 7,
+            "p50": 35.7,
+            "draw": 10.9
+          },
+          {
+            "t": 1.5,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 459,
+            "fps": 28,
+            "p50": 34.3,
+            "draw": 5.1
+          },
+          {
+            "t": 2,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 473,
+            "fps": 28,
+            "p50": 34.3,
+            "draw": 3.7
+          },
+          {
+            "t": 3,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 501,
+            "fps": 27,
+            "p50": 33.5,
+            "draw": 4.2
+          },
+          {
+            "t": 4,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 528,
+            "fps": 28,
+            "p50": 33.4,
+            "draw": 4.8
+          },
+          {
+            "t": 6,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 583,
+            "fps": 27,
+            "p50": 33.4,
+            "draw": 4
+          },
+          {
+            "t": 8,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 631,
+            "fps": 27,
+            "p50": 33.4,
+            "draw": 7.1
+          },
+          {
+            "t": 10,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 685,
+            "fps": 28,
+            "p50": 33.6,
+            "draw": 4.6
+          },
+          {
+            "t": 12,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 735,
+            "fps": 25,
+            "p50": 33.7,
+            "draw": 6
+          }
+        ],
+        "parts": null
+      },
+      "night": {
+        "live": {
+          "renderer": "3d",
+          "info": {
+            "calls": 285,
+            "triangles": 267289,
+            "geometries": 297,
+            "textures": 21,
+            "programs": 43,
+            "fps": 28.520849724626196,
+            "tier": "low",
+            "frames": 1235,
+            "scale": 1,
+            "drawMs": 2.8,
+            "software": false,
+            "buildMs": 658,
+            "builds": 6,
+            "firstDrawMs": 407.1,
+            "worstDrawMs": 439.1,
+            "hitches": 0,
+            "frameP50Ms": 33.4,
+            "frameP95Ms": 49.8,
+            "post": {
+              "ao": 0,
+              "bloom": false,
+              "fxaa": false
+            },
+            "env": true
+          },
+          "memory": {
+            "textureMB": 5.1,
+            "targetMB": 23.8,
+            "textures": 15,
+            "targets": 2,
+            "people": {
+              "near": 0,
+              "far": 14
+            },
+            "standIns": []
+          },
+          "dpr": 2,
+          "css": [
+            1440,
+            900
+          ]
+        },
+        "bench": null,
+        "timeline": [
+          {
+            "t": 0.5,
+            "tier": "low",
+            "scale": 1,
+            "frames": 909,
+            "fps": 0,
+            "p50": 2117.6,
+            "draw": 695.2
+          },
+          {
+            "t": 1,
+            "tier": "low",
+            "scale": 1,
+            "frames": 922,
+            "fps": 0,
+            "p50": 34.4,
+            "draw": 43
+          },
+          {
+            "t": 1.5,
+            "tier": "low",
+            "scale": 1,
+            "frames": 936,
+            "fps": 14,
+            "p50": 33.6,
+            "draw": 6.9
+          },
+          {
+            "t": 2,
+            "tier": "low",
+            "scale": 1,
+            "frames": 951,
+            "fps": 27,
+            "p50": 33.6,
+            "draw": 4.8
+          },
+          {
+            "t": 3,
+            "tier": "low",
+            "scale": 1,
+            "frames": 979,
+            "fps": 29,
+            "p50": 33.5,
+            "draw": 4.2
+          },
+          {
+            "t": 4,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1007,
+            "fps": 27,
+            "p50": 33.5,
+            "draw": 3.3
+          },
+          {
+            "t": 6,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1062,
+            "fps": 28,
+            "p50": 33.4,
+            "draw": 3
+          },
+          {
+            "t": 8,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1120,
+            "fps": 30,
+            "p50": 33.4,
+            "draw": 3.3
+          },
+          {
+            "t": 10,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1177,
+            "fps": 29,
+            "p50": 33.4,
+            "draw": 1.8
+          },
+          {
+            "t": 12,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1235,
+            "fps": 29,
+            "p50": 33.4,
+            "draw": 2.8
+          }
+        ],
+        "parts": null
+      },
+      "errors": []
+    },
+    "phone": {
+      "gpu": {
+        "webgl2": true,
+        "vendor": "Google Inc. (Apple)",
+        "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple Paravirtual device, Unspecified Version)"
+      },
+      "calm": {
+        "live": {
+          "renderer": "3d",
+          "info": {
+            "calls": 491,
+            "triangles": 463142,
+            "geometries": 269,
+            "textures": 19,
+            "programs": 32,
+            "fps": 29.49852507374631,
+            "tier": "medium",
+            "frames": 347,
+            "scale": 1,
+            "drawMs": 6.7,
+            "software": false,
+            "buildMs": 767,
+            "builds": 1,
+            "firstDrawMs": 703,
+            "worstDrawMs": 11.4,
+            "hitches": 0,
+            "frameP50Ms": 33.3,
+            "frameP95Ms": 49.9,
+            "post": {
+              "ao": 2,
+              "bloom": false,
+              "fxaa": true
+            },
+            "env": true
+          },
+          "memory": {
+            "textureMB": 7.2,
+            "targetMB": 28.3,
+            "textures": 13,
+            "targets": 4,
+            "people": {
+              "near": 0,
+              "far": 14
+            },
+            "standIns": []
+          },
+          "dpr": 3,
+          "css": [
+            390,
+            844
+          ]
+        },
+        "bench": {
+          "frames": 120,
+          "medianMs": 18.5,
+          "p95Ms": 55.1,
+          "p99Ms": 67.5,
+          "medianFps": 54.1,
+          "low1Fps": 14.8,
+          "calls": 491,
+          "triangles": 463142
+        },
+        "timeline": [
+          {
+            "t": 0.5,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 10,
+            "fps": 3,
+            "p50": 38,
+            "draw": 43.3
+          },
+          {
+            "t": 1,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 23,
+            "fps": 3,
+            "p50": 33.5,
+            "draw": 6
+          },
+          {
+            "t": 1.5,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 37,
+            "fps": 27,
+            "p50": 33.4,
+            "draw": 4.3
+          },
+          {
+            "t": 2,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 52,
+            "fps": 27,
+            "p50": 33.5,
+            "draw": 3
+          },
+          {
+            "t": 3,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 82,
+            "fps": 29,
+            "p50": 33.4,
+            "draw": 3.2
+          },
+          {
+            "t": 4,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 112,
+            "fps": 30,
+            "p50": 33.4,
+            "draw": 3
+          },
+          {
+            "t": 6,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 171,
+            "fps": 30,
+            "p50": 33.3,
+            "draw": 2.8
+          },
+          {
+            "t": 8,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 230,
+            "fps": 30,
+            "p50": 33.3,
+            "draw": 2.8
+          },
+          {
+            "t": 10,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 289,
+            "fps": 30,
+            "p50": 33.3,
+            "draw": 2.4
+          },
+          {
+            "t": 12,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 347,
+            "fps": 29,
+            "p50": 33.3,
+            "draw": 6.7
+          }
+        ],
+        "parts": null
+      },
+      "flood": {
+        "live": {
+          "renderer": "3d",
+          "info": {
+            "calls": 291,
+            "triangles": 267337,
+            "geometries": 290,
+            "textures": 17,
+            "programs": 59,
+            "fps": 27.545499262174125,
+            "tier": "low",
+            "frames": 743,
+            "scale": 1,
+            "drawMs": 4.6,
+            "software": false,
+            "buildMs": 1198,
+            "builds": 3,
+            "firstDrawMs": 828.9,
+            "worstDrawMs": 28.4,
+            "hitches": 0,
+            "frameP50Ms": 33.6,
+            "frameP95Ms": 50.2,
+            "post": {
+              "ao": 0,
+              "bloom": false,
+              "fxaa": false
+            },
+            "env": true
+          },
+          "memory": {
+            "textureMB": 4.9,
+            "targetMB": 12.8,
+            "textures": 13,
+            "targets": 2,
+            "people": {
+              "near": 0,
+              "far": 14
+            },
+            "standIns": []
+          },
+          "dpr": 3,
+          "css": [
+            390,
+            844
+          ]
+        },
+        "bench": {
+          "frames": 120,
+          "medianMs": 10.9,
+          "p95Ms": 24.3,
+          "p99Ms": 33,
+          "medianFps": 91.7,
+          "low1Fps": 30.3,
+          "calls": 291,
+          "triangles": 267337
+        },
+        "timeline": [
+          {
+            "t": 0.5,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 512,
+            "fps": 1,
+            "p50": 49,
+            "draw": 36.1
+          },
+          {
+            "t": 1,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 527,
+            "fps": 26,
+            "p50": 33.4,
+            "draw": 11.4
+          },
+          {
+            "t": 1.5,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 538,
+            "fps": 26,
+            "p50": 33.7,
+            "draw": 21.7
+          },
+          {
+            "t": 2,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 549,
+            "fps": 21,
+            "p50": 34,
+            "draw": 15.8
+          },
+          {
+            "t": 3,
+            "tier": "medium",
+            "scale": 1,
+            "frames": 565,
+            "fps": 15,
+            "p50": 49.3,
+            "draw": 14.2
+          },
+          {
+            "t": 4,
+            "tier": "low",
+            "scale": 1,
+            "frames": 582,
+            "fps": 15,
+            "p50": 0,
+            "draw": 8.5
+          },
+          {
+            "t": 6,
+            "tier": "low",
+            "scale": 1,
+            "frames": 585,
+            "fps": 2,
+            "p50": 849.7,
+            "draw": 112.1
+          },
+          {
+            "t": 8,
+            "tier": "low",
+            "scale": 1,
+            "frames": 634,
+            "fps": 28,
+            "p50": 34,
+            "draw": 12.8
+          },
+          {
+            "t": 10,
+            "tier": "low",
+            "scale": 1,
+            "frames": 688,
+            "fps": 26,
+            "p50": 33.6,
+            "draw": 7.6
+          },
+          {
+            "t": 12,
+            "tier": "low",
+            "scale": 1,
+            "frames": 743,
+            "fps": 28,
+            "p50": 33.6,
+            "draw": 4.6
+          }
+        ],
+        "parts": null
+      },
+      "night": {
+        "live": {
+          "renderer": "3d",
+          "info": {
+            "calls": 285,
+            "triangles": 267289,
+            "geometries": 300,
+            "textures": 19,
+            "programs": 59,
+            "fps": 28.99130260921715,
+            "tier": "low",
+            "frames": 1301,
+            "scale": 1,
+            "drawMs": 3.6,
+            "software": false,
+            "buildMs": 681,
+            "builds": 4,
+            "firstDrawMs": 449.6,
+            "worstDrawMs": 319.9,
+            "hitches": 2,
+            "frameP50Ms": 33.4,
+            "frameP95Ms": 50.1,
+            "post": {
+              "ao": 0,
+              "bloom": false,
+              "fxaa": false
+            },
+            "env": true
+          },
+          "memory": {
+            "textureMB": 5.1,
+            "targetMB": 12.8,
+            "textures": 15,
+            "targets": 2,
+            "people": {
+              "near": 0,
+              "far": 14
+            },
+            "standIns": []
+          },
+          "dpr": 3,
+          "css": [
+            390,
+            844
+          ]
+        },
+        "bench": null,
+        "timeline": [
+          {
+            "t": 0.5,
+            "tier": "low",
+            "scale": 1,
+            "frames": 992,
+            "fps": 28,
+            "p50": 33.4,
+            "draw": 20.7
+          },
+          {
+            "t": 1,
+            "tier": "low",
+            "scale": 1,
+            "frames": 993,
+            "fps": 9,
+            "p50": 33.4,
+            "draw": 80.6
+          },
+          {
+            "t": 1.5,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1007,
+            "fps": 9,
+            "p50": 33.5,
+            "draw": 7.2
+          },
+          {
+            "t": 2,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1021,
+            "fps": 19,
+            "p50": 33.5,
+            "draw": 4.2
+          },
+          {
+            "t": 3,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1049,
+            "fps": 27,
+            "p50": 33.4,
+            "draw": 3.1
+          },
+          {
+            "t": 4,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1077,
+            "fps": 29,
+            "p50": 33.4,
+            "draw": 6.2
+          },
+          {
+            "t": 6,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1133,
+            "fps": 28,
+            "p50": 33.4,
+            "draw": 3.7
+          },
+          {
+            "t": 8,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1191,
+            "fps": 28,
+            "p50": 33.4,
+            "draw": 6.2
+          },
+          {
+            "t": 10,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1243,
+            "fps": 24,
+            "p50": 33.4,
+            "draw": 3.1
+          },
+          {
+            "t": 12,
+            "tier": "low",
+            "scale": 1,
+            "frames": 1300,
+            "fps": 29,
+            "p50": 33.4,
+            "draw": 3.2
+          }
+        ],
+        "parts": null
+      },
+      "errors": []
+    },
+    "desktop-high": {
+      "gpu": {
+        "webgl2": true,
+        "vendor": "Google Inc. (Apple)",
+        "renderer": "ANGLE (Apple, ANGLE Metal Renderer: Apple Paravirtual device, Unspecified Version)"
+      },
+      "calm": {
+        "live": {
+          "renderer": "3d",
+          "info": {
+            "calls": 497,
+            "triangles": 580290,
+            "geometries": 269,
+            "textures": 26,
+            "programs": 35,
+            "fps": 14.068655036578493,
+            "tier": "high",
+            "frames": 155,
+            "scale": 1,
+            "drawMs": 10.5,
+            "software": false,
+            "buildMs": 1182,
+            "builds": 1,
+            "firstDrawMs": 1240.3,
+            "worstDrawMs": 589,
+            "hitches": 2,
+            "frameP50Ms": 82.3,
+            "frameP95Ms": 132.9,
+            "post": {
+              "ao": 4,
+              "bloom": true,
+              "fxaa": true
+            },
+            "env": true
+          },
+          "memory": {
+            "textureMB": 7.2,
+            "targetMB": 146.2,
+            "textures": 13,
+            "targets": 11,
+            "people": {
+              "near": 0,
+              "far": 14
+            },
+            "standIns": []
+          },
+          "dpr": 2,
+          "css": [
+            1440,
+            900
+          ]
+        },
+        "bench": {
+          "frames": 120,
+          "medianMs": 40,
+          "p95Ms": 124.9,
+          "p99Ms": 198.2,
+          "medianFps": 25,
+          "low1Fps": 5,
+          "calls": 497,
+          "triangles": 580290
+        },
+        "timeline": [
+          {
+            "t": 0.5,
+            "tier": "high",
+            "scale": 1,
+            "frames": 10,
+            "fps": 6,
+            "p50": 171.8,
+            "draw": 154.2
+          },
+          {
+            "t": 1,
+            "tier": "high",
+            "scale": 1,
+            "frames": 17,
+            "fps": 6,
+            "p50": 99.9,
+            "draw": 42.3
+          },
+          {
+            "t": 1.5,
+            "tier": "high",
+            "scale": 1,
+            "frames": 22,
+            "fps": 12,
+            "p50": 99.9,
+            "draw": 25.6
+          },
+          {
+            "t": 2,
+            "tier": "high",
+            "scale": 1,
+            "frames": 27,
+            "fps": 12,
+            "p50": 98.7,
+            "draw": 22.8
+          },
+          {
+            "t": 3,
+            "tier": "high",
+            "scale": 1,
+            "frames": 40,
+            "fps": 11,
+            "p50": 83.2,
+            "draw": 16.7
+          },
+          {
+            "t": 4,
+            "tier": "high",
+            "scale": 1,
+            "frames": 53,
+            "fps": 13,
+            "p50": 83.2,
+            "draw": 9.7
+          },
+          {
+            "t": 6,
+            "tier": "high",
+            "scale": 1,
+            "frames": 79,
+            "fps": 12,
+            "p50": 83.2,
+            "draw": 12.7
+          },
+          {
+            "t": 8,
+            "tier": "high",
+            "scale": 1,
+            "frames": 102,
+            "fps": 11,
+            "p50": 83.2,
+            "draw": 11.9
+          },
+          {
+            "t": 10,
+            "tier": "high",
+            "scale": 1,
+            "frames": 127,
+            "fps": 13,
+            "p50": 83.2,
+            "draw": 12.6
+          },
+          {
+            "t": 12,
+            "tier": "high",
+            "scale": 1,
+            "frames": 155,
+            "fps": 14,
+            "p50": 82.3,
+            "draw": 10.5
+          }
+        ],
+        "parts": {
+          "full": {
+            "frames": 90,
+            "medianMs": 45.6,
+            "p95Ms": 143,
+            "p99Ms": 214,
+            "medianFps": 21.9,
+            "low1Fps": 4.7,
+            "calls": 497,
+            "triangles": 580290
+          },
+          "noAmbientOcclusion": {
+            "frames": 90,
+            "medianMs": 30.2,
+            "p95Ms": 95,
+            "p99Ms": 152.7,
+            "medianFps": 33.1,
+            "low1Fps": 6.5,
+            "calls": 497,
+            "triangles": 580290
+          },
+          "noAmbientOcclusionNoBloom": {
+            "frames": 90,
+            "medianMs": 24.7,
+            "p95Ms": 73.9,
+            "p99Ms": 85.8,
+            "medianFps": 40.5,
+            "low1Fps": 11.7,
+            "calls": 490,
+            "triangles": 580283
+          },
+          "noChainAtAll": {
+            "frames": 90,
+            "medianMs": 22.3,
+            "p95Ms": 80.7,
+            "p99Ms": 865.8,
+            "medianFps": 44.8,
+            "low1Fps": 1.2,
+            "calls": 488,
+            "triangles": 580281
+          }
+        }
+      },
+      "flood": {
+        "live": {
+          "renderer": "3d",
+          "info": {
+            "calls": 530,
+            "triangles": 648212,
+            "geometries": 291,
+            "textures": 27,
+            "programs": 61,
+            "fps": 18.423349170949365,
+            "tier": "high",
+            "frames": 980,
+            "scale": 1,
+            "drawMs": 10.1,
+            "software": false,
+            "buildMs": 816,
+            "builds": 2,
+            "firstDrawMs": 618.4,
+            "worstDrawMs": 901.9,
+            "hitches": 1,
+            "frameP50Ms": 50,
+            "frameP95Ms": 104.3,
+            "post": {
+              "ao": 4,
+              "bloom": true,
+              "fxaa": true
+            },
+            "env": true
+          },
+          "memory": {
+            "textureMB": 7.2,
+            "targetMB": 146.2,
+            "textures": 13,
+            "targets": 11,
+            "people": {
+              "near": 0,
+              "far": 14
+            },
+            "standIns": []
+          },
+          "dpr": 2,
+          "css": [
+            1440,
+            900
+          ]
+        },
+        "bench": {
+          "frames": 120,
+          "medianMs": 36,
+          "p95Ms": 117.6,
+          "p99Ms": 210,
+          "medianFps": 27.8,
+          "low1Fps": 4.8,
+          "calls": 530,
+          "triangles": 648212
+        },
+        "timeline": [
+          {
+            "t": 0.5,
+            "tier": "high",
+            "scale": 1,
+            "frames": 761,
+            "fps": 3,
+            "p50": 50.1,
+            "draw": 32.5
+          },
+          {
+            "t": 1,
+            "tier": "high",
+            "scale": 1,
+            "frames": 770,
+            "fps": 3,
+            "p50": 50,
+            "draw": 10.5
+          },
+          {
+            "t": 1.5,
+            "tier": "high",
+            "scale": 1,
+            "frames": 782,
+            "fps": 19,
+            "p50": 50,
+            "draw": 8.5
+          },
+          {
+            "t": 2,
+            "tier": "high",
+            "scale": 1,
+            "frames": 791,
+            "fps": 19,
+            "p50": 49.9,
+            "draw": 6.4
+          },
+          {
+            "t": 3,
+            "tier": "high",
+            "scale": 1,
+            "frames": 810,
+            "fps": 20,
+            "p50": 50,
+            "draw": 7.2
+          },
+          {
+            "t": 4,
+            "tier": "high",
+            "scale": 1,
+            "frames": 827,
+            "fps": 19,
+            "p50": 50,
+            "draw": 7.8
+          },
+          {
+            "t": 6,
+            "tier": "high",
+            "scale": 1,
+            "frames": 869,
+            "fps": 20,
+            "p50": 50,
+            "draw": 6.2
+          },
+          {
+            "t": 8,
+            "tier": "high",
+            "scale": 1,
+            "frames": 905,
+            "fps": 19,
+            "p50": 50,
+            "draw": 8.9
+          },
+          {
+            "t": 10,
+            "tier": "high",
+            "scale": 1,
+            "frames": 943,
+            "fps": 22,
+            "p50": 50,
+            "draw": 9.8
+          },
+          {
+            "t": 12,
+            "tier": "high",
+            "scale": 1,
+            "frames": 979,
+            "fps": 18,
+            "p50": 50,
+            "draw": 8.9
+          }
+        ],
+        "parts": null
+      },
+      "errors": []
+    }
+  }
+}

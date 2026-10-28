@@ -252,8 +252,8 @@ test.describe('the 3D world', () => {
     await chooseClaim(page, 'river_fears_fire');
     const touch = info.project.name.startsWith('phone');
     const selected = (): Promise<string> => page.evaluate(() => (window as unknown as { __belief: { store: { ui: { selection: { id: string } | null } } } }).__belief.store.ui.selection?.id ?? '');
-    /** where each marker floats on the page, measured on a settled frame */
-    const marks = async (): Promise<{ id: string; x: number; y: number }[]> => {
+    /** where each marker floats on the page now */
+    const measure = async (): Promise<{ id: string; x: number; y: number }[]> => {
       await page.evaluate(() => (window as unknown as { __beRenderer: { advance: (s: number) => void } }).__beRenderer.advance(2));
       return page.evaluate(() => {
         type Spot = { id: string; at: { project: (c: unknown) => { x: number; y: number } } };
@@ -265,6 +265,21 @@ test.describe('the 3D world', () => {
           return { id: m.id, x: b.left + ((v.x + 1) / 2) * r.W, y: b.top + ((1 - v.y) / 2) * r.H };
         });
       });
+    };
+    /**
+     * where each marker floats once the view has settled: on a phone, closing a card re-frames the camera, and the layout that moves it
+     * can land after a reading (seen in CI: a marker measured mid-move, and the tap fell on the shelter in front of the beacon). So
+     * readings are taken until two of them, a little apart, agree
+     */
+    const marks = async (): Promise<{ id: string; x: number; y: number }[]> => {
+      let last = await measure();
+      for (let i = 0; i < 20; i++) {
+        await page.waitForTimeout(300);
+        const now = await measure();
+        if (now.length === last.length && now.every((m, j) => m.id === last[j].id && Math.hypot(m.x - last[j].x, m.y - last[j].y) < 1)) return now;
+        last = now;
+      }
+      return last;
     };
     expect((await marks()).map((m) => m.id).sort()).toEqual(['b_c', 'b_e', 'b_n', 'b_s']);
     for (const id of ['b_n', 'b_c', 'b_e', 'b_s']) {
