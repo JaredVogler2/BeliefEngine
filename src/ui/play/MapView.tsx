@@ -107,6 +107,8 @@ export function MapView({ children }: { children?: React.ReactNode }) {
       const pts = new Map<number, { x: number; y: number }>();
       let drag = { moved: 0, lastX: 0, lastY: 0, orbit: false };
       let pinch = 0;
+      /** the person the last tap landed on, and when: a second tap on them soon after brings the camera to them */
+      let lastTap = { id: '', at: 0 };
       const local = (e: PointerEvent | WheelEvent) => {
         const b = canvas.getBoundingClientRect();
         return { x: e.clientX - b.left, y: e.clientY - b.top };
@@ -157,6 +159,16 @@ export function MapView({ children }: { children?: React.ReactNode }) {
         if (pts.size < 2) pinch = 0;
         if (wasSingle && drag.moved <= 8 && e.button !== 2) {
           const hit = r?.hitTest(p.x, p.y) ?? null;
+          const now = performance.now();
+          if (hit?.kind === 'villager' && hit.id === lastTap.id && now - lastTap.at < 450) {
+            // a double tap on someone: go to them (up close a knot of people spreads apart, so this one is the one selected)
+            lastTap = { id: '', at: 0 };
+            setCrowd(null);
+            store.select({ kind: 'villager', id: hit.id });
+            r?.focusVillager(hit.id);
+            return;
+          }
+          lastTap = hit?.kind === 'villager' ? { id: hit.id, at: now } : { id: '', at: 0 };
           // several people under the tap who cannot be told apart there: ask who was meant rather than guess
           const many = hit?.kind === 'villager' ? (r?.crowdAt?.(p.x, p.y) ?? []) : [];
           if (many.length > 1) {

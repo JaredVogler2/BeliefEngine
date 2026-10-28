@@ -244,7 +244,7 @@ test.describe('the 3D world', () => {
     await expect.poll(selected, { message: 'the bridge, tapped beside its keeper' }).toBe('br');
   });
 
-  test('a tap on a knot of people seen from afar asks who was meant, nearest first, and selects only the one chosen; Escape puts the question away', async ({ page }, info) => {
+  test('a tap on a knot of people seen from afar asks who was meant, nearest first, and selects only the one chosen; Escape puts the question away; a double tap goes to them', async ({ page }, info) => {
     await startRedbank(page, 1, 'normal', URL3D);
     await ready(page);
     const touch = info.project.name.startsWith('phone');
@@ -296,6 +296,21 @@ test.describe('the 3D world', () => {
     await page.keyboard.press('Escape');
     await expect(menu).toHaveCount(0);
     expect(await selected()).toBe('');
+    // a double tap goes to the person under it: the camera comes in on them (where the knot spreads apart) and they are selected
+    const dist = (): Promise<number> => page.evaluate(() => (window as unknown as { __beRenderer: { describeView: () => { dist: number } } }).__beRenderer.describeView().dist);
+    const far = await dist();
+    const p = await pip();
+    if (touch) {
+      const cdp = await page.context().newCDPSession(page);
+      const pt = [{ x: Math.round(p.x), y: Math.round(p.y), id: 0, radiusX: 6, radiusY: 6, force: 1 }];
+      for (let i = 0; i < 2; i++) {
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: pt });
+        await cdp.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      }
+    } else await page.mouse.dblclick(p.x, p.y);
+    await expect.poll(selected).toBe('pip');
+    await expect(menu).toHaveCount(0);
+    expect(await dist()).toBeLessThan(far * 0.75);
   });
 
   test('a mid-day save resumes with the same plan and a rebuilt 3D world', async ({ page }) => {
