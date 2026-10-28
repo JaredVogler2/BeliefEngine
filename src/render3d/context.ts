@@ -47,6 +47,9 @@ export interface WorldContext {
   bridgeLift: number;
   /** how far the camera stands from what it looks at, updated every frame (the people grow a little at the overview so they stay legible) */
   viewDistance: number;
+  /** where the camera stands, and how many CSS pixels one unit covers one unit in front of it: how tall a thing is on screen (updated every frame) */
+  viewFrom?: import('three').Vector3;
+  viewPx?: number;
   /** the glow belief leaves on the ground and the water, shared by the terrain, the river and the effects */
   magic?: MagicField;
   /** where a villager or landmark is in the world right now */

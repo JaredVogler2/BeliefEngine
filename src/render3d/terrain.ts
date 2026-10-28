@@ -355,6 +355,8 @@ export function buildTerrainMesh(snap: SceneSnapshot, data: TerrainData, seedNum
   const root = new THREE.Mesh(flat, new THREE.MeshStandardMaterial({ vertexColors: true, roughness: 1, flatShading: true, side: THREE.DoubleSide }));
   root.name = 'island-root';
   group.add(root);
+  // the working arrays share this function's closure scope with dispose() below, which lives as long as the village: let them go now
+  for (const a of [sp, sc, si, up, uc, ui, loop]) a.length = 0;
 
   return {
     group,

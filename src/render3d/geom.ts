@@ -125,9 +125,10 @@ export function hipRoof(w: number, d: number, rise: number, overhang = 0.06, rid
   const l = [[-hw, 0, -hd], [-hw, 0, hd], [-rw, rise, 0]];
   const r = [[hw, 0, hd], [hw, 0, -hd], [rw, rise, 0]];
   tri(f[0], f[1], f[2], [0, 0], [2 * hw / texel, 0], [(hw + rw) / texel, sl / texel]);
-  tri(f[0], f[2], f[3], [0, 0], [(hw + rw) / texel, sl / texel], [(hw - rw) / texel, sl / texel]);
+  // (a pyramid has no ridge: the slope's second triangle would have no area, and no normal)
+  if (rw > 0) tri(f[0], f[2], f[3], [0, 0], [(hw + rw) / texel, sl / texel], [(hw - rw) / texel, sl / texel]);
   tri(b[0], b[1], b[2], [0, 0], [2 * hw / texel, 0], [(hw + rw) / texel, sl / texel]);
-  tri(b[0], b[2], b[3], [0, 0], [(hw + rw) / texel, sl / texel], [(hw - rw) / texel, sl / texel]);
+  if (rw > 0) tri(b[0], b[2], b[3], [0, 0], [(hw + rw) / texel, sl / texel], [(hw - rw) / texel, sl / texel]);
   tri(l[0], l[1], l[2], [0, 0], [2 * hd / texel, 0], [hd / texel, sw / texel]);
   tri(r[0], r[1], r[2], [0, 0], [2 * hd / texel, 0], [hd / texel, sw / texel]);
   // underside so the roof is closed

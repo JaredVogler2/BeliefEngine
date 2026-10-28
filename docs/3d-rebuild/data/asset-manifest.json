@@ -1,0 +1,2348 @@
+{
+  "generatedBy": "npx tsx scripts/asset-manifest.ts",
+  "units": "world units; one tile of the engine map is one unit square",
+  "origin": "each asset's origin is its base, in the middle of its footprint (the bridge is brought back to its own centre)",
+  "textures": "textured materials paint one canvas each at load (RGBA8, sRGB, 256 px square, 128 px on the low tier, repeat-wrapped, anisotropy 4) and use the same canvas as their bump map; tinted variants share it. Trees and people carry their colours in their vertices and use no texture.",
+  "ambientOcclusion": "no occlusion is baked into building textures; on the medium and high tiers the finishing chain adds screen-space ambient occlusion. Trees darken toward the trunk and the underside of each crown in their vertex colours.",
+  "seed": 1,
+  "assets": [
+    {
+      "id": "home-0",
+      "group": "building",
+      "source": "src/render3d/buildings.ts buildHome",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 938,
+      "vertices": 2814,
+      "meshes": 17,
+      "materials": [
+        "bloom@b06ae0",
+        "bloom@e85a7a",
+        "bloom@f0f0f0",
+        "brass",
+        "glass",
+        "iron",
+        "plaster@dfe0d2",
+        "roofTile",
+        "roofTile@b8532f",
+        "stone",
+        "timber",
+        "wood",
+        "wood@6b4a2e",
+        "wood@6e4e32",
+        "wood@7a3b2e",
+        "wood@7a5a3a",
+        "wood@7d5a38"
+      ],
+      "pivots": [],
+      "size": [
+        1.193,
+        1.265,
+        0.725
+      ],
+      "minY": -0.36,
+      "centre": [
+        0.056,
+        0.008
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "home-1",
+      "group": "building",
+      "source": "src/render3d/buildings.ts buildHome",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 1070,
+      "vertices": 3210,
+      "meshes": 10,
+      "materials": [
+        "brass",
+        "glass",
+        "plaster@dfe0d2",
+        "roofSlate",
+        "sack",
+        "stone",
+        "timber",
+        "wood@7a3b2e",
+        "wood@7a5a3a",
+        "wood@93703f"
+      ],
+      "pivots": [],
+      "size": [
+        1.015,
+        1.48,
+        0.804
+      ],
+      "minY": -0.36,
+      "centre": [
+        0.043,
+        0.007
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "home-2",
+      "group": "building",
+      "source": "src/render3d/buildings.ts buildHome",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 946,
+      "vertices": 2838,
+      "meshes": 10,
+      "materials": [
+        "brass",
+        "glass",
+        "iron",
+        "plaster@dfe0d2",
+        "roofTile@b8532f",
+        "stone",
+        "timber",
+        "wood@7a3b2e",
+        "wood@7a5a3a",
+        "wood@7d5a38"
+      ],
+      "pivots": [],
+      "size": [
+        1.402,
+        1.255,
+        1.252
+      ],
+      "minY": -0.36,
+      "centre": [
+        0.201,
+        0.306
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "home-3",
+      "group": "building",
+      "source": "src/render3d/buildings.ts buildHome",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 566,
+      "vertices": 1698,
+      "meshes": 11,
+      "materials": [
+        "brass",
+        "glass",
+        "roofSlate",
+        "stone",
+        "stone@8e887a",
+        "stone@9d9686",
+        "stone@b5ad98",
+        "timber",
+        "wood@7a3b2e",
+        "wood@7a5a3a",
+        "wood@8a6a44"
+      ],
+      "pivots": [],
+      "size": [
+        0.975,
+        1.335,
+        0.795
+      ],
+      "minY": -0.36,
+      "centre": [
+        0.063,
+        0.043
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "home-4",
+      "group": "building",
+      "source": "src/render3d/buildings.ts buildHome",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 698,
+      "vertices": 2094,
+      "meshes": 10,
+      "materials": [
+        "brass",
+        "glass",
+        "plaster@dfe0d2",
+        "sack",
+        "stone",
+        "straw",
+        "thatch",
+        "timber",
+        "wood@7a3b2e",
+        "wood@7a5a3a"
+      ],
+      "pivots": [],
+      "size": [
+        0.98,
+        1.255,
+        0.8
+      ],
+      "minY": -0.36,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "cabin",
+      "group": "building",
+      "source": "src/render3d/buildings.ts buildCabin",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 1174,
+      "vertices": 3522,
+      "meshes": 11,
+      "materials": [
+        "brass",
+        "glass",
+        "roofTile@8a5a3a",
+        "stone",
+        "stone@8e887a",
+        "timber",
+        "wood@4a3320",
+        "wood@6e4e32",
+        "wood@7a5a3a",
+        "wood@8a6440",
+        "wood@a07a4e"
+      ],
+      "pivots": [],
+      "size": [
+        1.091,
+        1.145,
+        0.68
+      ],
+      "minY": -0.36,
+      "centre": [
+        -0.145,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "granary",
+      "group": "building",
+      "source": "src/render3d/buildings.ts buildGranary",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 668,
+      "vertices": 2004,
+      "meshes": 8,
+      "materials": [
+        "iron",
+        "sack",
+        "stone@9a9484",
+        "thatch",
+        "timber",
+        "wood@7a5a3a",
+        "wood@7d5a38",
+        "wood@a8814f"
+      ],
+      "pivots": [],
+      "size": [
+        0.921,
+        0.9,
+        0.804
+      ],
+      "minY": -0.01,
+      "centre": [
+        0.05,
+        0.028
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "hall",
+      "group": "building",
+      "source": "src/render3d/buildings.ts buildHall",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 758,
+      "vertices": 2274,
+      "meshes": 12,
+      "materials": [
+        "brass",
+        "cloth@c0392b",
+        "glass",
+        "iron",
+        "plaster@efe3c8",
+        "roofTile@c8794f",
+        "stone",
+        "timber",
+        "wood@4a3a2a",
+        "wood@7a5a3a",
+        "wood@7d5a38",
+        "wood@93703f"
+      ],
+      "pivots": [],
+      "size": [
+        1.68,
+        1.31,
+        1.19
+      ],
+      "minY": -0.08,
+      "centre": [
+        0,
+        0.145
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "chapel",
+      "group": "building",
+      "source": "src/render3d/buildings.ts buildChapel",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 308,
+      "vertices": 924,
+      "meshes": 10,
+      "materials": [
+        "brass",
+        "glassLit",
+        "iron",
+        "roofSlate",
+        "stone",
+        "stone@8e887a",
+        "stone@bdb5a1",
+        "stone@c8c0ac",
+        "timber",
+        "wood@3b2a1e"
+      ],
+      "pivots": [],
+      "size": [
+        0.78,
+        1.36,
+        1.17
+      ],
+      "minY": -0.08,
+      "centre": [
+        0,
+        0.055
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "ruin",
+      "group": "building",
+      "source": "src/render3d/buildings.ts buildRuin",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 480,
+      "vertices": 1440,
+      "meshes": 4,
+      "materials": [
+        "plaster@cfc3a8",
+        "stone@8e887a",
+        "stone@9d9686",
+        "timber"
+      ],
+      "pivots": [],
+      "size": [
+        0.986,
+        0.631,
+        0.708
+      ],
+      "minY": -0.05,
+      "centre": [
+        0.017,
+        0.044
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "ruin-burned",
+      "group": "building",
+      "source": "src/render3d/buildings.ts buildRuin",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 492,
+      "vertices": 1476,
+      "meshes": 4,
+      "materials": [
+        "coal",
+        "plaster@6a6258",
+        "stone@8e887a",
+        "stone@9d9686"
+      ],
+      "pivots": [],
+      "size": [
+        0.986,
+        0.631,
+        0.708
+      ],
+      "minY": -0.05,
+      "centre": [
+        0.017,
+        0.044
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "stand-in",
+      "group": "building",
+      "source": "src/render3d/buildings.ts buildStandIn (drawn only where a generator failed)",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 44,
+      "vertices": 132,
+      "meshes": 3,
+      "materials": [
+        "plaster@e6d3c4",
+        "roofTile@b5643c",
+        "stone@8e887a"
+      ],
+      "pivots": [],
+      "size": [
+        0.76,
+        0.73,
+        0.64
+      ],
+      "minY": -0.04,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "belltower",
+      "group": "civic",
+      "source": "src/render3d/civic.ts buildBellTower",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings; the bell swings in its own group",
+      "triangles": 426,
+      "vertices": 1278,
+      "meshes": 13,
+      "materials": [
+        "brass",
+        "coal",
+        "gold",
+        "iron",
+        "roofSlate@5f8a78",
+        "stone@8e887a",
+        "stone@a79f8b",
+        "stone@b0a890",
+        "stone@c4bca8",
+        "stone@d0c8b2",
+        "timber",
+        "wood@4a3320"
+      ],
+      "pivots": [
+        {
+          "name": "bell",
+          "at": [
+            0,
+            1.9,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.66,
+        2.55,
+        0.825
+      ],
+      "minY": -0.08,
+      "centre": [
+        0,
+        0.082
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "mill",
+      "group": "civic",
+      "source": "src/render3d/civic.ts buildMill",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings; the wheel turns in its own group",
+      "triangles": 1012,
+      "vertices": 3036,
+      "meshes": 12,
+      "materials": [
+        "plaster@efe3c8",
+        "roofTile@c0764f",
+        "rope",
+        "sack",
+        "stone@8e887a",
+        "stone@c4bca8",
+        "timber",
+        "wood@4a3320",
+        "wood@6a4a30",
+        "wood@7a5a3a",
+        "wood@8a6a44"
+      ],
+      "pivots": [
+        {
+          "name": "wheel",
+          "at": [
+            0.6,
+            0.31,
+            0
+          ]
+        }
+      ],
+      "size": [
+        1.54,
+        0.98,
+        0.94
+      ],
+      "minY": -0.1,
+      "centre": [
+        0.28,
+        0.07
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "market",
+      "group": "civic",
+      "source": "src/render3d/civic.ts buildMarket",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 1720,
+      "vertices": 5160,
+      "meshes": 15,
+      "materials": [
+        "bloom@d8412f",
+        "bloom@f0d070",
+        "cloth@c0452f",
+        "cloth@d0a02a",
+        "cloth@f2ebd8",
+        "iron",
+        "sack",
+        "sack@c28e4a",
+        "timber",
+        "wood@6a4a30",
+        "wood@7a5a3a",
+        "wood@7d5a38",
+        "wood@8a6a44",
+        "wood@93703f",
+        "wood@c9a24a"
+      ],
+      "pivots": [],
+      "size": [
+        1.326,
+        0.523,
+        0.992
+      ],
+      "minY": 0,
+      "centre": [
+        -0.033,
+        -0.016
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "shelter",
+      "group": "civic",
+      "source": "src/render3d/civic.ts buildShelter",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 466,
+      "vertices": 1398,
+      "meshes": 9,
+      "materials": [
+        "cloth@a9b9c0",
+        "cloth@d9c9a0",
+        "gold",
+        "iron",
+        "roofTile@c0764f",
+        "stone@b0a890",
+        "stone@c8c0ac",
+        "stone@d0c8b2",
+        "wood@8a6a44"
+      ],
+      "pivots": [],
+      "size": [
+        1.688,
+        1.05,
+        2.012
+      ],
+      "minY": -0.05,
+      "centre": [
+        0.254,
+        -0.088
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "well",
+      "group": "civic",
+      "source": "src/render3d/civic.ts buildWell",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 196,
+      "vertices": 588,
+      "meshes": 5,
+      "materials": [
+        "glass",
+        "roofTile@c0764f",
+        "stone@a79f8b",
+        "timber",
+        "wood@7a5a3a"
+      ],
+      "pivots": [],
+      "size": [
+        0.56,
+        0.52,
+        0.32
+      ],
+      "minY": 0,
+      "centre": [
+        -0.06,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "pen",
+      "group": "civic",
+      "source": "src/render3d/civic.ts buildPen",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings",
+      "triangles": 1488,
+      "vertices": 4464,
+      "meshes": 6,
+      "materials": [
+        "coal",
+        "straw",
+        "thatch",
+        "white",
+        "wood@7a5a3a",
+        "wood@8a6a44"
+      ],
+      "pivots": [],
+      "size": [
+        1.225,
+        0.254,
+        0.975
+      ],
+      "minY": 0,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "campfire",
+      "group": "civic",
+      "source": "src/render3d/civic.ts buildCampfire",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings; flame and sparks are particles",
+      "triangles": 488,
+      "vertices": 1464,
+      "meshes": 4,
+      "materials": [
+        "coal",
+        "stone@9d9686",
+        "wood@6e4e32",
+        "wood@7a5a3a"
+      ],
+      "pivots": [],
+      "size": [
+        0.79,
+        0.124,
+        0.521
+      ],
+      "minY": -0.045,
+      "centre": [
+        -0.08,
+        0.033
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "beacon",
+      "group": "civic",
+      "source": "src/render3d/civic.ts buildBeacon",
+      "drawn": "static parts merged into one mesh per material, then batched with the other buildings; flame and sparks are particles, with a point light",
+      "triangles": 468,
+      "vertices": 1404,
+      "meshes": 6,
+      "materials": [
+        "coal",
+        "iron",
+        "stone@a79f8b",
+        "stone@c4bca8",
+        "wood@6e4e32",
+        "wood@7d5a38"
+      ],
+      "pivots": [],
+      "size": [
+        0.619,
+        0.536,
+        0.518
+      ],
+      "minY": -0.06,
+      "centre": [
+        0.011,
+        0.039
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "bridge",
+      "group": "bridge",
+      "source": "src/render3d/civic.ts buildBridge (fitted to the engine tiles of each village; Redbank shown)",
+      "drawn": "standing span, rubble (shown once it falls) and watch trim, each merged per material",
+      "triangles": 1320,
+      "vertices": 3960,
+      "meshes": 9,
+      "materials": [
+        "cobble",
+        "glassLit",
+        "gold",
+        "iron",
+        "stone@a79f8b",
+        "stone@b0a890",
+        "stone@b8b09a",
+        "stone@cfc7b2",
+        "timber"
+      ],
+      "pivots": [],
+      "size": [
+        4.2,
+        1.025,
+        0.66
+      ],
+      "minY": -0.53,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "prop-woodpile",
+      "group": "prop",
+      "source": "src/render3d/props.ts yardProp('woodpile')",
+      "drawn": "merged with the clutter of every yard and field into one mesh per material: a few draw calls for the whole village",
+      "triangles": 204,
+      "vertices": 612,
+      "meshes": 2,
+      "materials": [
+        "wood@6e4e32",
+        "wood@8a6440"
+      ],
+      "pivots": [],
+      "size": [
+        0.389,
+        0.137,
+        0.295
+      ],
+      "minY": 0,
+      "centre": [
+        -0.105,
+        0.073
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "prop-cart",
+      "group": "prop",
+      "source": "src/render3d/props.ts yardProp('cart')",
+      "drawn": "merged with the clutter of every yard and field into one mesh per material: a few draw calls for the whole village",
+      "triangles": 284,
+      "vertices": 852,
+      "meshes": 5,
+      "materials": [
+        "iron",
+        "sack",
+        "wood@5a4028",
+        "wood@6e4e32",
+        "wood@7a5a3a"
+      ],
+      "pivots": [],
+      "size": [
+        0.617,
+        0.2,
+        0.276
+      ],
+      "minY": 0,
+      "centre": [
+        0.139,
+        0.02
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "prop-washing",
+      "group": "prop",
+      "source": "src/render3d/props.ts yardProp('washing')",
+      "drawn": "merged with the clutter of every yard and field into one mesh per material: a few draw calls for the whole village",
+      "triangles": 84,
+      "vertices": 252,
+      "meshes": 5,
+      "materials": [
+        "cloth@8aa06a",
+        "cloth@c0574b",
+        "rope",
+        "white",
+        "wood@6e4e32"
+      ],
+      "pivots": [],
+      "size": [
+        0.502,
+        0.32,
+        0.022
+      ],
+      "minY": 0,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "prop-garden",
+      "group": "prop",
+      "source": "src/render3d/props.ts yardProp('garden')",
+      "drawn": "merged with the clutter of every yard and field into one mesh per material: a few draw calls for the whole village",
+      "triangles": 864,
+      "vertices": 2592,
+      "meshes": 4,
+      "materials": [
+        "dirt",
+        "leaf",
+        "leaf@a3b84f",
+        "wood@9a7a52"
+      ],
+      "pivots": [],
+      "size": [
+        0.505,
+        0.096,
+        0.385
+      ],
+      "minY": -0.014,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "prop-fence",
+      "group": "prop",
+      "source": "src/render3d/kit.ts fence (one unit of a field fence; runs are cut to the field edge)",
+      "drawn": "merged with the clutter of every yard and field into one mesh per material: a few draw calls for the whole village",
+      "triangles": 96,
+      "vertices": 288,
+      "meshes": 1,
+      "materials": [
+        "wood@8a6a44"
+      ],
+      "pivots": [],
+      "size": [
+        1.025,
+        0.12,
+        0.025
+      ],
+      "minY": 0,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "prop-haystack",
+      "group": "prop",
+      "source": "src/render3d/props.ts haystackAt",
+      "drawn": "merged with the clutter of every yard and field into one mesh per material: a few draw calls for the whole village",
+      "triangles": 64,
+      "vertices": 192,
+      "meshes": 1,
+      "materials": [
+        "straw"
+      ],
+      "pivots": [],
+      "size": [
+        0.24,
+        0.24,
+        0.24
+      ],
+      "minY": 0,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "tree-oak",
+      "group": "tree",
+      "source": "src/render3d/trees.ts makeTree('oak')",
+      "drawn": "one geometry per species, colours in the vertices, drawn as instances with their own transforms",
+      "triangles": 456,
+      "vertices": 1368,
+      "meshes": 1,
+      "materials": [
+        "vertex colours (one shared material per species)"
+      ],
+      "pivots": [],
+      "size": [
+        0.737,
+        0.952,
+        0.555
+      ],
+      "minY": 0,
+      "centre": [
+        0.011,
+        -0.029
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "tree-pine",
+      "group": "tree",
+      "source": "src/render3d/trees.ts makeTree('pine')",
+      "drawn": "one geometry per species, colours in the vertices, drawn as instances with their own transforms",
+      "triangles": 136,
+      "vertices": 408,
+      "meshes": 1,
+      "materials": [
+        "vertex colours (one shared material per species)"
+      ],
+      "pivots": [],
+      "size": [
+        0.613,
+        0.96,
+        0.624
+      ],
+      "minY": 0,
+      "centre": [
+        -0.018,
+        -0.003
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "tree-birch",
+      "group": "tree",
+      "source": "src/render3d/trees.ts makeTree('birch')",
+      "drawn": "one geometry per species, colours in the vertices, drawn as instances with their own transforms",
+      "triangles": 456,
+      "vertices": 1368,
+      "meshes": 1,
+      "materials": [
+        "vertex colours (one shared material per species)"
+      ],
+      "pivots": [],
+      "size": [
+        0.48,
+        0.994,
+        0.418
+      ],
+      "minY": 0,
+      "centre": [
+        -0.008,
+        0.007
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "tree-willow",
+      "group": "tree",
+      "source": "src/render3d/trees.ts makeTree('willow')",
+      "drawn": "one geometry per species, colours in the vertices, drawn as instances with their own transforms",
+      "triangles": 296,
+      "vertices": 888,
+      "meshes": 1,
+      "materials": [
+        "vertex colours (one shared material per species)"
+      ],
+      "pivots": [],
+      "size": [
+        0.69,
+        0.816,
+        0.662
+      ],
+      "minY": 0,
+      "centre": [
+        0.012,
+        -0.004
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "tree-apple",
+      "group": "tree",
+      "source": "src/render3d/trees.ts makeTree('apple')",
+      "drawn": "one geometry per species, colours in the vertices, drawn as instances with their own transforms",
+      "triangles": 460,
+      "vertices": 1380,
+      "meshes": 1,
+      "materials": [
+        "vertex colours (one shared material per species)"
+      ],
+      "pivots": [],
+      "size": [
+        0.458,
+        0.603,
+        0.418
+      ],
+      "minY": 0,
+      "centre": [
+        0.001,
+        -0.003
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "tree-shrub",
+      "group": "tree",
+      "source": "src/render3d/trees.ts makeTree('shrub')",
+      "drawn": "one geometry per species, colours in the vertices, drawn as instances with their own transforms",
+      "triangles": 240,
+      "vertices": 720,
+      "meshes": 1,
+      "materials": [
+        "vertex colours (one shared material per species)"
+      ],
+      "pivots": [],
+      "size": [
+        0.337,
+        0.188,
+        0.234
+      ],
+      "minY": -0.007,
+      "centre": [
+        0.013,
+        0.017
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "tree-stump",
+      "group": "tree",
+      "source": "src/render3d/trees.ts makeTree('stump')",
+      "drawn": "one geometry per species, colours in the vertices, drawn as instances with their own transforms",
+      "triangles": 64,
+      "vertices": 192,
+      "meshes": 1,
+      "materials": [
+        "vertex colours (one shared material per species)"
+      ],
+      "pivots": [],
+      "size": [
+        0.097,
+        0.101,
+        0.095
+      ],
+      "minY": 0,
+      "centre": [
+        0,
+        0.002
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "tree-blossom",
+      "group": "tree",
+      "source": "src/render3d/trees.ts makeTree('blossom')",
+      "drawn": "one geometry per species, colours in the vertices, drawn as instances with their own transforms",
+      "triangles": 456,
+      "vertices": 1368,
+      "meshes": 1,
+      "materials": [
+        "vertex colours (one shared material per species)"
+      ],
+      "pivots": [],
+      "size": [
+        0.737,
+        0.952,
+        0.555
+      ],
+      "minY": 0,
+      "centre": [
+        0.011,
+        -0.029
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "tree-autumn",
+      "group": "tree",
+      "source": "src/render3d/trees.ts makeTree('autumn')",
+      "drawn": "one geometry per species, colours in the vertices, drawn as instances with their own transforms",
+      "triangles": 456,
+      "vertices": 1368,
+      "meshes": 1,
+      "materials": [
+        "vertex colours (one shared material per species)"
+      ],
+      "pivots": [],
+      "size": [
+        0.737,
+        0.952,
+        0.555
+      ],
+      "minY": 0,
+      "centre": [
+        0.011,
+        -0.029
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "tree-cypress",
+      "group": "tree",
+      "source": "src/render3d/trees.ts makeTree('cypress')",
+      "drawn": "one geometry per species, colours in the vertices, drawn as instances with their own transforms",
+      "triangles": 136,
+      "vertices": 408,
+      "meshes": 1,
+      "materials": [
+        "vertex colours (one shared material per species)"
+      ],
+      "pivots": [],
+      "size": [
+        0.211,
+        0.939,
+        0.21
+      ],
+      "minY": 0,
+      "centre": [
+        -0.006,
+        0.006
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "grass-tuft",
+      "group": "foliage",
+      "source": "src/render3d/foliage.ts tuftGeometry",
+      "drawn": "one geometry, drawn as instances with their own transforms and colours, bent by the shared wind in the vertex shader; casts no shadow",
+      "triangles": 5,
+      "vertices": 15,
+      "meshes": 1,
+      "materials": [
+        "vertex colours, darker at the root"
+      ],
+      "pivots": [],
+      "size": [
+        0.09,
+        0.135,
+        0.09
+      ],
+      "minY": 0,
+      "centre": [
+        0.014,
+        0.014
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "wildflower",
+      "group": "foliage",
+      "source": "src/render3d/foliage.ts flowerGeometry (placed in clusters)",
+      "drawn": "one geometry, drawn as instances in clusters, each in its own colour; casts no shadow",
+      "triangles": 30,
+      "vertices": 30,
+      "meshes": 1,
+      "materials": [
+        "one material, coloured per instance"
+      ],
+      "pivots": [],
+      "size": [
+        0.024,
+        0.026,
+        0.025
+      ],
+      "minY": -0.013,
+      "centre": [
+        -0.001,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "reed",
+      "group": "foliage",
+      "source": "src/render3d/foliage.ts reedGeometry",
+      "drawn": "one geometry, drawn as instances with their own transforms and colours, bent by the shared wind in the vertex shader; casts no shadow",
+      "triangles": 8,
+      "vertices": 19,
+      "meshes": 1,
+      "materials": [
+        "one material, tinted per instance"
+      ],
+      "pivots": [],
+      "size": [
+        0.024,
+        0.34,
+        0.024
+      ],
+      "minY": 0,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "crop-grain",
+      "group": "foliage",
+      "source": "src/render3d/foliage.ts plantGeometry",
+      "drawn": "one geometry, drawn as instances with their own transforms and colours, bent by the shared wind in the vertex shader; casts no shadow; ripens with the engine's crop growth through the instance colour",
+      "triangles": 48,
+      "vertices": 144,
+      "meshes": 1,
+      "materials": [
+        "vertex colours, ripened per instance"
+      ],
+      "pivots": [],
+      "size": [
+        0.109,
+        0.331,
+        0.122
+      ],
+      "minY": -0.001,
+      "centre": [
+        0.013,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "rock",
+      "group": "foliage",
+      "source": "src/render3d/foliage.ts rockGeometry (shown at an instance scale of 0.1)",
+      "drawn": "one noise-shaped geometry per village, drawn as instances with their own transforms and colours; casts a shadow",
+      "triangles": 80,
+      "vertices": 240,
+      "meshes": 1,
+      "materials": [
+        "one material, coloured per instance"
+      ],
+      "pivots": [],
+      "size": [
+        0.205,
+        0.086,
+        0.224
+      ],
+      "minY": -0.01,
+      "centre": [
+        -0.011,
+        0.003
+      ],
+      "normals": "present, unit length",
+      "vertexColours": false,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "person-ivo",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3192,
+      "vertices": 9576,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.262,
+        0.622,
+        0.21
+      ],
+      "minY": -0.005,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-ivo-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1518,
+      "vertices": 4554,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.262,
+        0.621,
+        0.209
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-mara",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3228,
+      "vertices": 9672,
+      "meshes": 10,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.262,
+        0.514,
+        0.19
+      ],
+      "minY": -0.005,
+      "centre": [
+        0,
+        0.01
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "person-mara-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1540,
+      "vertices": 4608,
+      "meshes": 10,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.262,
+        0.513,
+        0.184
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        0.013
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": true,
+      "allFinite": true
+    },
+    {
+      "id": "person-tilly",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 2928,
+      "vertices": 8784,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.184,
+        0.38,
+        0.13
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-tilly-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1358,
+      "vertices": 4074,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.184,
+        0.379,
+        0.122
+      ],
+      "minY": -0.003,
+      "centre": [
+        0,
+        0.004
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-bram",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3240,
+      "vertices": 9720,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.288,
+        0.588,
+        0.284
+      ],
+      "minY": -0.005,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-bram-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1540,
+      "vertices": 4620,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.288,
+        0.587,
+        0.284
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-nell",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3416,
+      "vertices": 10248,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.269,
+        0.506,
+        0.186
+      ],
+      "minY": -0.005,
+      "centre": [
+        0.003,
+        -0.004
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-nell-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1578,
+      "vertices": 4734,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.268,
+        0.505,
+        0.184
+      ],
+      "minY": -0.004,
+      "centre": [
+        0.003,
+        -0.003
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-pip",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3156,
+      "vertices": 9468,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.184,
+        0.38,
+        0.13
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-pip-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1530,
+      "vertices": 4590,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.184,
+        0.379,
+        0.122
+      ],
+      "minY": -0.003,
+      "centre": [
+        0,
+        0.004
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-harl",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3126,
+      "vertices": 9378,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.288,
+        0.503,
+        0.201
+      ],
+      "minY": -0.005,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-harl-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1454,
+      "vertices": 4362,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.288,
+        0.502,
+        0.191
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        0.005
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-dunn",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3192,
+      "vertices": 9576,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.284,
+        0.535,
+        0.284
+      ],
+      "minY": -0.005,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-dunn-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1480,
+      "vertices": 4440,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.284,
+        0.534,
+        0.284
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-wren",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3426,
+      "vertices": 10278,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.243,
+        0.507,
+        0.2
+      ],
+      "minY": -0.005,
+      "centre": [
+        0,
+        -0.012
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-wren-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1544,
+      "vertices": 4632,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.243,
+        0.506,
+        0.198
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        -0.013
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-osric",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3184,
+      "vertices": 9552,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.288,
+        0.514,
+        0.24
+      ],
+      "minY": -0.005,
+      "centre": [
+        0,
+        -0.015
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-osric-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1470,
+      "vertices": 4410,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.288,
+        0.513,
+        0.234
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        -0.012
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-hester",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3232,
+      "vertices": 9696,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.262,
+        0.5,
+        0.189
+      ],
+      "minY": -0.005,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-hester-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1506,
+      "vertices": 4518,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.262,
+        0.499,
+        0.18
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        0.005
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-elspeth",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3344,
+      "vertices": 10032,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.262,
+        0.514,
+        0.194
+      ],
+      "minY": -0.005,
+      "centre": [
+        0,
+        0.008
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-elspeth-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1536,
+      "vertices": 4608,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.262,
+        0.513,
+        0.185
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        0.012
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-cass",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3024,
+      "vertices": 9072,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.262,
+        0.5,
+        0.189
+      ],
+      "minY": -0.005,
+      "centre": [
+        0,
+        0
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-cass-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1412,
+      "vertices": 4236,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.262,
+        0.499,
+        0.18
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        0.005
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-aldous",
+      "group": "person",
+      "source": "src/render3d/people.ts buildRig",
+      "drawn": "a jointed figure: vertex-coloured meshes on pivots (hips, knees, shoulders, head), animated by code",
+      "triangles": 3328,
+      "vertices": 9984,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.262,
+        0.507,
+        0.201
+      ],
+      "minY": -0.005,
+      "centre": [
+        0,
+        -0.012
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    },
+    {
+      "id": "person-aldous-far",
+      "group": "person",
+      "source": "src/render3d/people.ts buildFigure (the distant version: the same rig at about half the segments)",
+      "drawn": "the same figure's geometry, swapped in mesh by mesh while the person stands under 40 CSS pixels tall on screen",
+      "triangles": 1514,
+      "vertices": 4542,
+      "meshes": 9,
+      "materials": [
+        "vertex colours (one shared material for every person)"
+      ],
+      "pivots": [
+        {
+          "name": "hips, knees, shoulders, head (jointed)",
+          "at": [
+            0,
+            0,
+            0
+          ]
+        }
+      ],
+      "size": [
+        0.262,
+        0.506,
+        0.201
+      ],
+      "minY": -0.004,
+      "centre": [
+        0,
+        -0.012
+      ],
+      "normals": "present, unit length",
+      "vertexColours": true,
+      "uv": false,
+      "allFinite": true
+    }
+  ]
+}

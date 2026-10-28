@@ -106,6 +106,12 @@ export function yardProp(parts: Parts, kind: YardProp, x: number, y: number, z: 
   }
 }
 
+/** a haystack at a field's corner: a straw drum under a pointed cap */
+export function haystackAt(parts: Parts, x: number, y: number, z: number): void {
+  add(parts, cyl(0.12, 0.1, 0.12, 8, 0.1), 'straw', x, y, z);
+  add(parts, cyl(0.1, 0.01, 0.12, 8, 0.1), 'straw', x, y + 0.12, z);
+}
+
 /** a direction for a prop that sits at angle `a` round a house: along the house's side, so it reads as placed, not dropped */
 export function propFacing(a: number): number {
   return -a + Math.PI / 2;

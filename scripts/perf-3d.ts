@@ -1,9 +1,10 @@
 /**
  * Measure the 3D world on whatever this machine can run it on, per quality tier, for the calm village and the flood night:
- * scene cost (triangles and draw calls of every pass, geometries, textures), time from loading a run to the first drawn frame (and, within
- * it, the world's own build: terrain, buildings, foliage and people made into meshes), the
- * page's JS heap, and frame times drawn back to back: the median, the 1% low (the 99th-percentile frame), and the same without the
- * finishing chain, so the chain's own cost shows.
+ * scene cost (triangles and draw calls of every pass, geometries, textures, shader programs, estimated video memory of textures and
+ * render targets, and how many people are drawn with their distant figure), time from loading a run to the first drawn frame (and,
+ * within it, the world's own build: terrain, buildings, foliage and people made into meshes, and the first frame's draw, which compiles
+ * the shaders), the page's JS heap, and frame times drawn back to back: the median, the 95th percentile, the 1% low (the 99th-percentile
+ * frame), and the median without the finishing chain, so the chain's own cost shows.
  *
  * Honest limit: in a container the only WebGL is a software rasteriser (SwiftShader), so the frame times below are a CPU
  * rasteriser's, useful for comparing tiers and for catching regressions, and nothing like a GPU's. The numbers that do carry over to
@@ -43,10 +44,16 @@ interface Row {
   calls: number;
   geometries: number;
   textures: number;
+  programs: number;
+  textureMB: number;
+  targetMB: number;
+  peopleFar: string;
   startupMs: number;
   buildMs: number;
+  firstDrawMs: number;
   heapMb: number;
   medianMs: number;
+  p95Ms: number;
   medianFps: number;
   low1Fps: number;
   noPostMs: number;
@@ -78,21 +85,24 @@ for (const tier of ['low', 'medium', 'high']) {
       const r = window.__beRenderer;
       const on = await r.benchmark(${frames});
       const info = r.info();
+      const vram = r.memory();
       r.setPost({ enabled: false });
       const off = await r.benchmark(${frames});
       r.setPost(null);
       const mem = performance.memory;
-      return { on, off, info, heap: mem ? mem.usedJSHeapSize / 1048576 : 0 };
+      return { on, off, info, vram, heap: mem ? mem.usedJSHeapSize / 1048576 : 0 };
     })()`)) as {
-      on: { medianMs: number; medianFps: number; low1Fps: number; calls: number; triangles: number };
+      on: { medianMs: number; p95Ms: number; medianFps: number; low1Fps: number; calls: number; triangles: number };
       off: { medianMs: number };
-      info: { scale: number; geometries: number; textures: number; buildMs: number; post: { ao: number; bloom: boolean; fxaa: boolean } | null };
+      info: { scale: number; geometries: number; textures: number; programs: number; buildMs: number; firstDrawMs: number; post: { ao: number; bloom: boolean; fxaa: boolean } | null };
+      vram: { textureMB: number; targetMB: number; people: { near: number; far: number } };
       heap: number;
     };
     const p = m.info.post;
     rows.push({
-      tier, scene: name, scale: m.info.scale, triangles: m.on.triangles, calls: m.on.calls, geometries: m.info.geometries, textures: m.info.textures, startupMs,
-      buildMs: m.info.buildMs, heapMb: Math.round(m.heap * 10) / 10, medianMs: m.on.medianMs, medianFps: m.on.medianFps, low1Fps: m.on.low1Fps, noPostMs: m.off.medianMs,
+      tier, scene: name, scale: m.info.scale, triangles: m.on.triangles, calls: m.on.calls, geometries: m.info.geometries, textures: m.info.textures, programs: m.info.programs,
+      textureMB: m.vram.textureMB, targetMB: m.vram.targetMB, peopleFar: `${m.vram.people.far}/${m.vram.people.far + m.vram.people.near}`, startupMs, buildMs: m.info.buildMs,
+      firstDrawMs: m.info.firstDrawMs, heapMb: Math.round(m.heap * 10) / 10, medianMs: m.on.medianMs, p95Ms: m.on.p95Ms, medianFps: m.on.medianFps, low1Fps: m.on.low1Fps, noPostMs: m.off.medianMs,
       chainMs: Math.round((m.on.medianMs - m.off.medianMs) * 10) / 10, post: p ? `ao${p.ao}${p.bloom ? '+bloom' : ''}${p.fxaa ? '+fxaa' : ''}` : 'off',
     });
     await ctx.close();
@@ -100,7 +110,11 @@ for (const tier of ['low', 'medium', 'high']) {
 }
 await browser.close();
 
-console.log('tier    scene  scale  triangles  calls  geoms  tex  startup(ms)  build(ms)  heap(MB)  frame(ms)  fps  1%low  no-chain(ms)  chain(ms)  chain');
-for (const r of rows) console.log(`${r.tier.padEnd(7)} ${r.scene.padEnd(6)} ${String(r.scale).padEnd(6)} ${String(r.triangles).padEnd(10)} ${String(r.calls).padEnd(6)} ${String(r.geometries).padEnd(6)} ${String(r.textures).padEnd(4)} ${String(r.startupMs).padEnd(12)} ${String(r.buildMs).padEnd(10)} ${String(r.heapMb).padEnd(9)} ${String(r.medianMs).padEnd(10)} ${String(r.medianFps).padEnd(4)} ${String(r.low1Fps).padEnd(6)} ${String(r.noPostMs).padEnd(13)} ${String(r.chainMs).padEnd(10)} ${r.post}`);
+console.log('tier    scene  scale  triangles  calls  geoms  tex  prog  texMB  rtMB  far    startup(ms)  build(ms)  1st draw(ms)  heap(MB)  frame(ms)  p95(ms)  fps  1%low  no-chain(ms)  chain(ms)  chain');
+for (const r of rows) {
+  console.log(
+    `${r.tier.padEnd(7)} ${r.scene.padEnd(6)} ${String(r.scale).padEnd(6)} ${String(r.triangles).padEnd(10)} ${String(r.calls).padEnd(6)} ${String(r.geometries).padEnd(6)} ${String(r.textures).padEnd(4)} ${String(r.programs).padEnd(5)} ${String(r.textureMB).padEnd(6)} ${String(r.targetMB).padEnd(5)} ${r.peopleFar.padEnd(6)} ${String(r.startupMs).padEnd(12)} ${String(r.buildMs).padEnd(10)} ${String(r.firstDrawMs).padEnd(13)} ${String(r.heapMb).padEnd(9)} ${String(r.medianMs).padEnd(10)} ${String(r.p95Ms).padEnd(8)} ${String(r.medianFps).padEnd(4)} ${String(r.low1Fps).padEnd(6)} ${String(r.noPostMs).padEnd(13)} ${String(r.chainMs).padEnd(10)} ${r.post}`,
+  );
+}
 mkdirSync('docs/3d-rebuild/data', { recursive: true });
 writeFileSync(outFile, JSON.stringify({ measuredWith: 'headless Chromium, software WebGL (SwiftShader); not a GPU. Frames drawn back to back and waited for (benchmark()), not the paced live loop', viewport: `${W}x${H}`, renderScale: scale, framesPerMeasure: frames, rows }, null, 2));

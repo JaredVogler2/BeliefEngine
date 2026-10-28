@@ -46,6 +46,10 @@ interface Rig {
   child: boolean;
   /** a gown, robe or long coat: the legs swing less under it */
   robe: boolean;
+  /** the figure's own meshes, each with its close and its distant geometry (empty for a figure built without a distant version) */
+  lod: { mesh: THREE.Mesh; near: THREE.BufferGeometry; far: THREE.BufferGeometry }[];
+  /** the distant version is showing */
+  far: boolean;
 }
 
 interface Walker {
@@ -73,18 +77,60 @@ interface Walker {
   wait: number;
 }
 
+/**
+ * How finely the figure being baked is turned: 1 for the figure seen up close, FAR for its distant version. Every round shape a figure is
+ * made of takes its segment counts through `G`, so the distant version is the same rig, the same pieces on the same pivots, with about
+ * half the segments: it is swapped in, mesh by mesh, when the person stands only a few dozen pixels tall on screen.
+ */
+let detail = 1;
+const FAR = 0.5;
+const seg = (n: number | undefined, min: number): number | undefined => (n === undefined || detail === 1 ? n : Math.max(min, Math.round(n * detail)));
+const G = {
+  Sphere: class extends THREE.SphereGeometry {
+    constructor(r?: number, w?: number, h?: number, phiStart?: number, phiLength?: number, thetaStart?: number, thetaLength?: number) {
+      super(r, seg(w, 6), seg(h, 4), phiStart, phiLength, thetaStart, thetaLength);
+    }
+  },
+  Cylinder: class extends THREE.CylinderGeometry {
+    constructor(rTop?: number, rBottom?: number, h?: number, radial?: number, rows?: number, open?: boolean, thetaStart?: number, thetaLength?: number) {
+      super(rTop, rBottom, h, seg(radial, 5), rows, open, thetaStart, thetaLength);
+    }
+  },
+  Capsule: class extends THREE.CapsuleGeometry {
+    constructor(r?: number, length?: number, cap?: number, radial?: number) {
+      super(r, length, seg(cap, 2), seg(radial, 5));
+    }
+  },
+  Cone: class extends THREE.ConeGeometry {
+    constructor(r?: number, h?: number, radial?: number, rows?: number, open?: boolean, thetaStart?: number, thetaLength?: number) {
+      super(r, h, seg(radial, 4), rows, open, thetaStart, thetaLength);
+    }
+  },
+  Torus: class extends THREE.TorusGeometry {
+    constructor(r?: number, tube?: number, radial?: number, tubular?: number, arc?: number) {
+      super(r, tube, seg(radial, 3), seg(tubular, 6), arc);
+    }
+  },
+  Lathe: class extends THREE.LatheGeometry {
+    constructor(points?: THREE.Vector2[], segments?: number) {
+      super(points, seg(segments, 7));
+    }
+  },
+};
+
 /** template shapes, shared by every figure; they are only ever copied into a figure's own geometry, never drawn */
 const geoCache = new Map<string, THREE.BufferGeometry>();
 const geo = <T extends THREE.BufferGeometry>(key: string, make: () => T): T => {
-  let g = geoCache.get(key) as T | undefined;
+  const k = detail === 1 ? key : `${key}~${detail}`;
+  let g = geoCache.get(k) as T | undefined;
   if (!g) {
     g = make();
-    geoCache.set(key, g);
+    geoCache.set(k, g);
   }
   return g;
 };
 /** a turned shape (a garment's silhouette) from [radius, height] pairs, bottom to top */
-const lathe = (key: string, pts: [number, number][], dy: number): THREE.BufferGeometry => geo(key, () => new THREE.LatheGeometry(pts.map(([r, y]) => new THREE.Vector2(r, y + dy)), 14));
+const lathe = (key: string, pts: [number, number][], dy: number): THREE.BufferGeometry => geo(key, () => new G.Lathe(pts.map(([r, y]) => new THREE.Vector2(r, y + dy)), 14));
 
 let peopleMat: THREE.MeshStandardMaterial | null = null;
 /** one material for every person: each part's colour is baked into its vertices, so a whole figure is a handful of draw calls */
@@ -141,11 +187,57 @@ const owned = (g: THREE.BufferGeometry, x = 0, y = 0, z = 0): THREE.Mesh => {
   return o;
 };
 
-/** free the geometry a figure owns (the shared material and the template shapes stay) */
+/** free the geometry a figure owns, both versions of it (the shared material and the template shapes stay) */
 function disposeRig(rig: Rig): void {
   rig.root.traverse((o) => {
     if (o instanceof THREE.Mesh && o.userData.owned) o.geometry.dispose();
   });
+  for (const l of rig.lod) {
+    l.near.dispose();
+    l.far.dispose();
+  }
+}
+
+/** below this height on screen (CSS pixels) a person is drawn with the distant version; back up close once they stand 8 px taller */
+export const FAR_PX = 40;
+
+/**
+ * A figure and its distant version: the same rig built again at about half the segments, paired with the first mesh by mesh (the build
+ * does not depend on the detail, so both walk the same tree). Only the geometry is swapped, so the pivots, the animation and every
+ * reference to a part stay as they are.
+ */
+export function buildFigure(v: SceneVillager): Rig {
+  const rig = buildRig(v);
+  detail = FAR;
+  let far: Rig;
+  try {
+    far = buildRig(v);
+  } finally {
+    detail = 1;
+  }
+  const mine = (r: Rig): THREE.Mesh[] => {
+    const out: THREE.Mesh[] = [];
+    r.root.traverse((o) => {
+      if (o instanceof THREE.Mesh && o.userData.owned) out.push(o);
+    });
+    return out;
+  };
+  const a = mine(rig);
+  const b = mine(far);
+  if (a.length !== b.length) {
+    // never expected: keep the close version only
+    disposeRig(far);
+    return rig;
+  }
+  rig.lod = a.map((mesh, i) => ({ mesh, near: mesh.geometry, far: b[i].geometry }));
+  return rig;
+}
+
+/** show the close or the distant version of a figure */
+export function setFar(rig: Rig, far: boolean): void {
+  if (rig.far === far || !rig.lod.length) return;
+  rig.far = far;
+  for (const l of rig.lod) l.mesh.geometry = far ? l.far : l.near;
 }
 
 function garment(v: SceneVillager): number {
@@ -226,11 +318,11 @@ export function buildRig(v: SceneVillager): Rig {
   root.add(body);
 
   // legs, pivoted at the hip, with a knee half way down: breeches above it, the shin and the boot below
-  const thighGeo = new Parts().add(geo('pThigh', () => new THREE.CapsuleGeometry(0.027, 0.05, 3, 8)), pants, 0, -0.04, 0).bake();
+  const thighGeo = new Parts().add(geo('pThigh', () => new G.Capsule(0.027, 0.05, 3, 8)), pants, 0, -0.04, 0).bake();
   const shinGeo = new Parts()
-    .add(geo('pShin', () => new THREE.CapsuleGeometry(0.025, 0.03, 3, 8)), pants, 0, -0.02, 0)
-    .add(geo('pBootShaft', () => new THREE.CylinderGeometry(0.03, 0.028, 0.045, 8)), BOOT, 0, -0.044, 0)
-    .add(geo('pBootToe', () => new THREE.CapsuleGeometry(0.023, 0.04, 3, 8)), BOOT, 0, -0.066, 0.016, new THREE.Euler(Math.PI / 2, 0, 0), 1.1, 1, 0.82)
+    .add(geo('pShin', () => new G.Capsule(0.025, 0.03, 3, 8)), pants, 0, -0.02, 0)
+    .add(geo('pBootShaft', () => new G.Cylinder(0.03, 0.028, 0.045, 8)), BOOT, 0, -0.044, 0)
+    .add(geo('pBootToe', () => new G.Capsule(0.023, 0.04, 3, 8)), BOOT, 0, -0.066, 0.016, new THREE.Euler(Math.PI / 2, 0, 0), 1.1, 1, 0.82)
     .bake();
   const mkLeg = (x: number): [THREE.Group, THREE.Group] => {
     const g = new THREE.Group();
@@ -254,8 +346,8 @@ export function buildRig(v: SceneVillager): Rig {
     cloth, 0, 0, 0, undefined, W, 1, D,
   );
   if (has('apron')) {
-    if (robe) skirtParts.add(geo('pApronRobe', () => new THREE.CylinderGeometry(0.071, 0.099, 0.12, 10, 1, true, -0.7, 1.4)), apronCol, 0, -0.07, 0, undefined, W, 1, D);
-    else skirtParts.add(geo('pApronTunic', () => new THREE.CylinderGeometry(0.069, 0.083, 0.095, 10, 1, true, -0.7, 1.4)), apronCol, 0, -0.0525, 0, undefined, W, 1, D);
+    if (robe) skirtParts.add(geo('pApronRobe', () => new G.Cylinder(0.071, 0.099, 0.12, 10, 1, true, -0.7, 1.4)), apronCol, 0, -0.07, 0, undefined, W, 1, D);
+    else skirtParts.add(geo('pApronTunic', () => new G.Cylinder(0.069, 0.083, 0.095, 10, 1, true, -0.7, 1.4)), apronCol, 0, -0.0525, 0, undefined, W, 1, D);
   }
   const skirt = owned(skirtParts.bake(), 0, 0.2, 0);
   body.add(skirt);
@@ -263,46 +355,46 @@ export function buildRig(v: SceneVillager): Rig {
   // the coat: shoulders to waist, with a shirt collar, a belt (or a friar's rope) and the faction's sash worn from the shoulder
   const torsoParts = new Parts()
     .add(lathe('pTorso', [[0.064, 0.193], [0.066, 0.22], [0.072, 0.255], [0.074, 0.285], [0.068, 0.31], [0.05, 0.328], [0.03, 0.338], [0, 0.341]], -0.27), cloth, 0, 0, 0, undefined, W, 1, D)
-    .add(geo('pCollar', () => new THREE.TorusGeometry(0.033, 0.007, 4, 12)), SHIRT, 0, 0.064, 0, new THREE.Euler(Math.PI / 2, 0, 0), W, D, 1)
-    .add(geo('pSash', () => new THREE.TorusGeometry(0.082, 0.011, 4, 20)), faction, 0, 0, 0, new THREE.Euler(Math.PI / 2, 0, 0.62, 'ZXY'), W, D * 1.06, 1)
-    .add(geo('pBelt', () => new THREE.TorusGeometry(0.066, 0.0085, 5, 18)), has('rope') ? 0xcdb98a : LEATHER, 0, -0.072, 0, new THREE.Euler(Math.PI / 2, 0, 0), W, D, 1);
-  if (has('rope')) torsoParts.add(geo('pCord', () => new THREE.CylinderGeometry(0.0045, 0.0045, 0.085, 4)), 0xcdb98a, 0.022 * W, -0.11, 0.072 * D);
+    .add(geo('pCollar', () => new G.Torus(0.033, 0.007, 4, 12)), SHIRT, 0, 0.064, 0, new THREE.Euler(Math.PI / 2, 0, 0), W, D, 1)
+    .add(geo('pSash', () => new G.Torus(0.082, 0.011, 4, 20)), faction, 0, 0, 0, new THREE.Euler(Math.PI / 2, 0, 0.62, 'ZXY'), W, D * 1.06, 1)
+    .add(geo('pBelt', () => new G.Torus(0.066, 0.0085, 5, 18)), has('rope') ? 0xcdb98a : LEATHER, 0, -0.072, 0, new THREE.Euler(Math.PI / 2, 0, 0), W, D, 1);
+  if (has('rope')) torsoParts.add(geo('pCord', () => new G.Cylinder(0.0045, 0.0045, 0.085, 4)), 0xcdb98a, 0.022 * W, -0.11, 0.072 * D);
   else torsoParts.add(geo('pBuckle', () => new THREE.BoxGeometry(0.018, 0.016, 0.006)), GOLD, 0, -0.072, 0.0745 * D + 0.002);
-  if (has('vest')) torsoParts.add(geo('pVest', () => new THREE.CylinderGeometry(0.079, 0.073, 0.105, 14, 1, true, 0.42, Math.PI * 2 - 0.84)), shade(cloth, 0x1c1610, 0.5), 0, -0.005, 0, undefined, W, 1, D);
+  if (has('vest')) torsoParts.add(geo('pVest', () => new G.Cylinder(0.079, 0.073, 0.105, 14, 1, true, 0.42, Math.PI * 2 - 0.84)), shade(cloth, 0x1c1610, 0.5), 0, -0.005, 0, undefined, W, 1, D);
   if (has('apron')) torsoParts.add(geo('pBib', () => new THREE.BoxGeometry(0.066, 0.075, 0.005)), apronCol, 0, -0.025, 0.07 * D + 0.002, new THREE.Euler(-0.08, 0, 0));
   if (has('cape')) {
-    torsoParts.add(geo('pCape', () => new THREE.CylinderGeometry(0.072, 0.118, 0.27, 12, 1, true, Math.PI - 1.2, 2.4)), 0x5a2f4a, 0, -0.065, 0, undefined, W, 1, D * 1.05);
-    torsoParts.add(geo('pClasp', () => new THREE.SphereGeometry(0.011, 6, 5)), GOLD, 0, 0.058, 0.05 * W);
+    torsoParts.add(geo('pCape', () => new G.Cylinder(0.072, 0.118, 0.27, 12, 1, true, Math.PI - 1.2, 2.4)), 0x5a2f4a, 0, -0.065, 0, undefined, W, 1, D * 1.05);
+    torsoParts.add(geo('pClasp', () => new G.Sphere(0.011, 6, 5)), GOLD, 0, 0.058, 0.05 * W);
   }
   if (has('chain')) {
-    torsoParts.add(geo('pChain', () => new THREE.TorusGeometry(0.05, 0.0055, 4, 16)), 0xd8b44a, 0, 0.04, 0.026 * W, new THREE.Euler(Math.PI / 2.4, 0, 0), W, 1, 1);
-    torsoParts.add(geo('pMedal', () => new THREE.CylinderGeometry(0.013, 0.013, 0.005, 10)), 0xe6c45a, 0, 0.022, 0.073 * D + 0.004, new THREE.Euler(Math.PI / 2, 0, 0));
+    torsoParts.add(geo('pChain', () => new G.Torus(0.05, 0.0055, 4, 16)), 0xd8b44a, 0, 0.04, 0.026 * W, new THREE.Euler(Math.PI / 2.4, 0, 0), W, 1, 1);
+    torsoParts.add(geo('pMedal', () => new G.Cylinder(0.013, 0.013, 0.005, 10)), 0xe6c45a, 0, 0.022, 0.073 * D + 0.004, new THREE.Euler(Math.PI / 2, 0, 0));
   }
   if (has('pouch')) torsoParts.add(geo('pPouch', () => new THREE.BoxGeometry(0.03, 0.036, 0.022)), LEATHER, 0.06 * W, -0.09, 0.03 * W);
   if (role.held === 'satchel') torsoParts.add(geo('pSatchel', () => new THREE.BoxGeometry(0.072, 0.06, 0.03)), 0x7a5a3a, -0.072 * W, -0.075, 0.04 * W);
-  if (role.held === 'sack') torsoParts.add(geo('pSack', () => new THREE.SphereGeometry(0.05, 8, 6)), 0xc9b58a, 0, -0.01, -0.078 * W, undefined, 1, 1.12, 0.8);
+  if (role.held === 'sack') torsoParts.add(geo('pSack', () => new G.Sphere(0.05, 8, 6)), 0xc9b58a, 0, -0.01, -0.078 * W, undefined, 1, 1.12, 0.8);
   const torso = owned(torsoParts.bake(), 0, 0.27, 0);
   body.add(torso);
 
   // arms, pivoted at the shoulder: a rounded shoulder, the sleeve, a shirt cuff and the hand
   const armParts = (): Parts =>
     new Parts()
-      .add(geo('pShoulder', () => new THREE.SphereGeometry(0.03, 8, 6)), cloth, 0, -0.004, 0)
-      .add(geo('pSleeve', () => new THREE.CapsuleGeometry(0.021, 0.085, 3, 8)), cloth, 0, -0.058, 0)
-      .add(geo('pCuff', () => new THREE.TorusGeometry(0.02, 0.006, 4, 10)), SHIRT, 0, -0.103, 0, new THREE.Euler(Math.PI / 2, 0, 0))
-      .add(geo('pHand', () => new THREE.SphereGeometry(0.02, 7, 5)), skin, 0, -0.125, 0);
+      .add(geo('pShoulder', () => new G.Sphere(0.03, 8, 6)), cloth, 0, -0.004, 0)
+      .add(geo('pSleeve', () => new G.Capsule(0.021, 0.085, 3, 8)), cloth, 0, -0.058, 0)
+      .add(geo('pCuff', () => new G.Torus(0.02, 0.006, 4, 10)), SHIRT, 0, -0.103, 0, new THREE.Euler(Math.PI / 2, 0, 0))
+      .add(geo('pHand', () => new G.Sphere(0.02, 7, 5)), skin, 0, -0.125, 0);
   // what they carry, in the right hand (at 0, -0.125, 0 of the arm)
   const hand = armParts();
   let glass: THREE.Mesh | null = null;
   const pole = (key: string, len: number): void => {
-    hand.add(geo(key, () => new THREE.CylinderGeometry(0.007, 0.009, len, 6)), WOOD, 0, -0.125 + len * 0.18, 0.012);
+    hand.add(geo(key, () => new G.Cylinder(0.007, 0.009, len, 6)), WOOD, 0, -0.125 + len * 0.18, 0.012);
   };
   switch (role.held) {
     case 'lantern':
       hand
         .add(geo('pLanBase', () => new THREE.BoxGeometry(0.038, 0.006, 0.038)), 0x2c2f34, 0, -0.176, 0.02)
-        .add(geo('pLanCap', () => new THREE.ConeGeometry(0.028, 0.02, 4)), 0x2c2f34, 0, -0.128, 0.02, new THREE.Euler(0, Math.PI / 4, 0))
-        .add(geo('pLanRing', () => new THREE.TorusGeometry(0.01, 0.003, 4, 8)), 0x2c2f34, 0, -0.113, 0.02);
+        .add(geo('pLanCap', () => new G.Cone(0.028, 0.02, 4)), 0x2c2f34, 0, -0.128, 0.02, new THREE.Euler(0, Math.PI / 4, 0))
+        .add(geo('pLanRing', () => new G.Torus(0.01, 0.003, 4, 8)), 0x2c2f34, 0, -0.113, 0.02);
       for (const [px, pz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) hand.add(geo('pLanPost', () => new THREE.BoxGeometry(0.004, 0.036, 0.004)), 0x2c2f34, px * 0.016, -0.155, 0.02 + pz * 0.016);
       glass = new THREE.Mesh(geo('pLanGlass', () => new THREE.BoxGeometry(0.03, 0.034, 0.03)), lanternGlass());
       glass.position.set(0, -0.155, 0.02);
@@ -312,12 +404,12 @@ export function buildRig(v: SceneVillager): Rig {
       break;
     case 'crook':
       pole('pStaff', 0.44);
-      hand.add(geo('pCrook', () => new THREE.TorusGeometry(0.03, 0.007, 4, 10, Math.PI)), WOOD, 0.03, 0.172, 0.012);
+      hand.add(geo('pCrook', () => new G.Torus(0.03, 0.007, 4, 10, Math.PI)), WOOD, 0.03, 0.172, 0.012);
       break;
     case 'pitchfork':
       pole('pFork', 0.46);
       hand.add(geo('pForkBar', () => new THREE.BoxGeometry(0.05, 0.007, 0.007)), IRON, 0, 0.192, 0.012);
-      for (const x of [-0.02, 0, 0.02]) hand.add(geo('pTine', () => new THREE.CylinderGeometry(0.003, 0.0018, 0.06, 4)), IRON, x, 0.225, 0.012);
+      for (const x of [-0.02, 0, 0.02]) hand.add(geo('pTine', () => new G.Cylinder(0.003, 0.0018, 0.06, 4)), IRON, x, 0.225, 0.012);
       break;
     case 'hoe':
       pole('pHoe', 0.44);
@@ -325,26 +417,26 @@ export function buildRig(v: SceneVillager): Rig {
       break;
     case 'rod':
       // held high and out over the water: the butt in the hand, the tip far out in front
-      hand.add(geo('pRod', () => new THREE.CylinderGeometry(0.0035, 0.0075, 0.62, 5)), 0x8a6a40, 0, -0.125 + 0.31 * Math.cos(0.55), 0.02 + 0.31 * Math.sin(0.55), new THREE.Euler(0.55, 0, 0));
-      hand.add(geo('pReel', () => new THREE.CylinderGeometry(0.012, 0.012, 0.01, 8)), IRON, 0.012, -0.08, 0.045, new THREE.Euler(0, 0, Math.PI / 2));
+      hand.add(geo('pRod', () => new G.Cylinder(0.0035, 0.0075, 0.62, 5)), 0x8a6a40, 0, -0.125 + 0.31 * Math.cos(0.55), 0.02 + 0.31 * Math.sin(0.55), new THREE.Euler(0.55, 0, 0));
+      hand.add(geo('pReel', () => new G.Cylinder(0.012, 0.012, 0.01, 8)), IRON, 0.012, -0.08, 0.045, new THREE.Euler(0, 0, Math.PI / 2));
       break;
     case 'hammer':
-      hand.add(geo('pHammerH', () => new THREE.CylinderGeometry(0.006, 0.006, 0.11, 5)), WOOD, 0, -0.17, 0.02);
+      hand.add(geo('pHammerH', () => new G.Cylinder(0.006, 0.006, 0.11, 5)), WOOD, 0, -0.17, 0.02);
       hand.add(geo('pHammerHead', () => new THREE.BoxGeometry(0.042, 0.022, 0.022)), IRON, 0, -0.225, 0.02);
       break;
     case 'bell':
-      hand.add(geo('pBellH', () => new THREE.CylinderGeometry(0.006, 0.006, 0.03, 5)), WOOD, 0, -0.135, 0.02);
-      hand.add(geo('pBell', () => new THREE.ConeGeometry(0.03, 0.05, 10)), 0xc4a24a, 0, -0.172, 0.02);
+      hand.add(geo('pBellH', () => new G.Cylinder(0.006, 0.006, 0.03, 5)), WOOD, 0, -0.135, 0.02);
+      hand.add(geo('pBell', () => new G.Cone(0.03, 0.05, 10)), 0xc4a24a, 0, -0.172, 0.02);
       break;
     case 'basket':
     case 'yarn':
-      hand.add(geo('pBasket', () => new THREE.CylinderGeometry(0.037, 0.029, 0.036, 9)), 0x9a7a4a, 0, -0.16, 0.02);
-      hand.add(geo('pBasketH', () => new THREE.TorusGeometry(0.03, 0.004, 4, 10, Math.PI)), 0x8a6a3a, 0, -0.142, 0.02);
-      if (role.held === 'yarn') for (const [x, c] of [[-0.012, faction], [0.013, 0xc96a4a]] as const) hand.add(geo('pYarn', () => new THREE.SphereGeometry(0.017, 7, 5)), c, x, -0.138, 0.02);
-      else hand.add(geo('pLoaf', () => new THREE.SphereGeometry(0.02, 7, 5)), 0xc8924a, 0, -0.138, 0.02, undefined, 1.3, 0.8, 1);
+      hand.add(geo('pBasket', () => new G.Cylinder(0.037, 0.029, 0.036, 9)), 0x9a7a4a, 0, -0.16, 0.02);
+      hand.add(geo('pBasketH', () => new G.Torus(0.03, 0.004, 4, 10, Math.PI)), 0x8a6a3a, 0, -0.142, 0.02);
+      if (role.held === 'yarn') for (const [x, c] of [[-0.012, faction], [0.013, 0xc96a4a]] as const) hand.add(geo('pYarn', () => new G.Sphere(0.017, 7, 5)), c, x, -0.138, 0.02);
+      else hand.add(geo('pLoaf', () => new G.Sphere(0.02, 7, 5)), 0xc8924a, 0, -0.138, 0.02, undefined, 1.3, 0.8, 1);
       break;
     case 'axe':
-      hand.add(geo('pAxeH', () => new THREE.CylinderGeometry(0.008, 0.008, 0.2, 5)), WOOD, 0, -0.145, 0.01);
+      hand.add(geo('pAxeH', () => new G.Cylinder(0.008, 0.008, 0.2, 5)), WOOD, 0, -0.145, 0.01);
       hand.add(geo('pAxeB', () => new THREE.BoxGeometry(0.06, 0.04, 0.008)), 0x9aa0a8, 0.03, -0.065, 0.01);
       break;
     case 'book':
@@ -371,18 +463,18 @@ export function buildRig(v: SceneVillager): Rig {
   // head: a big round head reads better from above; a face that is a face (ears, brows, cheeks, a mouth)
   const head = new THREE.Group();
   head.position.set(0, 0.385, 0);
-  const hp = new Parts().add(geo('pHead', () => new THREE.SphereGeometry(0.072, 14, 10)), skin, 0, 0, 0, undefined, 1, 0.97, 0.98);
+  const hp = new Parts().add(geo('pHead', () => new G.Sphere(0.072, 14, 10)), skin, 0, 0, 0, undefined, 1, 0.97, 0.98);
   for (const s of [-1, 1]) {
-    hp.add(geo('pEar', () => new THREE.SphereGeometry(0.016, 6, 5)), skin, s * 0.07, -0.004, -0.004, undefined, 0.55, 1, 0.9)
-      .add(geo('pEye', () => new THREE.SphereGeometry(0.0095, 6, 5)), 0x1a1612, s * 0.026, 0.004, 0.064)
+    hp.add(geo('pEar', () => new G.Sphere(0.016, 6, 5)), skin, s * 0.07, -0.004, -0.004, undefined, 0.55, 1, 0.9)
+      .add(geo('pEye', () => new G.Sphere(0.0095, 6, 5)), 0x1a1612, s * 0.026, 0.004, 0.064)
       .add(geo('pBrow', () => new THREE.BoxGeometry(0.024, 0.0055, 0.007)), shade(hair, 0x000000, 0.35), s * 0.027, 0.025, 0.065, new THREE.Euler(0, 0, s * 0.12))
-      .add(geo('pCheek', () => new THREE.SphereGeometry(0.014, 6, 4)), shade(skin, 0xd9706a, 0.45), s * 0.041, -0.017, 0.057, undefined, 1, 0.65, 0.45);
+      .add(geo('pCheek', () => new G.Sphere(0.014, 6, 4)), shade(skin, 0xd9706a, 0.45), s * 0.041, -0.017, 0.057, undefined, 1, 0.65, 0.45);
   }
-  hp.add(geo('pNose', () => new THREE.SphereGeometry(0.0115, 6, 5)), shade(skin, 0x8a4a3a, 0.08), 0, -0.008, 0.072)
+  hp.add(geo('pNose', () => new G.Sphere(0.0115, 6, 5)), shade(skin, 0x8a4a3a, 0.08), 0, -0.008, 0.072)
     .add(geo('pMouth', () => new THREE.BoxGeometry(0.022, 0.0045, 0.005)), 0x6a3428, 0, -0.034, 0.066);
   // hair: cropped, long, a bun, curls; braids for the children, a grey fringe round a bald crown for the old
   const cap = (theta: number): void => {
-    hp.add(geo(`pHair${theta}`, () => new THREE.SphereGeometry(0.078, 12, 8, 0, Math.PI * 2, 0, Math.PI * theta)), hair, 0, 0.008, -0.004);
+    hp.add(geo(`pHair${theta}`, () => new G.Sphere(0.078, 12, 8, 0, Math.PI * 2, 0, Math.PI * theta)), hair, 0, 0.008, -0.004);
   };
   // under a hat or a hood only a crop or long hair (curls and a bun would push through it)
   const free = role.hat === 'none';
@@ -394,70 +486,70 @@ export function buildRig(v: SceneVillager): Rig {
       break;
     case 'long':
       cap(0.55);
-      hp.add(geo('pHairBack', () => new THREE.SphereGeometry(0.076, 10, 8, Math.PI, Math.PI, Math.PI * 0.3, Math.PI * 0.5)), hair, 0, -0.012, -0.006, undefined, 1.04, 1.3, 1);
+      hp.add(geo('pHairBack', () => new G.Sphere(0.076, 10, 8, Math.PI, Math.PI, Math.PI * 0.3, Math.PI * 0.5)), hair, 0, -0.012, -0.006, undefined, 1.04, 1.3, 1);
       break;
     case 'bun':
       cap(0.58);
-      hp.add(geo('pBun', () => new THREE.SphereGeometry(0.03, 7, 5)), hair, 0, 0.062, -0.05);
+      hp.add(geo('pBun', () => new G.Sphere(0.03, 7, 5)), hair, 0, 0.062, -0.05);
       break;
     case 'curly':
       cap(0.5);
       for (const [x, y, z] of [[0, 0.07, -0.01], [0.045, 0.05, -0.03], [-0.045, 0.05, -0.03], [0.03, 0.06, 0.03], [-0.03, 0.06, 0.03], [0, 0.03, -0.06], [0.055, 0.015, -0.04], [-0.055, 0.015, -0.04]]) {
-        hp.add(geo('pCurl', () => new THREE.SphereGeometry(0.026, 6, 5)), hair, x, y, z);
+        hp.add(geo('pCurl', () => new G.Sphere(0.026, 6, 5)), hair, x, y, z);
       }
       break;
     case 'braids':
       cap(0.55);
       for (const s of [-1, 1]) {
-        hp.add(geo('pBraid', () => new THREE.CapsuleGeometry(0.016, 0.04, 3, 6)), hair, s * 0.068, -0.045, -0.012);
-        hp.add(geo('pTie', () => new THREE.SphereGeometry(0.009, 5, 4)), faction, s * 0.069, -0.022, -0.012);
+        hp.add(geo('pBraid', () => new G.Capsule(0.016, 0.04, 3, 6)), hair, s * 0.068, -0.045, -0.012);
+        hp.add(geo('pTie', () => new G.Sphere(0.009, 5, 4)), faction, s * 0.069, -0.022, -0.012);
       }
       break;
     case 'fringe':
-      hp.add(geo('pFringe', () => new THREE.SphereGeometry(0.077, 12, 7, Math.PI, Math.PI, Math.PI * 0.36, Math.PI * 0.3)), hair, 0, 0.002, -0.002);
+      hp.add(geo('pFringe', () => new G.Sphere(0.077, 12, 7, Math.PI, Math.PI, Math.PI * 0.36, Math.PI * 0.3)), hair, 0, 0.002, -0.002);
       break;
   }
-  if (has('beard')) hp.add(geo('pBeard', () => new THREE.SphereGeometry(0.056, 10, 7, 0, Math.PI * 2, Math.PI * 0.42, Math.PI * 0.58)), shade(hair, 0xf0ece4, 0.3), 0, -0.032, 0.03, undefined, 1, 1.08, 1);
+  if (has('beard')) hp.add(geo('pBeard', () => new G.Sphere(0.056, 10, 7, 0, Math.PI * 2, Math.PI * 0.42, Math.PI * 0.58)), shade(hair, 0xf0ece4, 0.3), 0, -0.032, 0.03, undefined, 1, 1.08, 1);
   if (has('spectacles')) {
-    for (const s of [-1, 1]) hp.add(geo('pLens', () => new THREE.TorusGeometry(0.0145, 0.0026, 4, 12)), 0x2e2620, s * 0.026, 0.004, 0.071);
+    for (const s of [-1, 1]) hp.add(geo('pLens', () => new G.Torus(0.0145, 0.0026, 4, 12)), 0x2e2620, s * 0.026, 0.004, 0.071);
     hp.add(geo('pBridge', () => new THREE.BoxGeometry(0.016, 0.0028, 0.0028)), 0x2e2620, 0, 0.008, 0.073);
   }
   // hats; a hood or a headscarf leaves the face open
   const faceOpen = (r: number, key: string, theta: number, gap: number): THREE.BufferGeometry =>
-    geo(key, () => new THREE.SphereGeometry(r, 12, 8, Math.PI / 2 + gap, Math.PI * 2 - gap * 2, 0, Math.PI * theta));
+    geo(key, () => new G.Sphere(r, 12, 8, Math.PI / 2 + gap, Math.PI * 2 - gap * 2, 0, Math.PI * theta));
   switch (role.hat) {
     case 'straw':
-      hp.add(geo('pBrim', () => new THREE.CylinderGeometry(0.135, 0.135, 0.008, 16)), 0xd8b75a, 0, 0.045, 0)
-        .add(geo('pDome', () => new THREE.SphereGeometry(0.075, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.5)), 0xd8b75a, 0, 0.045, 0)
-        .add(geo('pBand', () => new THREE.CylinderGeometry(0.0765, 0.0765, 0.014, 16, 1, true)), 0x9a3a2e, 0, 0.053, 0);
+      hp.add(geo('pBrim', () => new G.Cylinder(0.135, 0.135, 0.008, 16)), 0xd8b75a, 0, 0.045, 0)
+        .add(geo('pDome', () => new G.Sphere(0.075, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.5)), 0xd8b75a, 0, 0.045, 0)
+        .add(geo('pBand', () => new G.Cylinder(0.0765, 0.0765, 0.014, 16, 1, true)), 0x9a3a2e, 0, 0.053, 0);
       break;
     case 'cap':
-      hp.add(geo('pCapD', () => new THREE.SphereGeometry(0.08, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.45)), garment({ ...v, look: { ...v.look, hue: v.look.hue + 40 } }), 0, 0.02, 0)
+      hp.add(geo('pCapD', () => new G.Sphere(0.08, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.45)), garment({ ...v, look: { ...v.look, hue: v.look.hue + 40 } }), 0, 0.02, 0)
         .add(geo('pCapB', () => new THREE.BoxGeometry(0.1, 0.01, 0.05)), 0x3a2f26, 0, 0.034, 0.075);
       break;
     case 'flat':
-      hp.add(geo('pFlat', () => new THREE.CylinderGeometry(0.085, 0.09, 0.035, 14)), 0x4a3a30, 0, 0.058, 0);
+      hp.add(geo('pFlat', () => new G.Cylinder(0.085, 0.09, 0.035, 14)), 0x4a3a30, 0, 0.058, 0);
       break;
     case 'tall':
-      hp.add(geo('pTall', () => new THREE.CylinderGeometry(0.05, 0.07, 0.11, 12)), 0x3b2f52, 0, 0.1, 0)
-        .add(geo('pTallB', () => new THREE.CylinderGeometry(0.1, 0.1, 0.008, 14)), 0x3b2f52, 0, 0.048, 0)
-        .add(geo('pFeather', () => new THREE.ConeGeometry(0.008, 0.12, 4)), 0xe05a4a, 0.045, 0.15, 0, new THREE.Euler(0, 0, -0.5));
+      hp.add(geo('pTall', () => new G.Cylinder(0.05, 0.07, 0.11, 12)), 0x3b2f52, 0, 0.1, 0)
+        .add(geo('pTallB', () => new G.Cylinder(0.1, 0.1, 0.008, 14)), 0x3b2f52, 0, 0.048, 0)
+        .add(geo('pFeather', () => new G.Cone(0.008, 0.12, 4)), 0xe05a4a, 0.045, 0.15, 0, new THREE.Euler(0, 0, -0.5));
       break;
     case 'hood': {
       // a shade darker than the coat, so the hood frames the face instead of melting into it
       const hood = shade(garment({ ...v, look: { ...v.look, hue: v.look.hue + 20 } }), 0x140e0a, 0.35);
       hp.add(faceOpen(0.088, 'pHood', 0.62, 0.78), hood, 0, 0.005, -0.012)
-        .add(geo('pHoodDrape', () => new THREE.SphereGeometry(0.088, 10, 6, Math.PI, Math.PI, Math.PI * 0.55, Math.PI * 0.3)), hood, 0, -0.02, -0.02, undefined, 1.05, 1.2, 1);
+        .add(geo('pHoodDrape', () => new G.Sphere(0.088, 10, 6, Math.PI, Math.PI, Math.PI * 0.55, Math.PI * 0.3)), hood, 0, -0.02, -0.02, undefined, 1.05, 1.2, 1);
       break;
     }
     case 'scarf':
       hp.add(faceOpen(0.082, 'pScarf', 0.56, 0.86), faction, 0, 0.01, -0.01)
-        .add(geo('pKnot', () => new THREE.SphereGeometry(0.018, 6, 5)), faction, 0, -0.03, -0.072);
+        .add(geo('pKnot', () => new G.Sphere(0.018, 6, 5)), faction, 0, -0.03, -0.072);
       break;
     case 'beanie':
-      hp.add(geo('pBeanie', () => new THREE.SphereGeometry(0.08, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.46)), 0x8a3b2e, 0, 0.02, 0)
-        .add(geo('pBeanieCuff', () => new THREE.TorusGeometry(0.074, 0.01, 4, 16)), 0x7a3026, 0, 0.03, 0, new THREE.Euler(Math.PI / 2, 0, 0))
-        .add(geo('pPom', () => new THREE.SphereGeometry(0.017, 6, 5)), 0xe8dcc8, 0, 0.1, 0);
+      hp.add(geo('pBeanie', () => new G.Sphere(0.08, 12, 6, 0, Math.PI * 2, 0, Math.PI * 0.46)), 0x8a3b2e, 0, 0.02, 0)
+        .add(geo('pBeanieCuff', () => new G.Torus(0.074, 0.01, 4, 16)), 0x7a3026, 0, 0.03, 0, new THREE.Euler(Math.PI / 2, 0, 0))
+        .add(geo('pPom', () => new G.Sphere(0.017, 6, 5)), 0xe8dcc8, 0, 0.1, 0);
       break;
     default:
       break;
@@ -466,7 +558,7 @@ export function buildRig(v: SceneVillager): Rig {
   body.add(head);
 
   root.scale.setScalar(S * 1.05);
-  return { root, body, torso, skirt, head, armL, armR, legL, legR, kneeL, kneeR, scale: S, child, robe };
+  return { root, body, torso, skirt, head, armL, armR, legL, legR, kneeL, kneeR, scale: S, child, robe, lod: [], far: false };
 }
 
 const MARKS = 160;
@@ -818,7 +910,7 @@ export class PeopleLayer implements Layer {
   }
 
   private spawn(v: SceneVillager, slot: THREE.Vector2, ctx: WorldContext): Walker {
-    const rig = buildRig(v);
+    const rig = buildFigure(v);
     const c = engineToWorld(v.x, v.y);
     const pos = new THREE.Vector3(c.x + slot.x, 0, c.z + slot.y);
     rig.root.position.set(pos.x, this.walkY(pos.x, pos.z), pos.z);
@@ -876,6 +968,18 @@ export class PeopleLayer implements Layer {
     wk.lookUntil = this.time + seconds;
   }
 
+  /** how many people are drawn with their close and with their distant figure */
+  lodCounts(): { near: number; far: number } {
+    let far = 0;
+    let near = 0;
+    for (const wk of this.walkers.values()) {
+      if (wk.dead) continue;
+      if (wk.rig.far) far++;
+      else near++;
+    }
+    return { near, far };
+  }
+
   position(id: string): THREE.Vector3 | null {
     const wk = this.walkers.get(id);
     return wk ? wk.rig.root.position.clone() : null;
@@ -898,6 +1002,11 @@ export class PeopleLayer implements Layer {
       const root = wk.rig.root;
       const v = wk.v;
       root.scale.setScalar(wk.rig.scale * 1.05 * legible);
+      // a person a few dozen pixels tall is drawn with the distant version of their figure
+      if (ctx.viewFrom && ctx.viewPx) {
+        const px = (0.62 * root.scale.y * ctx.viewPx) / Math.max(0.5, ctx.viewFrom.distanceTo(root.position));
+        setFar(wk.rig, wk.rig.far ? px < FAR_PX + 8 : px < FAR_PX);
+      }
       // ---- movement along the route
       let moving = false;
       let moved = 0;

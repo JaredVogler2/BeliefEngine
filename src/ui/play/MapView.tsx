@@ -7,6 +7,7 @@ import { Avatar, Icon } from '../components.tsx';
 import { store, useStore } from '../store.ts';
 import { getTutorial } from '../tutorial.ts';
 import { useNarrow } from '../useNarrow.ts';
+import { PERF_MONITOR, PerfMonitor } from './PerfMonitor.tsx';
 
 let announcedReason = false;
 
@@ -101,7 +102,22 @@ export function MapView({ children }: { children?: React.ReactNode }) {
       const s0 = store.state;
       if (s0) r.setState(s0);
       r.start();
-      setReady(true);
+      // the 3D world's first frame compiles what its warm-up cannot (the shadow pass, the finishing chain's own passes): the loading veil
+      // lifts once that frame is drawn, so its stall is not the first thing the player meets (and lifts anyway after a few seconds)
+      const drawn = (r as WorldRenderer & { info?: () => { frames: number } }).info?.bind(r);
+      if (drawn) {
+        const f0 = drawn().frames;
+        const giveUp = window.setTimeout(() => !cancelled && setReady(true), 6000);
+        cleanups.push(() => window.clearTimeout(giveUp));
+        const wait = (): void => {
+          if (cancelled) return;
+          if (drawn().frames > f0) {
+            window.clearTimeout(giveUp);
+            setReady(true);
+          } else requestAnimationFrame(wait);
+        };
+        wait();
+      } else setReady(true);
 
       // ---- pointer handling: tap to select, drag to pan, right-drag to orbit (3D), pinch to zoom, wheel to zoom
       const pts = new Map<number, { x: number; y: number }>();
@@ -359,6 +375,7 @@ export function MapView({ children }: { children?: React.ReactNode }) {
 
   return (
     <div className="stage" ref={wrapRef} data-renderer={choice} data-ready={ready ? '1' : '0'}>
+      {PERF_MONITOR && choice === '3d' && ready && <PerfMonitor renderer={getRenderer} />}
       {choice === '3d' && !ready && (
         <div className="stage-loading" role="status">
           <div className="sl-scene" aria-hidden="true">

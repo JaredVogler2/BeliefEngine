@@ -275,6 +275,11 @@ export class PostChain {
   /** the materials patched so far (for the debug view) */
   patched = 0;
 
+  /** every target the chain draws into (for the memory record) */
+  targets(): THREE.WebGLRenderTarget[] {
+    return [this.scene, ...(this.ldr ? [this.ldr] : []), ...this.down, ...this.up];
+  }
+
   /** a renderer that cannot draw into a high-range buffer gets no chain (the caller draws directly) */
   static supported(renderer: THREE.WebGLRenderer): boolean {
     return renderer.capabilities.isWebGL2 && (renderer.extensions.has('EXT_color_buffer_float') || renderer.extensions.has('EXT_color_buffer_half_float'));
@@ -429,6 +434,19 @@ export class PostChain {
     m.customProgramCacheKey = () => key;
     m.needsUpdate = true;
     this.patched++;
+  }
+
+  /** compile every material in `scene` as the chain draws it (into its own buffer, with its alpha code), the hidden ones included */
+  compile(scene: THREE.Scene, camera: THREE.Camera): void {
+    const r = this.renderer;
+    this.prepare(scene);
+    const prev = r.getRenderTarget();
+    r.setRenderTarget(this.scene);
+    try {
+      r.compile(scene, camera);
+    } finally {
+      r.setRenderTarget(prev);
+    }
   }
 
   /** draw `scene` through the chain to the screen */

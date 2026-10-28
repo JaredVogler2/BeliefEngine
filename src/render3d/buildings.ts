@@ -195,6 +195,18 @@ export function buildHome(variant: number, r: Rng): Built {
   return { parts, smoke, radius, height };
 }
 
+/**
+ * What is drawn where a building's own generator failed: a plain cottage block with a roof, so the place is still there to see and
+ * to pick. It uses no random numbers, so whatever broke the generator cannot break this too.
+ */
+export function buildStandIn(): Built {
+  const parts: Parts = [];
+  add(parts, box(0.72, 0.1, 0.58, 0.4), 'stone@8e887a', 0, -0.04, 0);
+  add(parts, box(0.62, 0.42, 0.5, 0.5), 'plaster@e6d3c4', 0, 0.22, 0);
+  add(parts, gableRoof(0.62, 0.5, 0.26), 'roofTile@b5643c', 0, 0.43, 0);
+  return { parts, radius: 0.42, height: 0.75 };
+}
+
 // ----------------------------------------------------------------------------------------------------------------------------
 // cabins, granaries, halls, chapels
 // ----------------------------------------------------------------------------------------------------------------------------
